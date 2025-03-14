@@ -17,6 +17,7 @@ model RiotAccount {
   id    Int   @id   @default(autoincrement())
   riotId    String    @unique
   puuid     String    @unique
+  lastUpdate    DateTime?
 }
 
 model Matches {

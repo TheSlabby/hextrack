@@ -30,7 +30,8 @@ export async function GET(request, { params }): Promise<NextResponse> {
             await prisma.riotAccount.create({
                 data: {
                     riotId,
-                    puuid
+                    puuid,
+                    lastUpdate: new Date(),
                 }
             });
 
@@ -44,6 +45,13 @@ export async function GET(request, { params }): Promise<NextResponse> {
         // const resultJson = await result.json();
         puuid = result.puuid;
         console.log("already have puuid in database:");
+
+        // make sure we're not spamming update
+        const now = new Date();
+        if (result?.lastUpdate && now.getTime() - new Date(result.lastUpdate).getTime() < 60000) {
+            console.log('throttled user update (too soon)');
+            return NextResponse.json({ message: "Can't update so soon!" }, { status: 200 });
+        }
     }
 
     console.log("USING PUUID:", puuid);
@@ -77,6 +85,13 @@ export async function GET(request, { params }): Promise<NextResponse> {
             console.log("already have match:", matchId);
         }
     }
+    // update lastUpdate
+    await prisma.riotAccount.update({
+        where: { puuid },
+        data: {
+            lastUpdate: new Date(),
+        }
+    });
 
     return NextResponse.json(riotId);
     
