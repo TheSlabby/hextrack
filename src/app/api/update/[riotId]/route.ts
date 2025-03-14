@@ -57,6 +57,16 @@ export async function GET(request, { params }): Promise<NextResponse> {
     console.log("USING PUUID:", puuid);
 
     // now get matches for this user
+    const rankInfoResponse = await fetch(`https://na1.api.riotgames.com/lol/league/v4/entries/by-puuid/${puuid}?api_key=${riot_api_key}`)
+    const rankInfoJson = await rankInfoResponse.json();
+    console.log(rankInfoJson);
+
+    const profileIconResponse = await fetch(`https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${puuid}?api_key=${riot_api_key}`);
+    const profileIconJson = await profileIconResponse.json();
+    const iconURL = `https://static.bigbrain.gg/assets/lol/riot_static/15.5.1/img/profileicon/${profileIconJson.profileIconId}.png`
+    const level = profileIconJson.summonerLevel;
+    console.log(profileIconJson);
+    
     const matchResponse = await fetch(
         `https://americas.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?api_key=${riot_api_key}`
     );
@@ -90,6 +100,9 @@ export async function GET(request, { params }): Promise<NextResponse> {
         where: { puuid },
         data: {
             lastUpdate: new Date(),
+            summonerLevel: level,
+            profileIconURL: iconURL,
+            rankedInfo: rankInfoJson,
         }
     });
 

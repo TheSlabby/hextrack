@@ -18,6 +18,9 @@ model RiotAccount {
   riotId    String    @unique
   puuid     String    @unique
   lastUpdate    DateTime?
+  profileIconURL    String?
+  summonerLevel     Int?
+  rankedInfo        Json?
 }
 
 model Matches {

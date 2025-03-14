@@ -25,6 +25,9 @@ export async function GET(request, { params }): Promise<NextResponse> {
     }
 
     console.log("USING PUUID:", puuid);
+    const iconURL = result.profileIconURL;
+    const summonerLevel = result.summonerLevel;
+    const rankedInfo = result.rankedInfo;
 
 
     // DATA OF USER
@@ -34,22 +37,26 @@ export async function GET(request, { params }): Promise<NextResponse> {
     let totalMatches = 0;
 
     const matches = await prisma.matches.findMany();
+    let playerMatches = [];
     for (const match of matches) {
-        const matchData = match.data;
+        const matchData: any = match.data;
         const participant = matchData.info.participants.find(p => p.puuid == puuid);
         if (participant) {
             totalKills += participant.kills;
             totalDeaths += participant.deaths;
             totalAssists += participant.assists;
+
+            playerMatches.push(match);
             totalMatches++;
-            console.log('all participant data:', participant);
+
+            // console.log('all participant data:', participant);
         }
     }
     const kda = (totalKills + totalAssists) / totalDeaths;
 
 
     return NextResponse.json({
-        puuid,
+        puuid: puuid,
         totalMatches: totalMatches,
         all: {
             kills: totalKills,
@@ -57,6 +64,10 @@ export async function GET(request, { params }): Promise<NextResponse> {
             assists: totalAssists
         },
         kda: kda.toFixed(2),
+        matches: playerMatches,
+        summonerLevel: summonerLevel,
+        iconURL: iconURL,
+        rankedInfo: rankedInfo,
     }, {
         status: 200
     });

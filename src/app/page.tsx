@@ -25,7 +25,7 @@ export default function Home() {
       <p className="text-center text-xl mt-5 font-extralight text-gray-200">League of Legends Stat Tracker</p>
 
 
-      <div className="w-xl mt-30 mx-auto flex flex-col align-center">
+      <div className="max-w-3xl mt-30 mx-auto flex flex-col align-center">
         <p className="text-lg text-center">Search for a Player</p>
         <input value={searchId} onChange={e => setSearchId(e.target.value)} className="mt-3 w-3/4 mx-auto placeholder:text-slate-500 text-slate-200 border border-slate-200 rounded-lg px-3 py-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow" placeholder="TheSlab#333" />
         <Button className="bg-blue-800 w-1/4 mx-auto mt-3" onClick={searchPlayer}>
