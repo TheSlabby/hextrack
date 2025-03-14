@@ -31,7 +31,7 @@ export default function SummonerPage({ params }) {
         // run update
         console.log('updating user...');
         update();
-    }, []);
+    }, [riotId]);
 
     // USER IS INVALID
     if (invalidUser) return (
@@ -60,8 +60,14 @@ export default function SummonerPage({ params }) {
     const avgKills = (stats.all.kills / totalMatches).toFixed(2);
     const avgDeaths = (stats.all.deaths / totalMatches).toFixed(2);
     const avgAssists = (stats.all.assists / totalMatches).toFixed(2);
-    const matches = stats.matches;
     const puuid = stats.puuid;
+
+
+
+    // sort matches by newest first
+    const matches = stats.matches.sort((a, b) => {
+        return b.data.info.gameEndTimestamp - a.data.info.gameEndTimestamp;
+    });
 
     // LOADED SUCCESSFULLY
     return (
@@ -82,7 +88,7 @@ export default function SummonerPage({ params }) {
                     <div className="ml-10 flex flex-col">
                         <p className="text-3xl font-extrabold">{playerName}</p>
                         <p className="text-lg font-light">{soloQueue?.tier} {soloQueue?.rank}</p>
-                        <p className="text-lg font-light">Average KDA: <span className="font-normal">{avgKills}/{avgDeaths}/{avgAssists}</span></p>
+                        <p className="text-lg font-light">Average KDA: <span className="font-normal">{avgKills}/<span className="text-red-400">{avgDeaths}</span>/{avgAssists}</span></p>
                         <p className="text-sm italic font-light mt-3">{totalMatches} matches found</p>
                     </div>
                 </div>
