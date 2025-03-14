@@ -40,6 +40,18 @@ export async function GET(request, { params }): Promise<NextResponse> {
     let playerMatches = [];
     for (const match of matches) {
         const matchData: any = match.data;
+
+        // CHECK CORRUPTED MATCH
+        if (!matchData || !matchData.info || !matchData.info.participants) {
+            // remove cuz its corrupted
+            await prisma.matches.delete({
+            where: { matchId: match.matchId },
+            });
+            console.log(`Deleted corrupted match with ID: ${match.matchId}`);
+            continue;
+        }
+
+
         const participant = matchData.info.participants.find(p => p.puuid == puuid);
         if (participant) {
             totalKills += participant.kills;
