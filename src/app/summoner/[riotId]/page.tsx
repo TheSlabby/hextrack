@@ -5,6 +5,7 @@ import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { ClipLoader } from "react-spinners";
 import SearchPlayer from "../../../components/SearchPlayer";
+import { motion } from "framer-motion";
 
 export default function SummonerPage({ params }) {
     // const [puuid, setPuuid] = useState();
@@ -144,7 +145,9 @@ export default function SummonerPage({ params }) {
                     }
 
                     return (
-                    <div className={`flex mx-auto justify-around md:w-200 w-100 p-4 h-30 rounded-3xl shadow-xl bg-gradient-to-br
+                    <motion.div
+                        whileHover={{scale: 1.01}} transition={{type: 'spring', stiffness: 300, damping: 10}}
+                        className={`flex mx-auto justify-around md:w-200 w-100 p-4 h-30 rounded-3xl shadow-xl bg-gradient-to-br
                         ${victory ? 'from-blue-900 to-blue-950' : 'from-red-900 to-red-950'}`} key={match.matchId}>
 
                         {/* GENERAL INFO */}
@@ -192,7 +195,7 @@ export default function SummonerPage({ params }) {
                             })}
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
                     )
                 })}
             </div>

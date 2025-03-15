@@ -2,12 +2,28 @@
 
 import { useRouter } from "next/navigation";
 import Button from "../components/Button"
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ClipLoader } from "react-spinners";
+import Image from "next/image";
+import { motion } from "framer-motion";
 
 export default function Home() {
   const router = useRouter();
   const [searchId, setSearchId] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [topData, setTopData] = useState<any>();
+
+
+  useEffect(() => {
+    const updateTop = async () => {
+      const result = await fetch('/api/top');
+      const data = await result.json();
+      setTopData(data);
+    }
+
+    updateTop();
+  }, []);
+
 
   const searchPlayer = () => {
     const splitId = searchId.split('#');
@@ -35,6 +51,57 @@ export default function Home() {
           {errorMessage}
         </p>
       </div>
+
+      
+      {topData ? (
+        <div className="mt-20 flex flex-col gap-3">
+          <p className="font-bold text-center text-3xl text-violet-100">Leaderboard</p>
+          {topData.map(p => (
+            <motion.div key={p.puuid} onClick={() => {
+              router.push(`/summoner/${p.name.replace('#', '-')}`)
+            }} whileHover={{scale: 1.02}} transition={{type: 'spring', stiffness: 300, damping: 10}}
+            className="cursor-pointer flex justify-between w-full sm:w-125 mx-auto bg-gradient-to-r rounded-xl p-2 px-5 shadow-xl bg-purple-900 to-violet-950">
+
+              {/* NAME AND ICON */}
+              <div className="flex flex-col justify-center">
+                <Image
+                    width={75}
+                    height={75}
+                    src={p.iconURL}
+                    alt="Profile Icon"
+                    className="rounded-3xl object-cover shadow-2xl"
+                    priority={true}
+                    quality={85}
+                />
+                <p className="font-normal text-sm mt-1 text-center">
+                  {p.name}
+                </p>
+                <p className="font-light text-xs text-gray-400 italic text-center">
+                  {p.totalMatches} games found
+                </p>
+              </div>
+
+              {/* STATS */}
+              <div className="flex flex-col justify-center text-sm">
+                
+                <p className="">K/DA: <span className="text-amber-200 font-bold">{p.kda}</span></p>
+                <p className="">Total KDA: <span className="font-bold">{p.kills}</span>
+                  <span className="font-gray-400"> / </span><span className="font-bold text-red-400">{p.deaths}</span>
+                  <span className="font-gray-400"> / </span><span className="font-bold">{p.assists}</span>
+                </p>
+                <p className="">Total Damage Dealt: <span className="font-bold text-green-200">{p.damageDealt.toLocaleString()}</span></p>
+                <p className="">Total Damage Taken: <span className="font-bold text-red-200">{p.damageTaken.toLocaleString()}</span></p>
+                <p className="">Win Rate: <span className="font-bold">{Math.round(p.winrate * 100)}%</span></p>
+              </div>
+
+            </motion.div>
+          ))}
+        </div>
+      ):(
+            <div className="mt-20 flex">
+              <ClipLoader className="mx-auto" color="#36d7b7" size={50} aria-label="Loading Spinner" />
+          </div>
+      )}
 
     </div>
   );
