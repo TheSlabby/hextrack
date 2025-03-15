@@ -13,7 +13,6 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState('');
   const [topData, setTopData] = useState<any>();
 
-
   useEffect(() => {
     const updateTop = async () => {
       const result = await fetch('/api/top');
@@ -92,6 +91,8 @@ export default function Home() {
                 <p className="">Total Damage Dealt: <span className="font-bold text-green-200">{p.damageDealt.toLocaleString()}</span></p>
                 <p className="">Total Damage Taken: <span className="font-bold text-red-200">{p.damageTaken.toLocaleString()}</span></p>
                 <p className="">Win Rate: <span className="font-bold">{Math.round(p.winrate * 100)}%</span></p>
+                <p className="">Total CS: <span className="font-bold">{p.totalCS.toLocaleString()}</span></p>
+                <p className="">BFF: <span className="font-bold">{p.bestFriend[0]} <span className="font-light text-gray-400">({p.bestFriend[1]})</span></span></p>
               </div>
 
             </motion.div>
