@@ -1,0 +1,24 @@
+# Local development database. Start with `docker compose up -d db`.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hextrack
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hextrack}
+      POSTGRES_DB: hextrack
+    ports:
+      # Loopback only. A bare "5432:5432" binds 0.0.0.0, and Docker's own iptables rules sit in
+      # front of UFW, so on a VPS that would publish this database to the internet. On a server,
+      # drop the mapping entirely and reach the database over the compose network.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - hextrack-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hextrack -d hextrack"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  hextrack-pgdata:

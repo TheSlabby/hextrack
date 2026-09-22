@@ -1,0 +1,326 @@
+import { Fragment, useMemo, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
+import { ArrowUpRight, CalendarDays, Clock3, SearchX, Sparkles } from "lucide-react";
+
+import { isApiError } from "@/api/client";
+import { useMatch } from "@/api/queries";
+import type { MatchDetail, ParticipantSummary, TeamDetail } from "@/api/types";
+import { DdragonPatch } from "@/components/common/DdragonPatch";
+import { EmptyState } from "@/components/common/EmptyState";
+import { ErrorState } from "@/components/common/ErrorState";
+import { GameImage } from "@/components/common/GameImage";
+import { GlowCard } from "@/components/common/GlowCard";
+import { Stagger, StaggerItem } from "@/components/common/Motion";
+import { SectionHeader } from "@/components/common/SectionHeader";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/cn";
+import { useDdragon } from "@/lib/ddragon";
+import { formatCompact, formatDateTime, formatDuration, formatDurationLong } from "@/lib/format";
+import { championDisplayName } from "@/lib/champions";
+
+import { playerSearchValue } from "./focus";
+import { AiRankingChart, DamageShareChart } from "./MatchCharts";
+import { MatchDetailSkeleton } from "./MatchSkeletons";
+import { TeamPanel } from "./TeamPanel";
+import {
+  allParticipants,
+  matchMaxima,
+  OUTCOME_LABEL,
+  OUTCOME_STYLES,
+  outcomeOf,
+  TEAM_SIDE_LABEL,
+  type Outcome,
+} from "./matchUtils";
+
+export interface MatchDetailViewProps {
+  matchId: string;
+  /** puuid of the player to highlight (their team is listed first). */
+  focusPuuid?: string;
+  /** Rendered inside an expanded match row: compact header, panels instead of cards, no entrance motion. */
+  embedded?: boolean;
+}
+
+/** Both teams' scoreboards, objectives, bans, damage share and the AI Score ranking for one match. */
+export function MatchDetailView({ matchId, focusPuuid, embedded = false }: MatchDetailViewProps) {
+  const query = useMatch(matchId);
+
+  if (query.isPending) return <MatchDetailSkeleton embedded={embedded} />;
+
+  if (query.isError) {
+    const notFound = isApiError(query.error) && query.error.isNotFound;
+    const error = (
+      <ErrorState
+        error={query.error}
+        compact={embedded}
+        title={notFound ? "Match not found" : "Couldn't load this match"}
+        onRetry={() => void query.refetch()}
+      />
+    );
+    return embedded ? error : <GlowCard>{error}</GlowCard>;
+  }
+
+  return <MatchDetailContent match={query.data} focusPuuid={focusPuuid} embedded={embedded} />;
+}
+
+function orderTeams(teams: readonly TeamDetail[], focus: ParticipantSummary | undefined): TeamDetail[] {
+  return [...teams].sort((a, b) => {
+    if (focus) {
+      if (a.team_id === focus.team_id) return -1;
+      if (b.team_id === focus.team_id) return 1;
+    }
+    return a.team_id - b.team_id;
+  });
+}
+
+function MatchDetailContent({ match, focusPuuid, embedded }: { match: MatchDetail; focusPuuid?: string; embedded: boolean }) {
+  const maxima = useMemo(() => matchMaxima(match), [match]);
+  const focus = useMemo(
+    () => (focusPuuid ? allParticipants(match).find((p) => p.puuid === focusPuuid) : undefined),
+    [match, focusPuuid],
+  );
+  const teams = useMemo(() => orderTeams(match.teams, focus), [match.teams, focus]);
+  const minutes = match.game_duration / 60;
+
+  if (match.teams.length === 0) {
+    const empty = (
+      <EmptyState
+        icon={SearchX}
+        compact={embedded}
+        title="No player data for this match"
+        description="The stored match has no participants. It may have been imported from an incomplete record."
+      />
+    );
+    return embedded ? empty : <GlowCard>{empty}</GlowCard>;
+  }
+
+  const sections: Array<{ key: string; node: ReactNode }> = [
+    {
+      key: "header",
+      node: embedded ? <EmbeddedHeader match={match} focus={focus} /> : <MatchHero match={match} focus={focus} />,
+    },
+    ...teams.map((team) => ({
+      key: `team-${team.team_id}`,
+      node: (
+        <TeamPanel
+          team={team}
+          teams={match.teams}
+          remake={match.remake}
+          maxima={maxima}
+          minutes={minutes}
+          focusPuuid={focusPuuid}
+          embedded={embedded}
+        />
+      ),
+    })),
+    {
+      key: "charts",
+      node: (
+        <div className={cn("grid @3xl:grid-cols-2", embedded ? "gap-3" : "gap-6")}>
+          <ChartPanel
+            embedded={embedded}
+            eyebrow="Combat"
+            title="Damage share"
+            description="Each player's share of their team's damage to champions."
+          >
+            <DamageShareChart match={match} teams={teams} focusPuuid={focusPuuid} />
+          </ChartPanel>
+          <ChartPanel
+            embedded={embedded}
+            ai
+            eyebrow="AI Score"
+            title="AI Score ranking"
+            description="All ten players by how often their stat line wins."
+          >
+            <AiRankingChart match={match} focusPuuid={focusPuuid} />
+          </ChartPanel>
+        </div>
+      ),
+    },
+  ];
+
+  // The game's own patch, so items and spells that have since been removed still have icons.
+  if (embedded) {
+    return (
+      <DdragonPatch patch={match.patch}>
+        <div className="@container flex min-w-0 flex-col gap-3">
+          {sections.map((section) => (
+            <Fragment key={section.key}>{section.node}</Fragment>
+          ))}
+        </div>
+      </DdragonPatch>
+    );
+  }
+  return (
+    <DdragonPatch patch={match.patch}>
+      <Stagger className="@container flex min-w-0 flex-col gap-6">
+        {sections.map((section) => (
+          <StaggerItem key={section.key} className="min-w-0">
+            {section.node}
+          </StaggerItem>
+        ))}
+      </Stagger>
+    </DdragonPatch>
+  );
+}
+
+// --- headers ------------------------------------------------------------------------------
+
+function heroParticipant(match: MatchDetail, focus: ParticipantSummary | undefined): ParticipantSummary | undefined {
+  if (focus) return focus;
+  const players = allParticipants(match);
+  return players.find((p) => p.ai_rank === 1) ?? match.teams.find((t) => t.win)?.participants[0] ?? players[0];
+}
+
+function MatchHero({ match, focus }: { match: MatchDetail; focus: ParticipantSummary | undefined }) {
+  const dd = useDdragon();
+  const hero = heroParticipant(match, focus);
+  const winner = match.teams.find((t) => t.win);
+  const outcome: Outcome = focus ? outcomeOf(match.remake, focus.win) : match.remake ? "remake" : "win";
+  const title = focus || match.remake || !winner ? OUTCOME_LABEL[outcome] : `${TEAM_SIDE_LABEL[winner.team_id]} victory`;
+
+  return (
+    <GlowCard className="relative overflow-hidden">
+      {hero ? (
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+          <GameImage
+            src={dd.championSplash(hero.champion_name)}
+            alt=""
+            loading="eager"
+            className="absolute inset-y-0 right-0 h-full w-full object-cover object-[70%_22%] opacity-50 [mask-image:linear-gradient(to_left,black_30%,transparent_95%)] sm:w-4/5"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-surface-1 via-surface-1/30 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-surface-1/85 via-surface-1/35 to-transparent" />
+        </div>
+      ) : null}
+      <div className="relative flex flex-col gap-5 p-5 sm:p-6 @3xl:flex-row @3xl:items-end @3xl:justify-between">
+        <div className="flex min-w-0 flex-col gap-2">
+          <span className="label-caps text-text-secondary">
+            {match.queue_label} · Patch {match.patch}
+          </span>
+          <h1 className="font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
+            <span className={OUTCOME_STYLES[outcome].text}>{title}</span>
+            {focus ? (
+              <span className="text-2xl font-medium text-text-secondary sm:text-3xl"> as {championDisplayName(focus.champion_name)}</span>
+            ) : null}
+          </h1>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-text-secondary">
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarDays className="size-4 text-text-muted" aria-hidden="true" />
+              <time dateTime={match.game_start}>{formatDateTime(match.game_start)}</time>
+            </span>
+            <span className="inline-flex items-center gap-1.5 tabular-nums">
+              <Clock3 className="size-4 text-text-muted" aria-hidden="true" />
+              <span aria-hidden="true">{formatDuration(match.game_duration)}</span>
+              <span className="sr-only">Duration {formatDurationLong(match.game_duration)}</span>
+            </span>
+            {match.model_version ? (
+              <Badge variant="ai">
+                <Sparkles aria-hidden="true" />
+                Model {match.model_version}
+              </Badge>
+            ) : null}
+          </div>
+        </div>
+        <Scoreline teams={match.teams} remake={match.remake} />
+      </div>
+    </GlowCard>
+  );
+}
+
+function Scoreline({ teams, remake }: { teams: readonly TeamDetail[]; remake: boolean }) {
+  const ordered = [...teams].sort((a, b) => a.team_id - b.team_id);
+  const label = `Final score: ${ordered.map((t) => `${TEAM_SIDE_LABEL[t.team_id]} ${t.kills}`).join(", ")}`;
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className="flex items-center gap-5 self-start rounded-xl border border-border-strong bg-bg/60 px-4 py-3 backdrop-blur-sm @3xl:self-auto"
+    >
+      {ordered.map((team, index) => {
+        const outcome = outcomeOf(remake, team.win);
+        return (
+          <Fragment key={team.team_id}>
+            {index > 0 ? (
+              <span aria-hidden="true" className="font-display text-2xl text-text-muted">
+                :
+              </span>
+            ) : null}
+            <div className={cn("flex flex-col gap-0.5", index > 0 ? "items-end text-right" : "items-start")} aria-hidden="true">
+              <span className="text-[11px] font-semibold tracking-[0.08em] text-text-muted uppercase">
+                {TEAM_SIDE_LABEL[team.team_id]} · <span className={OUTCOME_STYLES[outcome].text}>{OUTCOME_LABEL[outcome]}</span>
+              </span>
+              <span
+                className={cn(
+                  "font-display text-3xl leading-none font-semibold tabular-nums",
+                  team.win && !remake ? "text-text" : "text-text-secondary",
+                )}
+              >
+                {team.kills}
+              </span>
+              <span className="text-[11px] text-text-muted tabular-nums">{formatCompact(team.gold)} gold</span>
+            </div>
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+function EmbeddedHeader({ match, focus }: { match: MatchDetail; focus: ParticipantSummary | undefined }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-0.5 text-xs text-text-secondary">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="font-semibold text-text">{match.queue_label}</span>
+        <span>Patch {match.patch}</span>
+        <time dateTime={match.game_start}>{formatDateTime(match.game_start)}</time>
+        <span className="tabular-nums">{formatDurationLong(match.game_duration)}</span>
+        {match.model_version ? (
+          <span className="inline-flex items-center gap-1 text-cyan">
+            <Sparkles className="size-3" aria-hidden="true" />
+            Model {match.model_version}
+          </span>
+        ) : null}
+      </div>
+      <Link
+        to="/match/$matchId"
+        params={{ matchId: match.match_id }}
+        search={focus ? { player: playerSearchValue(focus) } : {}}
+        className="inline-flex items-center gap-1 rounded-sm font-medium text-gold transition-colors hover:text-gold-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+      >
+        Full match page
+        <ArrowUpRight className="size-3.5" aria-hidden="true" />
+      </Link>
+    </div>
+  );
+}
+
+function ChartPanel({
+  eyebrow,
+  title,
+  description,
+  embedded,
+  ai,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  embedded: boolean;
+  ai?: boolean;
+  children: ReactNode;
+}) {
+  const content = (
+    <>
+      <SectionHeader as="h3" size="sm" eyebrow={eyebrow} title={title} description={description} />
+      <div className="mt-4 flex min-w-0 flex-1 flex-col">{children}</div>
+    </>
+  );
+  if (embedded) {
+    return <section className="@container flex min-w-0 flex-col rounded-xl border border-border bg-surface-2/40 p-4">{content}</section>;
+  }
+  return (
+    <GlowCard asChild glow={ai ? "cyan" : null} className="@container flex flex-col p-5">
+      <section>{content}</section>
+    </GlowCard>
+  );
+}
