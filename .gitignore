@@ -42,3 +42,25 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# --- HexTrack v2 -------------------------------------------------------------------------
+# keep the documented example env file
+!.env.example
+
+# python / api
+api/.venv/
+api/artifacts/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.sqlite
+
+# web
+web/node_modules/
+web/dist/
+web/.vite/
+.deploy-build.log
