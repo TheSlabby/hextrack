@@ -80,10 +80,39 @@ outbox table, so events queued while it was offline are not spammed later.
 
 ## Deployment
 
-One process each for `serve`, `worker` and `bot`, plus Postgres. `serve` also serves
-`web/dist` with SPA fallback when `HEXTRACK_WEB_DIST` points at it, so a single reverse
-proxy entry is enough. Only one poller may run at a time; it takes a Postgres advisory
-lock, and the rate limiter splits the Riot key's budget between the poller and the site.
+Live at https://hextrack.slabby.dev. Everything runs on a Raspberry Pi; a VPS only
+terminates HTTPS and forwards requests to the Pi over Tailscale:
+
+```
+browser ──https──▶ VPS (Caddy, hextrack.slabby.dev) ──tailscale──▶ Pi :8000
+                                                                   ├─ hextrack serve  (API + web/dist)
+                                                                   ├─ hextrack worker (Riot poller)
+                                                                   ├─ hextrack bot    (Discord)
+                                                                   └─ Postgres
+```
+
+The Pi runs the three processes as systemd user units (`hextrack-api`, `hextrack-worker`,
+`hextrack-bot`) from `~/hextrack-v2`, with its own `.env`, database and model artifacts.
+The API listens on localhost only and `tailscale serve --tcp 8000` exposes it to the
+tailnet, where the access policy lets the VPS (`tag:proxy`) reach that one port.
+
+To ship a change, commit it and run:
+
+```bash
+./deploy.sh             # push, then pull + sync + migrate + build + restart on the Pi
+./deploy.sh --status    # what the Pi is running
+./deploy.sh --logs      # follow the Pi's logs
+```
+
+The Pi's database is the live one, so train and rescore there:
+
+```bash
+ssh rpi5 'cd ~/hextrack-v2/api && .venv/bin/hextrack train --activate'
+```
+
+Only one poller may run at a time (it takes a Postgres advisory lock), and the rate
+limiter splits the Riot key's budget between the poller and the site, so don't run a
+second worker against the same key.
 
 ## Tests
 
