@@ -63,3 +63,4 @@ htmlcov/
 web/node_modules/
 web/dist/
 web/.vite/
+.deploy-build.log

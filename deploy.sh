@@ -103,7 +103,11 @@ if [ ! -f web/dist/index.html ] || changed web; then
   fi
   say "frontend: building"
   rm -rf dist.new
-  npm run build --silent -- --outDir dist.new >/dev/null
+  if ! npm run build --silent -- --outDir dist.new >"$root/.deploy-build.log" 2>&1; then
+    echo "    frontend build failed:" >&2
+    tail -40 "$root/.deploy-build.log" >&2
+    exit 1
+  fi
   # Swap the finished build in, so the site never serves a half-written dist/.
   rm -rf dist.old
   [ -d dist ] && mv dist dist.old
