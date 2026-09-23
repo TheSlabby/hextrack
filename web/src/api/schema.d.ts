@@ -157,6 +157,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/summoners/{puuid}/insights/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tilt detector: win rate and AI Score by game number within a play session */
+        get: operations["get_session_insights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/summoners/{puuid}/insights/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Best time to play: win rate by day of week and hour (in the given time zone) */
+        get: operations["get_schedule_insights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/summoners/{puuid}/insights/matchups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Nemesis champions: record against each enemy champion in the player's lane */
+        get: operations["get_matchup_insights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/summoners/{puuid}/insights/luck": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Unlucky losses (high score, lost) and lucky wins (low score, won) */
+        get: operations["get_luck_insights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/matches/{match_id}": {
         parameters: {
             query?: never;
@@ -226,6 +294,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/squad/pairs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Duo synergy and who carries whom for every pair of tracked players */
+        get: operations["get_squad_pairs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Single-game records (roster, or one player with ?puuid=) and pentakills */
+        get: operations["get_records"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -284,6 +386,28 @@ export interface components {
             wins: number;
             /** Winrate */
             winrate: number;
+        };
+        /**
+         * ChampionMatchup
+         * @description The player's record against one enemy champion in their lane.
+         */
+        ChampionMatchup: {
+            /** Champion Id */
+            champion_id: number;
+            /** Champion Name */
+            champion_name: string;
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Losses */
+            losses: number;
+            /** Winrate */
+            winrate: number;
+            /** Avg Ai Score */
+            avg_ai_score: number | null;
+            /** Avg Gold Diff */
+            avg_gold_diff: number;
         };
         /** ChampionStat */
         ChampionStat: {
@@ -441,6 +565,8 @@ export interface components {
             avg_assists: number;
             /** Avg Ai Score */
             avg_ai_score: number | null;
+            /** Avg Ai Role Percentile */
+            avg_ai_role_percentile: number | null;
             /** Lp Delta */
             lp_delta: number | null;
             best_ally: components["schemas"]["BestAlly"] | null;
@@ -448,6 +574,74 @@ export interface components {
             top_champions: string[];
             /** Recent Form */
             recent_form: boolean[];
+        };
+        /** LuckGame */
+        LuckGame: {
+            /** Match Id */
+            match_id: string;
+            /**
+             * Game Start
+             * Format: date-time
+             */
+            game_start: string;
+            /** Queue Id */
+            queue_id: number;
+            /** Champion Name */
+            champion_name: string;
+            /**
+             * Team Position
+             * @enum {string}
+             */
+            team_position: "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY" | "UNKNOWN";
+            /** Kills */
+            kills: number;
+            /** Deaths */
+            deaths: number;
+            /** Assists */
+            assists: number;
+            /** Duration */
+            duration: number;
+            /** Ai Score */
+            ai_score: number;
+            /** Ai Role Percentile */
+            ai_role_percentile: number | null;
+        };
+        /**
+         * LuckInsights
+         * @description Unlucky losses (lost, but scored >= high_threshold) and lucky wins (won, but scored
+         *     <= low_threshold), from games scored by the active model.
+         */
+        LuckInsights: {
+            /** Puuid */
+            puuid: string;
+            /**
+             * Since
+             * @enum {string}
+             */
+            since: "season" | "all";
+            /**
+             * Queue
+             * @enum {string}
+             */
+            queue: "all" | "solo" | "flex";
+            /** Model Version */
+            model_version: string | null;
+            /** High Threshold */
+            high_threshold: number;
+            /** Low Threshold */
+            low_threshold: number;
+            /** Losses Scored */
+            losses_scored: number;
+            /** Unlucky Count */
+            unlucky_count: number;
+            /** Wins Scored */
+            wins_scored: number;
+            /** Lucky Count */
+            lucky_count: number;
+            /** Unlucky Losses */
+            unlucky_losses: components["schemas"]["LuckGame"][];
+            /** Lucky Wins */
+            lucky_wins: components["schemas"]["LuckGame"][];
         };
         /** MatchDetail */
         MatchDetail: {
@@ -508,6 +702,35 @@ export interface components {
             me: components["schemas"]["ParticipantSummary"];
             /** Teams */
             teams: components["schemas"]["TeamSummary"][];
+        };
+        /**
+         * MatchupInsights
+         * @description Nemesis champions. The lane opponent is the enemy with the same ``team_position``;
+         *     games where the position is UNKNOWN / empty or not exactly one per team are skipped.
+         */
+        MatchupInsights: {
+            /** Puuid */
+            puuid: string;
+            /**
+             * Since
+             * @enum {string}
+             */
+            since: "season" | "all";
+            /**
+             * Queue
+             * @enum {string}
+             */
+            queue: "all" | "solo" | "flex";
+            /** Model Version */
+            model_version: string | null;
+            /** Min Games */
+            min_games: number;
+            /** Total Matchups */
+            total_matchups: number;
+            /** Nemeses */
+            nemeses: components["schemas"]["ChampionMatchup"][];
+            /** Favorites */
+            favorites: components["schemas"]["ChampionMatchup"][];
         };
         /** Meta */
         Meta: {
@@ -618,6 +841,8 @@ export interface components {
             ai_rank: number | null;
             /** Is Tracked */
             is_tracked: boolean;
+            /** Ai Role Percentile */
+            ai_role_percentile: number | null;
         };
         /**
          * ProfileStats
@@ -652,6 +877,19 @@ export interface components {
             avg_ai_score: number | null;
             /** Ai Scored Games */
             ai_scored_games: number;
+            /** Avg Ai Role Percentile */
+            avg_ai_role_percentile: number | null;
+        };
+        /** QuadrakillCount */
+        QuadrakillCount: {
+            /** Puuid */
+            puuid: string;
+            /** Game Name */
+            game_name: string;
+            /** Tag Line */
+            tag_line: string;
+            /** Count */
+            count: number;
         };
         /** RankEntry */
         RankEntry: {
@@ -718,6 +956,89 @@ export interface components {
             /** Losses */
             losses: number;
         };
+        /** RecordCategory */
+        RecordCategory: {
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "most_kills" | "most_assists" | "most_deaths" | "best_kda" | "most_damage" | "highest_damage_per_min" | "most_cs" | "highest_cs_per_min" | "most_gold" | "highest_vision" | "highest_kill_participation" | "longest_game" | "fastest_win" | "highest_ai_score" | "largest_killing_spree" | "most_damage_taken" | "most_healing";
+            /** Label */
+            label: string;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "count" | "number" | "percent" | "duration" | "per_min" | "score";
+            /** Higher Is Better */
+            higher_is_better: boolean;
+            /** Entries */
+            entries: components["schemas"]["RecordEntry"][];
+        };
+        /**
+         * RecordEntry
+         * @description One game holding a record (or a pentakill game).
+         */
+        RecordEntry: {
+            /** Rank */
+            rank: number;
+            /** Value */
+            value: number;
+            /** Puuid */
+            puuid: string;
+            /** Game Name */
+            game_name: string;
+            /** Tag Line */
+            tag_line: string;
+            /** Champion Name */
+            champion_name: string;
+            /** Match Id */
+            match_id: string;
+            /**
+             * Game Start
+             * Format: date-time
+             */
+            game_start: string;
+            /** Win */
+            win: boolean;
+        };
+        /**
+         * Records
+         * @description Single-game records. Scope "roster" = all tracked players; "player" = only ``puuid``
+         *     (tracked or not). best_kda needs at least 5 takedowns; highest_kill_participation needs
+         *     at least 10 team kills; highest_ai_score only uses active-model scores. A record must be
+         *     above zero. longest_game and fastest_win list each match once (the friend with the
+         *     lowest participant id).
+         */
+        Records: {
+            /**
+             * Since
+             * @enum {string}
+             */
+            since: "season" | "all";
+            /**
+             * Queue
+             * @enum {string}
+             */
+            queue: "all" | "solo" | "flex";
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "roster" | "player";
+            /** Puuid */
+            puuid: string | null;
+            /** Model Version */
+            model_version: string | null;
+            /** Limit */
+            limit: number;
+            /** Categories */
+            categories: components["schemas"]["RecordCategory"][];
+            /** Pentakills */
+            pentakills: components["schemas"]["RecordEntry"][];
+            /** Quadrakills */
+            quadrakills: components["schemas"]["QuadrakillCount"][];
+        };
         /** RefreshResult */
         RefreshResult: {
             /**
@@ -764,6 +1085,245 @@ export interface components {
             tracked_since: string | null;
             /** Profile Icon Id */
             profile_icon_id: number | null;
+        };
+        /** ScheduleCell */
+        ScheduleCell: {
+            /** Dow */
+            dow: number;
+            /** Hour */
+            hour: number;
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Avg Ai Score */
+            avg_ai_score: number | null;
+        };
+        /** ScheduleDay */
+        ScheduleDay: {
+            /** Dow */
+            dow: number;
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Winrate */
+            winrate: number;
+            /** Avg Ai Score */
+            avg_ai_score: number | null;
+        };
+        /** ScheduleHour */
+        ScheduleHour: {
+            /** Hour */
+            hour: number;
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Winrate */
+            winrate: number;
+            /** Avg Ai Score */
+            avg_ai_score: number | null;
+        };
+        /**
+         * ScheduleInsights
+         * @description Best time to play: win rate by local day of week and hour of game start.
+         */
+        ScheduleInsights: {
+            /** Puuid */
+            puuid: string;
+            /**
+             * Since
+             * @enum {string}
+             */
+            since: "season" | "all";
+            /**
+             * Queue
+             * @enum {string}
+             */
+            queue: "all" | "solo" | "flex";
+            /** Model Version */
+            model_version: string | null;
+            /** Tz */
+            tz: string;
+            /** Min Games */
+            min_games: number;
+            /** Cells */
+            cells: components["schemas"]["ScheduleCell"][];
+            /** By Dow */
+            by_dow: components["schemas"]["ScheduleDay"][];
+            /** By Hour */
+            by_hour: components["schemas"]["ScheduleHour"][];
+            best_window: components["schemas"]["ScheduleWindow"] | null;
+            worst_window: components["schemas"]["ScheduleWindow"] | null;
+        };
+        /**
+         * ScheduleWindow
+         * @description Three consecutive hours on one day of week (never crossing midnight).
+         */
+        ScheduleWindow: {
+            /** Dow */
+            dow: number;
+            /** Start Hour */
+            start_hour: number;
+            /** End Hour */
+            end_hour: number;
+            /** Games */
+            games: number;
+            /** Winrate */
+            winrate: number;
+        };
+        /** SessionGameBucket */
+        SessionGameBucket: {
+            /** N */
+            n: number;
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Winrate */
+            winrate: number;
+            /** Avg Ai Score */
+            avg_ai_score: number | null;
+        };
+        /**
+         * SessionInsights
+         * @description Tilt detector. A session = consecutive ranked games of the player where
+         *     ``next.game_start - (previous.game_start + previous.duration) <= gap_minutes``.
+         */
+        SessionInsights: {
+            /** Puuid */
+            puuid: string;
+            /**
+             * Since
+             * @enum {string}
+             */
+            since: "season" | "all";
+            /**
+             * Queue
+             * @enum {string}
+             */
+            queue: "all" | "solo" | "flex";
+            /** Model Version */
+            model_version: string | null;
+            /** Gap Minutes */
+            gap_minutes: number;
+            /** Min Games */
+            min_games: number;
+            /** Sessions */
+            sessions: number;
+            /** Games */
+            games: number;
+            /** Avg Session Games */
+            avg_session_games: number;
+            /** Longest Session Games */
+            longest_session_games: number;
+            /** By Game Number */
+            by_game_number: components["schemas"]["SessionGameBucket"][];
+            /** By State */
+            by_state: components["schemas"]["SessionStateBucket"][];
+        };
+        /** SessionStateBucket */
+        SessionStateBucket: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "first_game" | "after_win" | "after_one_loss" | "after_two_plus_losses";
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Winrate */
+            winrate: number;
+            /** Avg Ai Score */
+            avg_ai_score: number | null;
+        };
+        /**
+         * SquadPair
+         * @description Two roster players who played ranked games on the SAME team.
+         *
+         *     Duo synergy: ``games``/``wins``/``winrate`` of their shared games, compared with
+         *     ``expected_winrate``. Who carries whom: over ``scored_games`` (shared games where both
+         *     have an active-model score), how often a's score was higher / lower / equal to b's.
+         */
+        SquadPair: {
+            /** A Puuid */
+            a_puuid: string;
+            /** B Puuid */
+            b_puuid: string;
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Winrate */
+            winrate: number;
+            /** Expected Winrate */
+            expected_winrate: number;
+            /** Winrate Delta */
+            winrate_delta: number;
+            /** Avg Ai A */
+            avg_ai_a: number | null;
+            /** Avg Ai B */
+            avg_ai_b: number | null;
+            /** Scored Games */
+            scored_games: number;
+            /** A Higher */
+            a_higher: number;
+            /** B Higher */
+            b_higher: number;
+            /** Ties */
+            ties: number;
+            /** Avg Score Diff */
+            avg_score_diff: number | null;
+        };
+        /** SquadPairs */
+        SquadPairs: {
+            /**
+             * Since
+             * @enum {string}
+             */
+            since: "season" | "all";
+            /**
+             * Season Start
+             * Format: date-time
+             */
+            season_start: string;
+            /**
+             * Queue
+             * @enum {string}
+             */
+            queue: "all" | "solo" | "flex";
+            /** Model Version */
+            model_version: string | null;
+            /** Min Games */
+            min_games: number;
+            /** Players */
+            players: components["schemas"]["SquadPlayer"][];
+            /** Pairs */
+            pairs: components["schemas"]["SquadPair"][];
+        };
+        /**
+         * SquadPlayer
+         * @description One tracked (roster) player's totals in the requested period.
+         */
+        SquadPlayer: {
+            /** Puuid */
+            puuid: string;
+            /** Game Name */
+            game_name: string;
+            /** Tag Line */
+            tag_line: string;
+            /** Profile Icon Id */
+            profile_icon_id: number | null;
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Winrate */
+            winrate: number;
+            /** Avg Ai Score */
+            avg_ai_score: number | null;
         };
         /** SummonerProfile */
         SummonerProfile: {
@@ -1317,6 +1877,195 @@ export interface operations {
             };
         };
     };
+    get_session_insights: {
+        parameters: {
+            query?: {
+                since?: "season" | "all";
+                queue?: "all" | "solo" | "flex";
+                /** @description Largest break (minutes) between one game's end and the next game's start that still counts as the same session */
+                gap_minutes?: number;
+            };
+            header?: never;
+            path: {
+                puuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionInsights"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_schedule_insights: {
+        parameters: {
+            query?: {
+                since?: "season" | "all";
+                queue?: "all" | "solo" | "flex";
+                /** @description IANA time zone for day of week / hour (the browser's zone) */
+                tz?: string;
+            };
+            header?: never;
+            path: {
+                puuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleInsights"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_matchup_insights: {
+        parameters: {
+            query?: {
+                since?: "season" | "all";
+                queue?: "all" | "solo" | "flex";
+                /** @description Fewest games against a champion to list it */
+                min_games?: number;
+            };
+            header?: never;
+            path: {
+                puuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchupInsights"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_luck_insights: {
+        parameters: {
+            query?: {
+                since?: "season" | "all";
+                queue?: "all" | "solo" | "flex";
+                /** @description Games per list */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                puuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LuckInsights"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_match: {
         parameters: {
             query?: never;
@@ -1547,6 +2296,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_squad_pairs: {
+        parameters: {
+            query?: {
+                since?: "season" | "all";
+                queue?: "all" | "solo" | "flex";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SquadPairs"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_records: {
+        parameters: {
+            query?: {
+                since?: "season" | "all";
+                queue?: "all" | "solo" | "flex";
+                /** @description Only this player's games (scope 'player'); omit for the roster */
+                puuid?: string | null;
+                /** @description Entries per category */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Records"];
                 };
             };
             /** @description Not found */

@@ -21,6 +21,7 @@ import { toScore100 } from "@/lib/score";
 import { championDisplayName } from "@/lib/champions";
 import { playerSearchValue } from "@/components/match/focus";
 import { AiScoreWithRank } from "@/components/match/MatchBits";
+import { RolePercentileLabel } from "@/components/common/RolePercentile";
 
 import { useNow } from "./hooks";
 
@@ -121,11 +122,11 @@ function RecentGameRow({ game, now }: { game: MatchSummary; now: number }) {
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col leading-tight">
-        <span className="font-display text-[15px] font-semibold tabular-nums text-text">
+        <span className="font-display text-[14px] font-semibold whitespace-nowrap tabular-nums text-text sm:text-[15px]">
           {me.kills}
-          <span className="mx-1 text-text-muted">/</span>
+          <span className="mx-0.5 text-text-muted sm:mx-1">/</span>
           <span className="text-loss">{me.deaths}</span>
-          <span className="mx-1 text-text-muted">/</span>
+          <span className="mx-0.5 text-text-muted sm:mx-1">/</span>
           {me.assists}
         </span>
         <span className="truncate text-xs text-text-secondary tabular-nums">
@@ -143,9 +144,17 @@ function RecentGameRow({ game, now }: { game: MatchSummary; now: number }) {
 
       <div className="flex shrink-0 flex-col items-end gap-1">
         <AiScoreWithRank participant={me} teams={game.teams} remake={game.remake} size="sm" />
-        <time dateTime={game.game_start} title={formatDateTime(game.game_start)} className="text-[11px] text-text-muted tabular-nums">
-          {timeAgoShort(game.game_start, now)}
-        </time>
+        <span className="flex items-baseline gap-1.5">
+          <RolePercentileLabel
+            percentile={me.ai_role_percentile}
+            position={me.team_position}
+            tooltip={false}
+            className="hidden sm:inline-flex"
+          />
+          <time dateTime={game.game_start} title={formatDateTime(game.game_start)} className="text-[11px] text-text-muted tabular-nums">
+            {timeAgoShort(game.game_start, now)}
+          </time>
+        </span>
       </div>
 
       <ChevronRight

@@ -4,6 +4,7 @@ import type { ParticipantSummary, TeamDetail } from "@/api/types";
 import { ChampionIcon } from "@/components/common/ChampionIcon";
 import { GlowCard } from "@/components/common/GlowCard";
 import { ItemSlots } from "@/components/common/ItemSlots";
+import { RolePercentileLabel } from "@/components/common/RolePercentile";
 import { SpellIcons } from "@/components/common/SpellIcons";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/cn";
@@ -113,7 +114,10 @@ function TeamTable({ team, teams, remake, maxima, minutes, focusPuuid, players }
                 <PlayerCell p={p} focused={focused} />
               </TableCell>
               <TableCell className="py-2 text-center">
-                <AiScoreWithRank participant={p} teams={teams} remake={remake} layout="stack" size="sm" />
+                <div className="inline-flex flex-col items-center gap-1">
+                  <AiScoreWithRank participant={p} teams={teams} remake={remake} layout="stack" size="sm" />
+                  <RolePercentileLabel percentile={p.ai_role_percentile} position={p.team_position} />
+                </div>
               </TableCell>
               <TableCell className="py-2">
                 <div className="flex flex-col gap-0.5">
@@ -227,7 +231,10 @@ function TeamList({ team, teams, remake, maxima, focusPuuid, players }: TeamPane
                 </div>
                 {/* Wider containers: items join the first line. */}
                 <ItemSlots items={p.items} size="sm" className="mr-1 hidden @xl:flex" />
-                <AiScoreWithRank participant={p} teams={teams} remake={remake} layout="stack" size="sm" />
+                <div className="flex shrink-0 flex-col items-center gap-1">
+                  <AiScoreWithRank participant={p} teams={teams} remake={remake} layout="stack" size="sm" />
+                  <RolePercentileLabel percentile={p.ai_role_percentile} position={p.team_position} />
+                </div>
               </div>
               <div className="flex flex-col gap-2 @xl:flex-row @xl:items-center @xl:gap-6">
                 <div className="flex items-center gap-3 @xl:w-44 @xl:shrink-0">

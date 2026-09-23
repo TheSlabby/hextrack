@@ -35,7 +35,7 @@ export const LEADERBOARD_COLUMNS: readonly LeaderboardColumn[] = [
     sortKey: "ai",
     align: "center",
     className: "w-24",
-    hint: "Average AI Score this season (0 to 100). Averages follow win rate closely, so they aren't graded",
+    hint: "Average AI Score this season (0 to 100), with where the player's games sit among all scored games in the same role. Averages follow win rate closely, so they aren't graded",
   },
   {
     id: "lp",

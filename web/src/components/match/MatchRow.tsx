@@ -6,6 +6,7 @@ import { ChevronDown, ExternalLink } from "lucide-react";
 import type { MatchSummary } from "@/api/types";
 import { ChampionIcon } from "@/components/common/ChampionIcon";
 import { DdragonPatch } from "@/components/common/DdragonPatch";
+import { RolePercentileLabel } from "@/components/common/RolePercentile";
 import { ItemSlots } from "@/components/common/ItemSlots";
 import { SpellIcons } from "@/components/common/SpellIcons";
 import { cn } from "@/lib/cn";
@@ -141,8 +142,9 @@ export function MatchRow({ match, puuid, defaultExpanded = false, className }: M
                 />
                 <KdaRatio kda={me.kda} deaths={me.deaths} className="text-xs" />
               </div>
-              <div className="pointer-events-auto flex w-[76px] shrink-0 justify-center">
+              <div className="pointer-events-auto flex w-[76px] shrink-0 flex-col items-center gap-1">
                 <AiScoreWithRank participant={me} teams={match.teams} remake={match.remake} layout="stack" />
+                <RolePercentileLabel percentile={me.ai_role_percentile} position={me.team_position} />
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">

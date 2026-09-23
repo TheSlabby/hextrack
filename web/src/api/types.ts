@@ -40,6 +40,29 @@ export type TeamObjectives = Schemas["TeamObjectives"];
 export type TeamSummary = Schemas["TeamSummary"];
 export type ValidationError = Schemas["ValidationError"];
 
+// squad (duo synergy grid, who carries whom)
+export type SquadPairs = Schemas["SquadPairs"];
+export type SquadPair = Schemas["SquadPair"];
+export type SquadPlayer = Schemas["SquadPlayer"];
+// personal insights (Trends tab)
+export type SessionInsights = Schemas["SessionInsights"];
+export type SessionGameBucket = Schemas["SessionGameBucket"];
+export type SessionStateBucket = Schemas["SessionStateBucket"];
+export type ScheduleInsights = Schemas["ScheduleInsights"];
+export type ScheduleCell = Schemas["ScheduleCell"];
+export type ScheduleDay = Schemas["ScheduleDay"];
+export type ScheduleHour = Schemas["ScheduleHour"];
+export type ScheduleWindow = Schemas["ScheduleWindow"];
+export type MatchupInsights = Schemas["MatchupInsights"];
+export type ChampionMatchup = Schemas["ChampionMatchup"];
+export type LuckInsights = Schemas["LuckInsights"];
+export type LuckGame = Schemas["LuckGame"];
+// records
+export type Records = Schemas["Records"];
+export type RecordCategory = Schemas["RecordCategory"];
+export type RecordEntry = Schemas["RecordEntry"];
+export type QuadrakillCount = Schemas["QuadrakillCount"];
+
 // --- enums (derived from the schemas so they stay in sync) ---------------------------
 
 export type QueueType = RankEntry["queue_type"];
@@ -51,6 +74,12 @@ export type FeatureGroup = FeatureAttribution["group"];
 export type LeaderboardQueue = Leaderboard["queue"];
 export type RefreshStatus = RefreshResult["status"];
 export type HealthStatus = Health["status"];
+/** "season" (since settings.season_start) or "all" stored games. */
+export type StatsSince = SquadPairs["since"];
+export type SessionState = SessionStateBucket["state"];
+export type RecordKey = RecordCategory["key"];
+export type RecordUnit = RecordCategory["unit"];
+export type RecordScope = Records["scope"];
 
 // --- request parameters --------------------------------------------------------------
 
@@ -58,6 +87,12 @@ export type MatchListQuery = NonNullable<operations["list_summoner_matches"]["pa
 export type SearchQuery = operations["search_summoners"]["parameters"]["query"];
 export type AiTrendQuery = NonNullable<operations["get_ai_trend"]["parameters"]["query"]>;
 export type AiExplainQuery = NonNullable<operations["get_ai_explain"]["parameters"]["query"]>;
+export type SquadPairsQuery = NonNullable<operations["get_squad_pairs"]["parameters"]["query"]>;
+export type SessionInsightsQuery = NonNullable<operations["get_session_insights"]["parameters"]["query"]>;
+export type ScheduleInsightsQuery = NonNullable<operations["get_schedule_insights"]["parameters"]["query"]>;
+export type MatchupInsightsQuery = NonNullable<operations["get_matchup_insights"]["parameters"]["query"]>;
+export type LuckInsightsQuery = NonNullable<operations["get_luck_insights"]["parameters"]["query"]>;
+export type RecordsQuery = NonNullable<operations["get_records"]["parameters"]["query"]>;
 
 /** A Riot ID pair as used in URLs and API paths. */
 export interface RiotIdParts {

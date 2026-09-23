@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping, Sequence
-from typing import Any, Final, get_args
+from typing import TYPE_CHECKING, Any, Final, get_args
 
 from hextrack.api.schemas import (
     MatchDetail,
@@ -34,6 +34,9 @@ from hextrack.stats.metrics import (
     per_minute,
     winrate,
 )
+
+if TYPE_CHECKING:
+    from hextrack.stats.role_percentile import RolePercentileTable
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +156,12 @@ def _items(value: Sequence[int] | None) -> list[int]:
 
 
 def participant_summary(
-    row: Row, *, duration_seconds: int, team_kills: int, ai_rank: int | None
+    row: Row,
+    *,
+    duration_seconds: int,
+    team_kills: int,
+    ai_rank: int | None,
+    ai_role_percentile: float | None = None,
 ) -> ParticipantSummary:
     kills, deaths, assists = int(row["kills"]), int(row["deaths"]), int(row["assists"])
     cs = int(row["total_minions_killed"]) + int(row["neutral_minions_killed"])
@@ -197,11 +205,17 @@ def participant_summary(
         ai_score=clamp_rate(row["ai_score"]),
         ai_rank=ai_rank,
         is_tracked=bool(row["is_tracked"]),
+        ai_role_percentile=ai_role_percentile,
     )
 
 
-def participant_summaries(rows: Sequence[Row], duration_seconds: int) -> list[ParticipantSummary]:
-    """All participants of one match on a real team (100 / 200), by participant id."""
+def participant_summaries(
+    rows: Sequence[Row],
+    duration_seconds: int,
+    role_percentiles: RolePercentileTable | None = None,
+) -> list[ParticipantSummary]:
+    """All participants of one match on a real team (100 / 200), by participant id.
+    ``role_percentiles`` fills ``ai_role_percentile`` (rows need ``model_version``)."""
     rows = sorted(
         (row for row in rows if row["team_id"] in TEAM_IDS),
         key=lambda row: int(row["participant_id"]),
@@ -214,6 +228,13 @@ def participant_summaries(rows: Sequence[Row], duration_seconds: int) -> list[Pa
             duration_seconds=duration_seconds,
             team_kills=kills.get(side_of(row), 0),
             ai_rank=ranks.get(row["puuid"]),
+            ai_role_percentile=(
+                role_percentiles.for_row(
+                    row["team_position"], row["ai_score"], row.get("model_version")
+                )
+                if role_percentiles is not None
+                else None
+            ),
         )
         for row in rows
     ]
@@ -248,11 +269,16 @@ def team_summaries(summaries: Sequence[ParticipantSummary]) -> list[TeamSummary]
     ]
 
 
-def match_summary(header: Row, rows: Sequence[Row], puuid: str) -> MatchSummary | None:
+def match_summary(
+    header: Row,
+    rows: Sequence[Row],
+    puuid: str,
+    role_percentiles: RolePercentileTable | None = None,
+) -> MatchSummary | None:
     """One match-history item from the ``matches`` header and all participant rows; None
     when ``puuid`` is not on a real team in this match."""
     duration = int(header["game_duration"])
-    summaries = participant_summaries(rows, duration)
+    summaries = participant_summaries(rows, duration, role_percentiles)
     me = next((p for p in summaries if p.puuid == puuid), None)
     if me is None:
         return None
@@ -328,11 +354,13 @@ def _raw_teams_by_id(raw_teams: Any) -> dict[int, Mapping[str, Any]]:
     }
 
 
-def match_detail(header: Row, rows: Sequence[Row]) -> MatchDetail:
+def match_detail(
+    header: Row, rows: Sequence[Row], role_percentiles: RolePercentileTable | None = None
+) -> MatchDetail:
     """Full match view. ``header`` also carries ``raw_teams`` (``matches.raw -> info ->
     teams``), the only part of the raw payload the API reads."""
     duration = int(header["game_duration"])
-    summaries = participant_summaries(rows, duration)
+    summaries = participant_summaries(rows, duration, role_percentiles)
     raw_teams = _raw_teams_by_id(header.get("raw_teams"))
     teams = [
         TeamDetail(

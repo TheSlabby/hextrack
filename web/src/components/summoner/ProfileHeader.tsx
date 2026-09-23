@@ -5,6 +5,7 @@ import { useHealth, useMatchHistory } from "@/api/queries";
 import type { MatchSummary, SummonerProfile } from "@/api/types";
 import { AiScoreExplainer } from "@/components/ai/AiScoreExplainer";
 import { AiScoreRing, ProfileIcon } from "@/components/common";
+import { RolePercentileAverage } from "@/components/common/RolePercentile";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -134,6 +135,14 @@ function AiSummary({ profile }: { profile: SummonerProfile }) {
               ? "Scores appear once a model is trained."
               : "Every ranked game gets a score."}
         </p>
+        {season !== null ? (
+          <RolePercentileAverage
+            percentile={profile.stats.avg_ai_role_percentile}
+            games={scored}
+            size="md"
+            className="w-fit"
+          />
+        ) : null}
         {recent && trend !== null ? (
           <p className="flex items-center gap-1 text-xs text-text-secondary tabular-nums">
             <TrendIcon delta={trend} />
