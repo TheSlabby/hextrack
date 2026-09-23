@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 
 import { SEASON_GRID } from "./layout";
 import { LpJourneyCard } from "./LpJourneyCard";
+import { PersonalBestsCard } from "./PersonalBestsCard";
 import { RecentFormCard } from "./RecentFormCard";
 import { RecentGamesCard } from "./RecentGamesCard";
 import { SeasonCards } from "./SeasonCards";
@@ -19,7 +20,7 @@ export interface OverviewTabProps {
   showSeasonCards?: boolean;
 }
 
-/** Overview tab: LP journey, compact AI trend, recent form and the latest games. */
+/** Overview tab: LP journey, compact AI trend, recent form, the latest games and personal bests. */
 export function OverviewTab({ profile, onShowMatches, onShowAi, showSeasonCards = false }: OverviewTabProps) {
   // With no ranked game this season the trend and form cards would only repeat "nothing yet",
   // so the season card (which says it once) leads and they stay out of the way.
@@ -66,6 +67,10 @@ export function OverviewTab({ profile, onShowMatches, onShowAi, showSeasonCards 
 
       <StaggerItem>
         <RecentGamesCard puuid={profile.puuid} onSeeAll={onShowMatches} />
+      </StaggerItem>
+
+      <StaggerItem>
+        <PersonalBestsCard puuid={profile.puuid} />
       </StaggerItem>
 
       {!noRankedGames && seasonCards ? <StaggerItem className="min-w-0">{seasonCards}</StaggerItem> : null}

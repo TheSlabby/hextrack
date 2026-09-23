@@ -15,7 +15,15 @@ import {
 import { toast } from "sonner";
 
 import { api, errorMessage, isApiError, request, type ApiError } from "./client";
-import type { AiExplain, LeaderboardQueue, MatchPage, QueueType, RefreshResult, RiotIdParts } from "./types";
+import type {
+  AiExplain,
+  LeaderboardQueue,
+  MatchPage,
+  QueueType,
+  RefreshResult,
+  RiotIdParts,
+  StatsSince,
+} from "./types";
 
 const SECOND = 1_000;
 const MINUTE = 60 * SECOND;
@@ -57,7 +65,41 @@ export const queryKeys = {
   leaderboard: (queue: LeaderboardQueue) => ["leaderboard", queue] as const,
   leaderboardAll: () => ["leaderboard"] as const,
   roster: () => ["roster"] as const,
+  // Personal insights live under the player's key, so `invalidatePlayer` refreshes them too.
+  sessionInsights: (puuid: string, since: StatsSince, queue: LeaderboardQueue, gapMinutes: number) =>
+    ["summoner", puuid, "insights", "sessions", since, queue, gapMinutes] as const,
+  scheduleInsights: (puuid: string, since: StatsSince, queue: LeaderboardQueue, tz: string) =>
+    ["summoner", puuid, "insights", "schedule", since, queue, tz] as const,
+  matchupInsights: (puuid: string, since: StatsSince, queue: LeaderboardQueue, minGames: number) =>
+    ["summoner", puuid, "insights", "matchups", since, queue, minGames] as const,
+  luckInsights: (puuid: string, since: StatsSince, queue: LeaderboardQueue, limit: number) =>
+    ["summoner", puuid, "insights", "luck", since, queue, limit] as const,
+  squadPairs: (since: StatsSince, queue: LeaderboardQueue) => ["squad", "pairs", since, queue] as const,
+  squadAll: () => ["squad"] as const,
+  records: (since: StatsSince, queue: LeaderboardQueue, puuid: string | null, limit: number) =>
+    ["records", since, queue, puuid ?? "roster", limit] as const,
+  recordsAll: () => ["records"] as const,
 };
+
+/** Period and queue filters shared by the squad, insights and records endpoints. */
+export interface StatsFilters {
+  /** Default "season". */
+  since?: StatsSince;
+  /** Default "all" (Solo/Duo and Flex). */
+  queue?: LeaderboardQueue;
+}
+
+/** Fallback when the browser does not expose its IANA zone (the group plays on US Central). */
+export const DEFAULT_TIME_ZONE = "America/Chicago";
+
+/** The browser's IANA time zone (e.g. "America/New_York"), for the schedule heatmap. */
+export function browserTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_TIME_ZONE;
+  } catch {
+    return DEFAULT_TIME_ZONE;
+  }
+}
 
 // --- meta / health --------------------------------------------------------------------------
 
@@ -159,6 +201,8 @@ export async function invalidatePlayer(client: QueryClient, puuid: string): Prom
   await Promise.all([
     client.invalidateQueries({ queryKey: queryKeys.summoner(puuid) }),
     client.invalidateQueries({ queryKey: queryKeys.leaderboardAll() }),
+    client.invalidateQueries({ queryKey: queryKeys.squadAll() }),
+    client.invalidateQueries({ queryKey: queryKeys.recordsAll() }),
   ]);
 }
 
@@ -304,3 +348,135 @@ export function useRoster() {
   });
 }
 
+// --- squad (friend group) -------------------------------------------------------------------
+
+/** Duo synergy and who-carries-whom for every pair of tracked players. */
+export function useSquadPairs(since: StatsSince = "season", queue: LeaderboardQueue = "all") {
+  return useQuery({
+    queryKey: queryKeys.squadPairs(since, queue),
+    queryFn: ({ signal }) =>
+      request(api.GET("/api/v1/squad/pairs", { params: { query: { since, queue } }, signal })),
+    staleTime: 5 * MINUTE,
+    placeholderData: keepPreviousData,
+  });
+}
+
+// --- personal insights (Trends tab) ---------------------------------------------------------
+
+export interface SessionInsightsOptions extends StatsFilters {
+  /** Break (minutes, 10..180) that still counts as the same session. Default 45. */
+  gapMinutes?: number;
+}
+
+/** Tilt detector: win rate and AI Score by game number within a play session. */
+export function useSessionInsights(puuid: string | undefined, opts: SessionInsightsOptions = {}) {
+  const { since = "season", queue = "all", gapMinutes = 45 } = opts;
+  return useQuery({
+    queryKey: queryKeys.sessionInsights(puuid ?? "", since, queue, gapMinutes),
+    queryFn: ({ signal }) =>
+      request(
+        api.GET("/api/v1/summoners/{puuid}/insights/sessions", {
+          params: { path: { puuid: puuid ?? "" }, query: { since, queue, gap_minutes: gapMinutes } },
+          signal,
+        }),
+      ),
+    enabled: Boolean(puuid),
+    staleTime: 5 * MINUTE,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export interface ScheduleInsightsOptions extends StatsFilters {
+  /** IANA zone; defaults to the browser's (`browserTimeZone()`). */
+  tz?: string;
+}
+
+/** Best time to play: win rate by local day of week and hour. */
+export function useScheduleInsights(puuid: string | undefined, opts: ScheduleInsightsOptions = {}) {
+  const { since = "season", queue = "all", tz = browserTimeZone() } = opts;
+  return useQuery({
+    queryKey: queryKeys.scheduleInsights(puuid ?? "", since, queue, tz),
+    queryFn: ({ signal }) =>
+      request(
+        api.GET("/api/v1/summoners/{puuid}/insights/schedule", {
+          params: { path: { puuid: puuid ?? "" }, query: { since, queue, tz } },
+          signal,
+        }),
+      ),
+    enabled: Boolean(puuid),
+    staleTime: 5 * MINUTE,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export interface MatchupInsightsOptions extends StatsFilters {
+  /** Fewest games against a champion to list it (1..20). Default 3. */
+  minGames?: number;
+}
+
+/** Nemesis champions: record against each enemy champion in the player's lane. */
+export function useMatchupInsights(puuid: string | undefined, opts: MatchupInsightsOptions = {}) {
+  const { since = "season", queue = "all", minGames = 3 } = opts;
+  return useQuery({
+    queryKey: queryKeys.matchupInsights(puuid ?? "", since, queue, minGames),
+    queryFn: ({ signal }) =>
+      request(
+        api.GET("/api/v1/summoners/{puuid}/insights/matchups", {
+          params: { path: { puuid: puuid ?? "" }, query: { since, queue, min_games: minGames } },
+          signal,
+        }),
+      ),
+    enabled: Boolean(puuid),
+    staleTime: 5 * MINUTE,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export interface LuckInsightsOptions extends StatsFilters {
+  /** Games per list (1..20). Default 5. */
+  limit?: number;
+}
+
+/** Unlucky losses (scored high, lost) and lucky wins (scored low, won). */
+export function useLuckInsights(puuid: string | undefined, opts: LuckInsightsOptions = {}) {
+  const { since = "season", queue = "all", limit = 5 } = opts;
+  return useQuery({
+    queryKey: queryKeys.luckInsights(puuid ?? "", since, queue, limit),
+    queryFn: ({ signal }) =>
+      request(
+        api.GET("/api/v1/summoners/{puuid}/insights/luck", {
+          params: { path: { puuid: puuid ?? "" }, query: { since, queue, limit } },
+          signal,
+        }),
+      ),
+    enabled: Boolean(puuid),
+    staleTime: 5 * MINUTE,
+    placeholderData: keepPreviousData,
+  });
+}
+
+// --- records --------------------------------------------------------------------------------
+
+export interface RecordsOptions extends StatsFilters {
+  /** Only this player's games (scope "player"); omit / null for the whole roster. */
+  puuid?: string | null;
+  /** Entries per category (1..10). Default 3. */
+  limit?: number;
+}
+
+/** Single-game records (roster or one player) and the pentakill hall of fame. */
+export function useRecords(opts: RecordsOptions = {}) {
+  const { since = "season", queue = "all", puuid = null, limit = 3 } = opts;
+  return useQuery({
+    queryKey: queryKeys.records(since, queue, puuid, limit),
+    queryFn: ({ signal }) =>
+      request(
+        api.GET("/api/v1/records", {
+          params: { query: { since, queue, limit, puuid: puuid ?? undefined } },
+          signal,
+        }),
+      ),
+    staleTime: 5 * MINUTE,
+    placeholderData: keepPreviousData,
+  });
+}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Search, Trophy } from "lucide-react";
+import { Medal, Search, Trophy, UsersRound, type LucideIcon } from "lucide-react";
 
 import { Kbd } from "@/components/common/Kbd";
 import { MotionMemory } from "@/components/common/Motion";
@@ -23,6 +23,13 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 const NAV_LINK =
   "inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-text-secondary transition-colors hover:bg-white/5 hover:text-text";
+
+/** Top-level pages in the nav: text links from `sm`, icon buttons on phones. */
+const NAV_ITEMS: readonly { to: "/leaderboard" | "/squad" | "/records"; label: string; icon: LucideIcon }[] = [
+  { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  { to: "/squad", label: "Squad", icon: UsersRound },
+  { to: "/records", label: "Records", icon: Medal },
+];
 
 /** App frame: sticky glass nav (logo, links, search, status), page content and footer. */
 export function AppShell({ children }: { children: ReactNode }) {
@@ -65,14 +72,17 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
 
           <nav aria-label="Main" className="hidden items-center gap-1 sm:flex">
-            <Link
-              to="/leaderboard"
-              className={NAV_LINK}
-              activeProps={{ className: cn(NAV_LINK, "bg-white/5 text-gold-bright") }}
-            >
-              <Trophy className="size-4" aria-hidden="true" />
-              Leaderboard
-            </Link>
+            {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+              <Link
+                key={to}
+                to={to}
+                className={NAV_LINK}
+                activeProps={{ className: cn(NAV_LINK, "bg-white/5 text-gold-bright") }}
+              >
+                <Icon className="size-4" aria-hidden="true" />
+                {label}
+              </Link>
+            ))}
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
@@ -93,12 +103,20 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Button variant="ghost" size="icon" className="md:hidden" onClick={openPalette} aria-label="Search summoners">
               <Search className="text-gold" />
             </Button>
-            <Button variant="ghost" size="icon" className="sm:hidden" asChild>
-              <Link to="/leaderboard" aria-label="Leaderboard">
-                <Trophy />
-              </Link>
-            </Button>
-            <StatusPill className="hidden sm:inline-flex" />
+            {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+              <Button
+                key={to}
+                variant="ghost"
+                size="icon"
+                className="sm:hidden data-[status=active]:bg-white/5 data-[status=active]:text-gold-bright"
+                asChild
+              >
+                <Link to={to} aria-label={label}>
+                  <Icon />
+                </Link>
+              </Button>
+            ))}
+            <StatusPill className="hidden lg:inline-flex" />
           </div>
         </div>
       </header>

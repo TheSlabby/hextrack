@@ -35,6 +35,17 @@ TeamId = Literal[100, 200]
 
 #: A probability / ratio in [0, 1].
 Rate = Annotated[float, Field(ge=0.0, le=1.0)]
+#: A signed difference of two rates / AI scores, in [-1, 1].
+RateDiff = Annotated[float, Field(ge=-1.0, le=1.0)]
+#: A percentile in [0, 100]: "better than X% of the population".
+Percentile = Annotated[float, Field(ge=0.0, le=100.0)]
+#: Period filter of the friend-group and insight endpoints: "season" = games started at or
+#: after ``settings.season_start``; "all" = every stored game.
+StatsSince = Literal["season", "all"]
+#: Day of week, 0 = Monday .. 6 = Sunday (Python ``datetime.weekday()``).
+DayOfWeek = Annotated[int, Field(ge=0, le=6)]
+#: Hour of day, 0..23, in the requested time zone.
+HourOfDay = Annotated[int, Field(ge=0, le=23)]
 
 
 class ApiModel(BaseModel):
@@ -113,6 +124,9 @@ class ProfileStats(ApiModel):
     avg_kill_participation: Rate
     avg_ai_score: Rate | None
     ai_scored_games: int
+    #: Mean of the player's per-game ``ai_role_percentile`` (games scored by the active model
+    #: with a known position); None when there are none.
+    avg_ai_role_percentile: Percentile | None = None
 
 
 class ChampionStat(ApiModel):
@@ -224,6 +238,10 @@ class ParticipantSummary(ApiModel):
     #: 1..10 by ai_score within the match (1 = best), None if unscored.
     ai_rank: Annotated[int, Field(ge=1, le=10)] | None
     is_tracked: bool
+    #: Score within role: this game's AI Score is better than X% of all ranked, non-remake
+    #: games scored by the active model in the same ``team_position`` (whole database).
+    #: None when unscored, scored by another model version, or the position is UNKNOWN.
+    ai_role_percentile: Percentile | None = None
 
 
 class ObjectiveStat(ApiModel):
@@ -364,6 +382,9 @@ class LeaderboardEntry(ApiModel):
     avg_deaths: float
     avg_assists: float
     avg_ai_score: Rate | None
+    #: Mean of the player's per-game ``ai_role_percentile`` over the leaderboard's games;
+    #: None when no game has one.
+    avg_ai_role_percentile: Percentile | None = None
     #: Solo-queue rank_value change since season start.
     lp_delta: int | None
     best_ally: BestAlly | None
@@ -386,6 +407,339 @@ class RosterEntry(ApiModel):
     tag_line: str
     tracked_since: AwareDatetime | None
     profile_icon_id: int | None
+
+
+# --- squad (friend group) --------------------------------------------------------------------
+# Shared rules for everything below: ranked Summoner's Rift only (420 solo, 440 flex, narrowed
+# by ``queue``), remakes excluded, ``since`` as in StatsSince. AI Scores are 0..1 like every
+# other score in this API (the UI shows them x100) and only count when scored by the active
+# model (``model_version``); None means "not scored".
+
+
+class SquadPlayer(ApiModel):
+    """One tracked (roster) player's totals in the requested period."""
+
+    puuid: str
+    game_name: str
+    tag_line: str
+    profile_icon_id: int | None
+    games: int
+    wins: int
+    winrate: Rate
+    avg_ai_score: Rate | None
+
+
+class SquadPair(ApiModel):
+    """Two roster players who played ranked games on the SAME team.
+
+    Duo synergy: ``games``/``wins``/``winrate`` of their shared games, compared with
+    ``expected_winrate``. Who carries whom: over ``scored_games`` (shared games where both
+    have an active-model score), how often a's score was higher / lower / equal to b's.
+    """
+
+    #: Always ``a_puuid < b_puuid`` in code-point order (Python / JS string comparison), so
+    #: each pair appears once.
+    a_puuid: str
+    b_puuid: str
+    #: Ranked games where both were on the same team.
+    games: int
+    wins: int
+    winrate: Rate
+    #: Mean of a's and b's own overall winrates (SquadPlayer.winrate) in the same period.
+    expected_winrate: Rate
+    #: ``winrate - expected_winrate``: positive = they win more together than apart.
+    winrate_delta: RateDiff
+    #: a's / b's average AI Score over the shared scored games.
+    avg_ai_a: Rate | None
+    avg_ai_b: Rate | None
+    #: Shared games where both have a score from the active model.
+    scored_games: int
+    #: Scored shared games where a's score was higher than / lower than / equal to b's.
+    a_higher: int
+    b_higher: int
+    ties: int
+    #: Mean of (a's score - b's score) over the scored shared games, on the 0..1 scale
+    #: (x100 = points in the UI); None when ``scored_games`` is 0.
+    avg_score_diff: RateDiff | None
+
+
+class SquadPairs(ApiModel):
+    since: StatsSince
+    season_start: AwareDatetime
+    queue: LeaderboardQueue
+    model_version: str | None
+    #: Pairs with fewer shared ``games`` than this are small samples (the UI greys them).
+    min_games: int
+    #: Every tracked player (including ones without games), most games first.
+    players: list[SquadPlayer]
+    #: Every roster pair with at least one shared same-team game (also those below
+    #: ``min_games``), most shared games first.
+    pairs: list[SquadPair]
+
+
+# --- personal insights -----------------------------------------------------------------------
+
+SessionState = Literal["first_game", "after_win", "after_one_loss", "after_two_plus_losses"]
+
+
+class SessionGameBucket(ApiModel):
+    #: Game number within a session; 6 means "6th game or later".
+    n: Annotated[int, Field(ge=1, le=6)]
+    games: int
+    wins: int
+    winrate: Rate
+    avg_ai_score: Rate | None
+
+
+class SessionStateBucket(ApiModel):
+    #: What happened just before this game in the same session.
+    state: SessionState
+    games: int
+    wins: int
+    winrate: Rate
+    avg_ai_score: Rate | None
+
+
+class SessionInsights(ApiModel):
+    """Tilt detector. A session = consecutive ranked games of the player where
+    ``next.game_start - (previous.game_start + previous.duration) <= gap_minutes``."""
+
+    puuid: str
+    since: StatsSince
+    queue: LeaderboardQueue
+    model_version: str | None
+    gap_minutes: int
+    #: Buckets with fewer games than this are small samples (the UI greys them).
+    min_games: int
+    sessions: int
+    games: int
+    avg_session_games: float
+    longest_session_games: int
+    #: Always six buckets, n = 1..6 in order (empty buckets have games 0).
+    by_game_number: list[SessionGameBucket] = Field(max_length=6)
+    #: Always four buckets in the order first_game, after_win, after_one_loss,
+    #: after_two_plus_losses.
+    by_state: list[SessionStateBucket] = Field(max_length=4)
+
+
+class ScheduleCell(ApiModel):
+    dow: DayOfWeek
+    hour: HourOfDay
+    games: int
+    wins: int
+    avg_ai_score: Rate | None
+
+
+class ScheduleDay(ApiModel):
+    dow: DayOfWeek
+    games: int
+    wins: int
+    winrate: Rate
+    avg_ai_score: Rate | None
+
+
+class ScheduleHour(ApiModel):
+    hour: HourOfDay
+    games: int
+    wins: int
+    winrate: Rate
+    avg_ai_score: Rate | None
+
+
+class ScheduleWindow(ApiModel):
+    """Three consecutive hours on one day of week (never crossing midnight)."""
+
+    dow: DayOfWeek
+    #: 0..21.
+    start_hour: Annotated[int, Field(ge=0, le=21)]
+    #: Exclusive: ``start_hour + 3`` (3..24).
+    end_hour: Annotated[int, Field(ge=3, le=24)]
+    games: int
+    winrate: Rate
+
+
+class ScheduleInsights(ApiModel):
+    """Best time to play: win rate by local day of week and hour of game start."""
+
+    puuid: str
+    since: StatsSince
+    queue: LeaderboardQueue
+    model_version: str | None
+    #: IANA time zone the hours are in (as requested).
+    tz: str
+    #: Cells / windows with fewer games than this are small samples.
+    min_games: int
+    #: Only non-empty (dow, hour) cells.
+    cells: list[ScheduleCell]
+    #: Always 7 entries, dow 0..6 in order.
+    by_dow: list[ScheduleDay] = Field(max_length=7)
+    #: Always 24 entries, hour 0..23 in order.
+    by_hour: list[ScheduleHour] = Field(max_length=24)
+    #: Highest / lowest winrate 3-hour window with at least ``min_games``; None if none.
+    #: Ties: more games, then a window whose first hour has games, then the earlier one.
+    #: ``worst_window`` is also None when no window has a lower winrate than the best one.
+    best_window: ScheduleWindow | None
+    worst_window: ScheduleWindow | None
+
+
+class ChampionMatchup(ApiModel):
+    """The player's record against one enemy champion in their lane."""
+
+    #: The lane opponent's champion.
+    champion_id: int
+    #: Data Dragon key of the opponent's champion.
+    champion_name: str
+    games: int
+    wins: int
+    losses: int
+    winrate: Rate
+    #: The player's own average AI Score in these games.
+    avg_ai_score: Rate | None
+    #: Mean of (player gold_earned - opponent gold_earned).
+    avg_gold_diff: float
+
+
+class MatchupInsights(ApiModel):
+    """Nemesis champions. The lane opponent is the enemy with the same ``team_position``;
+    games where the position is UNKNOWN / empty or not exactly one per team are skipped."""
+
+    puuid: str
+    since: StatsSince
+    queue: LeaderboardQueue
+    model_version: str | None
+    #: Champions faced fewer times than this are left out of both lists.
+    min_games: int
+    #: Games with an identified lane opponent (before the ``min_games`` cut).
+    total_matchups: int
+    #: Losing records only (winrate < 50%): lowest winrate first, then more games; at most 8.
+    nemeses: list[ChampionMatchup] = Field(max_length=8)
+    #: Winning records only (winrate > 50%): highest winrate first, then more games; at
+    #: most 8. A champion is never in both lists; even (50%) records are in neither.
+    favorites: list[ChampionMatchup] = Field(max_length=8)
+
+
+class LuckGame(ApiModel):
+    match_id: str
+    game_start: AwareDatetime
+    queue_id: int
+    champion_name: str
+    team_position: Position
+    kills: int
+    deaths: int
+    assists: int
+    #: Seconds.
+    duration: int
+    ai_score: Rate
+    ai_role_percentile: Percentile | None
+
+
+class LuckInsights(ApiModel):
+    """Unlucky losses (lost, but scored >= high_threshold) and lucky wins (won, but scored
+    <= low_threshold), from games scored by the active model."""
+
+    puuid: str
+    since: StatsSince
+    queue: LeaderboardQueue
+    model_version: str | None
+    #: 0.6 (60 in the UI).
+    high_threshold: Rate
+    #: 0.4 (40 in the UI).
+    low_threshold: Rate
+    #: Scored losses / how many of them were unlucky.
+    losses_scored: int
+    unlucky_count: int
+    #: Scored wins / how many of them were lucky.
+    wins_scored: int
+    lucky_count: int
+    #: Highest score first, at most ``limit``.
+    unlucky_losses: list[LuckGame]
+    #: Lowest score first, at most ``limit``.
+    lucky_wins: list[LuckGame]
+
+
+# --- records ---------------------------------------------------------------------------------
+
+RecordKey = Literal[
+    "most_kills",
+    "most_assists",
+    "most_deaths",
+    "best_kda",
+    "most_damage",
+    "highest_damage_per_min",
+    "most_cs",
+    "highest_cs_per_min",
+    "most_gold",
+    "highest_vision",
+    "highest_kill_participation",
+    "longest_game",
+    "fastest_win",
+    "highest_ai_score",
+    "largest_killing_spree",
+    "most_damage_taken",
+    "most_healing",
+]
+#: How ``RecordEntry.value`` is expressed: count / number = plain number; percent = ratio
+#: 0..1; duration = seconds; per_min = per minute; score = AI Score 0..1.
+RecordUnit = Literal["count", "number", "percent", "duration", "per_min", "score"]
+RecordScope = Literal["roster", "player"]
+
+
+class RecordEntry(ApiModel):
+    """One game holding a record (or a pentakill game)."""
+
+    #: 1 = best. Ties share the order of ``game_start`` (earlier first).
+    rank: Annotated[int, Field(ge=1)]
+    #: In the category's unit; for ``pentakills`` the number of pentakills in that game.
+    value: float
+    puuid: str
+    game_name: str
+    tag_line: str
+    #: Data Dragon key.
+    champion_name: str
+    match_id: str
+    game_start: AwareDatetime
+    win: bool
+
+
+class RecordCategory(ApiModel):
+    key: RecordKey
+    label: str
+    unit: RecordUnit
+    #: False only for fastest_win (lower value = better record); most_deaths is "higher".
+    higher_is_better: bool
+    #: Best first, at most ``Records.limit``; empty when no game qualifies.
+    entries: list[RecordEntry]
+
+
+class QuadrakillCount(ApiModel):
+    puuid: str
+    game_name: str
+    tag_line: str
+    #: Sum of quadra kills over the period.
+    count: int
+
+
+class Records(ApiModel):
+    """Single-game records. Scope "roster" = all tracked players; "player" = only ``puuid``
+    (tracked or not). best_kda needs at least 5 takedowns; highest_kill_participation needs
+    at least 10 team kills; highest_ai_score only uses active-model scores. A record must be
+    above zero. longest_game and fastest_win list each match once (the friend with the
+    lowest participant id)."""
+
+    since: StatsSince
+    queue: LeaderboardQueue
+    scope: RecordScope
+    #: The player for scope "player"; None for "roster".
+    puuid: str | None
+    model_version: str | None
+    #: Entries per category.
+    limit: int
+    #: Every RecordKey, in the RecordKey order above.
+    categories: list[RecordCategory]
+    #: Every pentakill game, newest first (``rank`` counts from 1 in that order).
+    pentakills: list[RecordEntry]
+    #: Players with at least one quadra kill, most first.
+    quadrakills: list[QuadrakillCount]
 
 
 # --- meta / health ---------------------------------------------------------------------------
@@ -450,7 +804,9 @@ __all__ = [
     "AiTrendPoint",
     "ApiModel",
     "BestAlly",
+    "ChampionMatchup",
     "ChampionStat",
+    "DayOfWeek",
     "Division",
     "ErrorResponse",
     "FeatureAttribution",
@@ -460,25 +816,51 @@ __all__ = [
     "HealthModel",
     "HealthPoller",
     "HealthRiot",
+    "HourOfDay",
     "Leaderboard",
     "LeaderboardEntry",
     "LeaderboardQueue",
+    "LuckGame",
+    "LuckInsights",
     "MatchDetail",
     "MatchPage",
     "MatchSummary",
+    "MatchupInsights",
     "Meta",
     "ObjectiveStat",
     "ParticipantSummary",
+    "Percentile",
     "Position",
     "ProfileStats",
+    "QuadrakillCount",
     "QueueType",
     "RankEntry",
     "RankHistory",
     "RankPoint",
+    "RateDiff",
+    "RecordCategory",
+    "RecordEntry",
+    "RecordKey",
+    "RecordScope",
+    "RecordUnit",
+    "Records",
     "RefreshResult",
     "RefreshStatus",
     "RoleStat",
     "RosterEntry",
+    "ScheduleCell",
+    "ScheduleDay",
+    "ScheduleHour",
+    "ScheduleInsights",
+    "ScheduleWindow",
+    "SessionGameBucket",
+    "SessionInsights",
+    "SessionState",
+    "SessionStateBucket",
+    "SquadPair",
+    "SquadPairs",
+    "SquadPlayer",
+    "StatsSince",
     "SummonerProfile",
     "SummonerSearchResult",
     "TeamDetail",

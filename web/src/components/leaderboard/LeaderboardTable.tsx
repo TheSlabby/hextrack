@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 
 import type { LeaderboardEntry, LeaderboardQueue } from "@/api/types";
 import { AiScoreBadge } from "@/components/common/AiScoreBadge";
+import { RolePercentileAverage } from "@/components/common/RolePercentile";
 import { FormDots } from "@/components/common/FormDots";
 import { ProfileIcon } from "@/components/common/ProfileIcon";
 import { WinRateBar } from "@/components/common/WinRateBar";
@@ -173,11 +174,21 @@ export function LeaderboardTable({ entries, standings, queue, sort, onSort, clas
                 )}
               </TableCell>
               <TableCell className={cn(CELL, "text-center")}>
-                <AiScoreBadge
-                  score={entry.avg_ai_score}
-                  kind="average"
-                  detail={hasGames ? `Over ${plural(entry.games, "ranked game")} this season.` : undefined}
-                />
+                <span className="inline-flex flex-col items-center gap-0.5">
+                  <AiScoreBadge
+                    score={entry.avg_ai_score}
+                    kind="average"
+                    detail={hasGames ? `Over ${plural(entry.games, "ranked game")} this season.` : undefined}
+                  />
+                  {needed > 0 ? null : (
+                    <RolePercentileAverage
+                      percentile={entry.avg_ai_role_percentile}
+                      games={entry.games}
+                      minGames={standings.minGames}
+                      size="xs"
+                    />
+                  )}
+                </span>
               </TableCell>
               <TableCell className={cn(CELL, "text-right")}>
                 <LpDelta value={entry.lp_delta} />

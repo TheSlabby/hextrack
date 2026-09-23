@@ -29,6 +29,12 @@ export function Footer() {
             <Link to="/leaderboard" className="rounded-sm hover:text-text">
               Leaderboard
             </Link>
+            <Link to="/squad" className="rounded-sm hover:text-text">
+              Squad
+            </Link>
+            <Link to="/records" className="rounded-sm hover:text-text">
+              Records
+            </Link>
             <a href="/api/docs" className="rounded-sm hover:text-text">
               API
             </a>

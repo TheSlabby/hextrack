@@ -14,6 +14,7 @@ from hextrack.api.deps import (
     SAFE_TEXT,
     ApiError,
     CtxDep,
+    OptionalScorerDep,
     SessionDep,
     error_responses,
 )
@@ -24,6 +25,7 @@ from hextrack.ingest.context import IngestContext
 from hextrack.riot.errors import RiotForbidden, RiotKeyMissing
 from hextrack.riotid import InvalidRiotId, RiotId, parse_riot_id
 from hextrack.stats import aggregate, present, queries
+from hextrack.stats.role_percentile import ROLE_PERCENTILES
 
 router = APIRouter(prefix="/summoners", tags=["summoners"])
 
@@ -178,6 +180,7 @@ async def refresh_summoner(
 async def list_summoner_matches(
     puuid: Puuid,
     session: SessionDep,
+    scorer: OptionalScorerDep,
     cursor: Annotated[str | None, Query(max_length=200)] = None,
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
     queue: Annotated[
@@ -194,7 +197,11 @@ async def list_summoner_matches(
         position = queries.decode_cursor(cursor) if cursor else None
     except queries.InvalidCursor as exc:
         raise ApiError(400, "Invalid cursor", "invalid_cursor") from exc
-    return await queries.match_page(session, puuid, cursor=position, limit=limit, queue=queue)
+    version = await queries.resolve_model_version(session, scorer, puuid=puuid)
+    table = await ROLE_PERCENTILES.ensure_loaded(session, model_version=version)
+    return await queries.match_page(
+        session, puuid, cursor=position, limit=limit, queue=queue, role_percentiles=table
+    )
 
 
 @router.get(

@@ -168,6 +168,7 @@ async def test_leaderboard_all_queues(client, session, settings):
         "avg_deaths": 0.0,
         "avg_assists": 0.0,
         "avg_ai_score": None,
+        "avg_ai_role_percentile": None,
         "lp_delta": None,
         "best_ally": None,
         "top_champions": [],

@@ -4,6 +4,7 @@ import { ArrowDownWideNarrow, ArrowUpNarrowWide } from "lucide-react";
 
 import type { LeaderboardEntry, LeaderboardQueue } from "@/api/types";
 import { AiScoreBadge } from "@/components/common/AiScoreBadge";
+import { RolePercentileAverage } from "@/components/common/RolePercentile";
 import { FormDots } from "@/components/common/FormDots";
 import { GlowCard } from "@/components/common/GlowCard";
 import { Stagger, StaggerItem } from "@/components/common/Motion";
@@ -84,6 +85,7 @@ export function LeaderboardCards({ entries, standings, queue, className }: Leade
                   score={entry.avg_ai_score}
                   kind="average"
                   size="lg"
+                  className="shrink-0"
                   detail={hasGames ? `Over ${plural(entry.games, "ranked game")} this season.` : undefined}
                 />
               </div>
@@ -123,6 +125,18 @@ export function LeaderboardCards({ entries, standings, queue, className }: Leade
                 <span className="label-caps">Form</span>
                 <FormDots results={entry.recent_form} limit={10} size="sm" className="flex-nowrap" />
               </div>
+              {needed === 0 && entry.avg_ai_role_percentile !== null ? (
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <span className="label-caps">AI Score in role</span>
+                  <RolePercentileAverage
+                    percentile={entry.avg_ai_role_percentile}
+                    games={entry.games}
+                    minGames={standings.minGames}
+                    bare
+                    size="sm"
+                  />
+                </div>
+              ) : null}
             </GlowCard>
           </StaggerItem>
         );

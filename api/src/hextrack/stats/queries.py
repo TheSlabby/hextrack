@@ -28,6 +28,7 @@ from hextrack.stats.metrics import REMAKE_MAX_SECONDS
 
 if TYPE_CHECKING:
     from hextrack.hextrack_ai.inference import Scorer
+    from hextrack.stats.role_percentile import RolePercentileTable
 
 #: ``match_participants`` columns the response builders in :mod:`hextrack.stats.present`
 #: read (``raw``-free, so a page of 20 matches moves ~200 narrow rows).
@@ -62,6 +63,7 @@ PARTICIPANT_COLUMNS: Final = (
     MatchParticipant.summoner2_id,
     MatchParticipant.largest_multi_kill,
     MatchParticipant.ai_score,
+    MatchParticipant.model_version,
 )
 #: Real tag lines are alphanumeric; ingestion appends "~<puuid prefix>" to the tag of an
 #: account that no longer exists so its Riot ID can be reused.
@@ -383,11 +385,12 @@ async def match_page(
     cursor: MatchCursor | None,
     limit: int,
     queue: int | Collection[int] | None,
+    role_percentiles: RolePercentileTable | None = None,
 ) -> MatchPage:
     """One page of a player's history, newest first, keyset-paginated on
     ``(game_start desc, match_id desc)``. Two queries: the page's matches, then all of
     their participants. ``queue`` filters on one queue id or any of several (an empty
-    collection means no filter)."""
+    collection means no filter). ``role_percentiles`` fills ``ai_role_percentile``."""
     mp = MatchParticipant
     stmt = (
         # The keyset is the indexed (puuid, game_start) copy on match_participants.
@@ -416,7 +419,9 @@ async def match_page(
     participants = await participants_for_matches(session, [h["match_id"] for h in headers])
     items = []
     for header in headers:
-        item = present.match_summary(header, participants.get(header["match_id"], []), puuid)
+        item = present.match_summary(
+            header, participants.get(header["match_id"], []), puuid, role_percentiles
+        )
         if item is not None:
             items.append(item)
     next_cursor = (
@@ -427,9 +432,14 @@ async def match_page(
     return MatchPage(items=items, next_cursor=next_cursor)
 
 
-async def match_detail(session: AsyncSession, match_id: str) -> MatchDetail | None:
+async def match_detail(
+    session: AsyncSession,
+    match_id: str,
+    *,
+    role_percentiles: RolePercentileTable | None = None,
+) -> MatchDetail | None:
     """Both teams of one stored match; only ``raw -> info -> teams`` is read from the raw
-    payload (objectives and bans)."""
+    payload (objectives and bans). ``role_percentiles`` fills ``ai_role_percentile``."""
     stmt = select(
         Match.match_id,
         Match.queue_id,
@@ -446,7 +456,7 @@ async def match_detail(session: AsyncSession, match_id: str) -> MatchDetail | No
     if header is None:
         return None
     participants = await participants_for_matches(session, [match_id])
-    return present.match_detail(header, participants.get(match_id, []))
+    return present.match_detail(header, participants.get(match_id, []), role_percentiles)
 
 
 # --- AI Score --------------------------------------------------------------------------------

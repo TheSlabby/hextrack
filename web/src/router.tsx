@@ -7,7 +7,7 @@
  */
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from "@tanstack/react-router";
 
-import type { LeaderboardQueue } from "@/api/types";
+import type { LeaderboardQueue, StatsSince } from "@/api/types";
 import { AppShell } from "@/components/layout/AppShell";
 import { DEFAULT_SORT, SORT_LABELS, type SortDirection, type SortKey } from "@/components/leaderboard/sorting";
 import { NotFoundPage, RouteErrorPage, RoutePending } from "@/components/layout/RouteStates";
@@ -19,6 +19,8 @@ import { HomePage } from "@/routes/home";
 const LeaderboardPage = lazyRouteComponent(() => import("@/routes/leaderboard"), "LeaderboardPage");
 const SummonerPage = lazyRouteComponent(() => import("@/routes/summoner"), "SummonerPage");
 const MatchPage = lazyRouteComponent(() => import("@/routes/match"), "MatchPage");
+const SquadPage = lazyRouteComponent(() => import("@/routes/squad"), "SquadPage");
+const RecordsPage = lazyRouteComponent(() => import("@/routes/records"), "RecordsPage");
 
 export interface SummonerSearch {
   tab?: SummonerTabValue;
@@ -37,6 +39,37 @@ export interface LeaderboardSearch {
   queue?: Exclude<LeaderboardQueue, "all">;
   sort?: SortKey;
   dir?: SortDirection;
+}
+
+/**
+ * Period / queue filters in the URL (/squad, /records); defaults (this season, all ranked
+ * queues) are omitted: `?since=all&queue=solo`.
+ */
+export interface StatsFilterSearch {
+  since?: Exclude<StatsSince, "season">;
+  queue?: Exclude<LeaderboardQueue, "all">;
+}
+
+export type SquadSearch = StatsFilterSearch;
+
+export interface RecordsSearch extends StatsFilterSearch {
+  /** puuid of one player (player scope); omitted = the whole roster. */
+  player?: string;
+}
+
+function validateStatsFilterSearch(search: Record<string, unknown>): StatsFilterSearch {
+  const result: StatsFilterSearch = {};
+  if (search.since === "all") result.since = "all";
+  if (search.queue === "solo" || search.queue === "flex") result.queue = search.queue;
+  return result;
+}
+
+function validateRecordsSearch(search: Record<string, unknown>): RecordsSearch {
+  const result: RecordsSearch = validateStatsFilterSearch(search);
+  if (typeof search.player === "string" && search.player.length > 0 && search.player.length <= 100) {
+    result.player = search.player;
+  }
+  return result;
 }
 
 function isSortKey(value: unknown): value is SortKey {
@@ -92,7 +125,28 @@ const matchRoute = createRoute({
   component: MatchPage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, leaderboardRoute, summonerRoute, matchRoute]);
+const squadRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/squad",
+  validateSearch: validateStatsFilterSearch,
+  component: SquadPage,
+});
+
+const recordsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/records",
+  validateSearch: validateRecordsSearch,
+  component: RecordsPage,
+});
+
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  leaderboardRoute,
+  squadRoute,
+  recordsRoute,
+  summonerRoute,
+  matchRoute,
+]);
 
 export const router = createRouter({
   routeTree,

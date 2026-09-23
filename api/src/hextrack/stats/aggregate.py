@@ -18,6 +18,7 @@ from sqlalchemy import (
     Float,
     Select,
     and_,
+    bindparam,
     cast,
     false,
     func,
@@ -40,7 +41,7 @@ from hextrack.config import Settings
 from hextrack.db.models import Match, MatchParticipant, Summoner
 from hextrack.queues import RANKED_FLEX, RANKED_QUEUES, RANKED_SOLO
 from hextrack.rank import RANKED_FLEX_SR, RANKED_SOLO_5x5
-from hextrack.stats import present, queries
+from hextrack.stats import present, queries, role_percentile
 from hextrack.stats.metrics import (
     clamp_rate,
     rounded,
@@ -106,7 +107,20 @@ def stat_rows(
     if since is not None:
         stmt = stmt.where(mp.game_start >= since)
     if puuids is not None:
-        stmt = stmt.where(mp.puuid.in_(list(puuids)))
+        # Rendered as literals: with an ordinary bind list, asyncpg's cached prepared
+        # statement switches to a generic plan after five runs, and the roster queries
+        # built on these rows (best allies above all) went from ~20 ms to ~800 ms.
+        stmt = stmt.where(
+            mp.puuid.in_(
+                bindparam(
+                    "stat_puuids",
+                    sorted(puuids),
+                    expanding=True,
+                    literal_execute=True,
+                    unique=True,
+                )
+            )
+        )
     return stmt
 
 
@@ -293,6 +307,13 @@ async def summoner_profile(
         await queries.current_rank_snapshots(session, [puuid], season_start=since, now=now)
     ).get(puuid, {})
     stats = await season_stats(session, puuid, since=since, model_version=model_version)
+    table = await role_percentile.ROLE_PERCENTILES.ensure_loaded(
+        session, settings, model_version=model_version
+    )
+    role_avgs = await role_percentile.average_role_percentiles(
+        session, stat_rows(queues=RANKED_QUEUES, since=since, puuids=[puuid]), table=table
+    )
+    stats.avg_ai_role_percentile = role_avgs.get(puuid)
     champions = await champion_stats(session, puuid, since=since, model_version=model_version)
     roles = await role_stats(session, puuid, since=since)
     form = await recent_form(session, puuid)
@@ -526,6 +547,10 @@ async def leaderboard(
             queues=LEADERBOARD_QUEUES[queue], since=settings.season_start, puuids=puuids
         )
         totals = await _leaderboard_totals(session, rows, model_version=model_version)
+        table = await role_percentile.ROLE_PERCENTILES.ensure_loaded(
+            session, settings, model_version=model_version
+        )
+        role_avgs = await role_percentile.average_role_percentiles(session, rows, table=table)
         allies = await best_allies(session, rows)
         champions = await top_champions_by_player(session, rows)
         form = await recent_form_by_player(session, rows)
@@ -554,6 +579,7 @@ async def leaderboard(
                     avg_deaths=rounded(safe_div(t.deaths, t.games)),
                     avg_assists=rounded(safe_div(t.assists, t.games)),
                     avg_ai_score=t.ai_score,
+                    avg_ai_role_percentile=role_avgs.get(summoner.puuid),
                     lp_delta=deltas.get(summoner.puuid),
                     best_ally=allies.get(summoner.puuid),
                     top_champions=champions.get(summoner.puuid, []),

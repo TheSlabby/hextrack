@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { useReducedMotion } from "motion/react";
-import { LayoutGrid, Sparkles, Swords } from "lucide-react";
+import { Activity, LayoutGrid, Sparkles, Swords } from "lucide-react";
 
 import type { SummonerProfile } from "@/api/types";
 import { AiInsightsPanel } from "@/components/ai/AiInsightsPanel";
@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { OverviewTab } from "./OverviewTab";
 import { isSummonerTabValue, type SummonerTabValue } from "./tabs";
+import { TrendsTab } from "./trends/TrendsTab";
 
 export interface SummonerTabsProps {
   profile: SummonerProfile;
@@ -19,7 +20,7 @@ export interface SummonerTabsProps {
   showSeasonCards?: boolean;
 }
 
-/** Overview | Matches | AI Insights, controlled by the `?tab=` search param. */
+/** Overview | Matches | Trends | AI Insights, controlled by the `?tab=` search param. */
 export function SummonerTabs({ profile, tab, onTabChange, showSeasonCards = false }: SummonerTabsProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
@@ -42,7 +43,7 @@ export function SummonerTabs({ profile, tab, onTabChange, showSeasonCards = fals
       className="gap-5"
     >
       <div ref={listRef} className="scroll-mt-20">
-        <TabsList variant="line" aria-label="Profile sections" className="w-full justify-start gap-4 sm:gap-6">
+        <TabsList variant="line" aria-label="Profile sections" className="w-full justify-start gap-4 max-sm:[&_svg]:hidden sm:gap-6">
           <TabsTrigger value="overview">
             <LayoutGrid aria-hidden="true" />
             Overview
@@ -50,6 +51,10 @@ export function SummonerTabs({ profile, tab, onTabChange, showSeasonCards = fals
           <TabsTrigger value="matches">
             <Swords aria-hidden="true" />
             Matches
+          </TabsTrigger>
+          <TabsTrigger value="trends">
+            <Activity aria-hidden="true" />
+            Trends
           </TabsTrigger>
           <TabsTrigger value="ai" className="group-data-[variant=line]/tabs-list:data-[state=active]:text-cyan data-[state=active]:after:bg-cyan">
             <Sparkles aria-hidden="true" />
@@ -72,6 +77,11 @@ export function SummonerTabs({ profile, tab, onTabChange, showSeasonCards = fals
       <TabsContent value="matches" className="min-w-0">
         <AnimateOnce id="summoner-tab-matches">
           <MatchList puuid={profile.puuid} />
+        </AnimateOnce>
+      </TabsContent>
+      <TabsContent value="trends" className="min-w-0">
+        <AnimateOnce id="summoner-tab-trends">
+          <TrendsTab puuid={profile.puuid} />
         </AnimateOnce>
       </TabsContent>
       <TabsContent value="ai" className="min-w-0">

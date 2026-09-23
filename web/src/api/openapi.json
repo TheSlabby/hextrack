@@ -662,6 +662,409 @@
         }
       }
     },
+    "/api/v1/summoners/{puuid}/insights/sessions": {
+      "get": {
+        "tags": [
+          "insights"
+        ],
+        "summary": "Tilt detector: win rate and AI Score by game number within a play session",
+        "operationId": "get_session_insights",
+        "parameters": [
+          {
+            "name": "puuid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+              "title": "Puuid"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "season",
+                "all"
+              ],
+              "type": "string",
+              "default": "season",
+              "title": "Since"
+            }
+          },
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "solo",
+                "flex"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Queue"
+            }
+          },
+          {
+            "name": "gap_minutes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 180,
+              "minimum": 10,
+              "description": "Largest break (minutes) between one game's end and the next game's start that still counts as the same session",
+              "default": 45,
+              "title": "Gap Minutes"
+            },
+            "description": "Largest break (minutes) between one game's end and the next game's start that still counts as the same session"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionInsights"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/summoners/{puuid}/insights/schedule": {
+      "get": {
+        "tags": [
+          "insights"
+        ],
+        "summary": "Best time to play: win rate by day of week and hour (in the given time zone)",
+        "operationId": "get_schedule_insights",
+        "parameters": [
+          {
+            "name": "puuid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+              "title": "Puuid"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "season",
+                "all"
+              ],
+              "type": "string",
+              "default": "season",
+              "title": "Since"
+            }
+          },
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "solo",
+                "flex"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Queue"
+            }
+          },
+          {
+            "name": "tz",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9_+\\-/]+$",
+              "description": "IANA time zone for day of week / hour (the browser's zone)",
+              "default": "America/Chicago",
+              "title": "Tz"
+            },
+            "description": "IANA time zone for day of week / hour (the browser's zone)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleInsights"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/summoners/{puuid}/insights/matchups": {
+      "get": {
+        "tags": [
+          "insights"
+        ],
+        "summary": "Nemesis champions: record against each enemy champion in the player's lane",
+        "operationId": "get_matchup_insights",
+        "parameters": [
+          {
+            "name": "puuid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+              "title": "Puuid"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "season",
+                "all"
+              ],
+              "type": "string",
+              "default": "season",
+              "title": "Since"
+            }
+          },
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "solo",
+                "flex"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Queue"
+            }
+          },
+          {
+            "name": "min_games",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "description": "Fewest games against a champion to list it",
+              "default": 3,
+              "title": "Min Games"
+            },
+            "description": "Fewest games against a champion to list it"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchupInsights"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/summoners/{puuid}/insights/luck": {
+      "get": {
+        "tags": [
+          "insights"
+        ],
+        "summary": "Unlucky losses (high score, lost) and lucky wins (low score, won)",
+        "operationId": "get_luck_insights",
+        "parameters": [
+          {
+            "name": "puuid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+              "title": "Puuid"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "season",
+                "all"
+              ],
+              "type": "string",
+              "default": "season",
+              "title": "Since"
+            }
+          },
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "solo",
+                "flex"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Queue"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "description": "Games per list",
+              "default": 5,
+              "title": "Limit"
+            },
+            "description": "Games per list"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LuckInsights"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/matches/{match_id}": {
       "get": {
         "tags": [
@@ -1017,6 +1420,175 @@
           }
         }
       }
+    },
+    "/api/v1/squad/pairs": {
+      "get": {
+        "tags": [
+          "squad"
+        ],
+        "summary": "Duo synergy and who carries whom for every pair of tracked players",
+        "operationId": "get_squad_pairs",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "season",
+                "all"
+              ],
+              "type": "string",
+              "default": "season",
+              "title": "Since"
+            }
+          },
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "solo",
+                "flex"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Queue"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SquadPairs"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/records": {
+      "get": {
+        "tags": [
+          "records"
+        ],
+        "summary": "Single-game records (roster, or one player with ?puuid=) and pentakills",
+        "operationId": "get_records",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "season",
+                "all"
+              ],
+              "type": "string",
+              "default": "season",
+              "title": "Since"
+            }
+          },
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "solo",
+                "flex"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Queue"
+            }
+          },
+          {
+            "name": "puuid",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this player's games (scope 'player'); omit for the roster",
+              "title": "Puuid"
+            },
+            "description": "Only this player's games (scope 'player'); omit for the roster"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10,
+              "minimum": 1,
+              "description": "Entries per category",
+              "default": 3,
+              "title": "Limit"
+            },
+            "description": "Entries per category"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Records"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1192,6 +1764,67 @@
           "winrate"
         ],
         "title": "BestAlly"
+      },
+      "ChampionMatchup": {
+        "properties": {
+          "champion_id": {
+            "type": "integer",
+            "title": "Champion Id"
+          },
+          "champion_name": {
+            "type": "string",
+            "title": "Champion Name"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "losses": {
+            "type": "integer",
+            "title": "Losses"
+          },
+          "winrate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Winrate"
+          },
+          "avg_ai_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Ai Score"
+          },
+          "avg_gold_diff": {
+            "type": "number",
+            "title": "Avg Gold Diff"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "champion_id",
+          "champion_name",
+          "games",
+          "wins",
+          "losses",
+          "winrate",
+          "avg_ai_score",
+          "avg_gold_diff"
+        ],
+        "title": "ChampionMatchup",
+        "description": "The player's record against one enemy champion in their lane."
       },
       "ChampionStat": {
         "properties": {
@@ -1716,6 +2349,19 @@
             ],
             "title": "Avg Ai Score"
           },
+          "avg_ai_role_percentile": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Ai Role Percentile"
+          },
           "lp_delta": {
             "anyOf": [
               {
@@ -1773,12 +2419,193 @@
           "avg_deaths",
           "avg_assists",
           "avg_ai_score",
+          "avg_ai_role_percentile",
           "lp_delta",
           "best_ally",
           "top_champions",
           "recent_form"
         ],
         "title": "LeaderboardEntry"
+      },
+      "LuckGame": {
+        "properties": {
+          "match_id": {
+            "type": "string",
+            "title": "Match Id"
+          },
+          "game_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Game Start"
+          },
+          "queue_id": {
+            "type": "integer",
+            "title": "Queue Id"
+          },
+          "champion_name": {
+            "type": "string",
+            "title": "Champion Name"
+          },
+          "team_position": {
+            "type": "string",
+            "enum": [
+              "TOP",
+              "JUNGLE",
+              "MIDDLE",
+              "BOTTOM",
+              "UTILITY",
+              "UNKNOWN"
+            ],
+            "title": "Team Position"
+          },
+          "kills": {
+            "type": "integer",
+            "title": "Kills"
+          },
+          "deaths": {
+            "type": "integer",
+            "title": "Deaths"
+          },
+          "assists": {
+            "type": "integer",
+            "title": "Assists"
+          },
+          "duration": {
+            "type": "integer",
+            "title": "Duration"
+          },
+          "ai_score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Ai Score"
+          },
+          "ai_role_percentile": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Role Percentile"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "match_id",
+          "game_start",
+          "queue_id",
+          "champion_name",
+          "team_position",
+          "kills",
+          "deaths",
+          "assists",
+          "duration",
+          "ai_score",
+          "ai_role_percentile"
+        ],
+        "title": "LuckGame"
+      },
+      "LuckInsights": {
+        "properties": {
+          "puuid": {
+            "type": "string",
+            "title": "Puuid"
+          },
+          "since": {
+            "type": "string",
+            "enum": [
+              "season",
+              "all"
+            ],
+            "title": "Since"
+          },
+          "queue": {
+            "type": "string",
+            "enum": [
+              "all",
+              "solo",
+              "flex"
+            ],
+            "title": "Queue"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "high_threshold": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "High Threshold"
+          },
+          "low_threshold": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Low Threshold"
+          },
+          "losses_scored": {
+            "type": "integer",
+            "title": "Losses Scored"
+          },
+          "unlucky_count": {
+            "type": "integer",
+            "title": "Unlucky Count"
+          },
+          "wins_scored": {
+            "type": "integer",
+            "title": "Wins Scored"
+          },
+          "lucky_count": {
+            "type": "integer",
+            "title": "Lucky Count"
+          },
+          "unlucky_losses": {
+            "items": {
+              "$ref": "#/components/schemas/LuckGame"
+            },
+            "type": "array",
+            "title": "Unlucky Losses"
+          },
+          "lucky_wins": {
+            "items": {
+              "$ref": "#/components/schemas/LuckGame"
+            },
+            "type": "array",
+            "title": "Lucky Wins"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "puuid",
+          "since",
+          "queue",
+          "model_version",
+          "high_threshold",
+          "low_threshold",
+          "losses_scored",
+          "unlucky_count",
+          "wins_scored",
+          "lucky_count",
+          "unlucky_losses",
+          "lucky_wins"
+        ],
+        "title": "LuckInsights",
+        "description": "Unlucky losses (lost, but scored >= high_threshold) and lucky wins (won, but scored\n<= low_threshold), from games scored by the active model."
       },
       "MatchDetail": {
         "properties": {
@@ -1945,6 +2772,80 @@
           "teams"
         ],
         "title": "MatchSummary"
+      },
+      "MatchupInsights": {
+        "properties": {
+          "puuid": {
+            "type": "string",
+            "title": "Puuid"
+          },
+          "since": {
+            "type": "string",
+            "enum": [
+              "season",
+              "all"
+            ],
+            "title": "Since"
+          },
+          "queue": {
+            "type": "string",
+            "enum": [
+              "all",
+              "solo",
+              "flex"
+            ],
+            "title": "Queue"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "min_games": {
+            "type": "integer",
+            "title": "Min Games"
+          },
+          "total_matchups": {
+            "type": "integer",
+            "title": "Total Matchups"
+          },
+          "nemeses": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionMatchup"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Nemeses"
+          },
+          "favorites": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionMatchup"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Favorites"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "puuid",
+          "since",
+          "queue",
+          "model_version",
+          "min_games",
+          "total_matchups",
+          "nemeses",
+          "favorites"
+        ],
+        "title": "MatchupInsights",
+        "description": "Nemesis champions. The lane opponent is the enemy with the same ``team_position``;\ngames where the position is UNKNOWN / empty or not exactly one per team are skipped."
       },
       "Meta": {
         "properties": {
@@ -2241,6 +3142,19 @@
           "is_tracked": {
             "type": "boolean",
             "title": "Is Tracked"
+          },
+          "ai_role_percentile": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Role Percentile"
           }
         },
         "additionalProperties": false,
@@ -2280,7 +3194,8 @@
           "largest_multikill",
           "ai_score",
           "ai_rank",
-          "is_tracked"
+          "is_tracked",
+          "ai_role_percentile"
         ],
         "title": "ParticipantSummary"
       },
@@ -2354,6 +3269,19 @@
           "ai_scored_games": {
             "type": "integer",
             "title": "Ai Scored Games"
+          },
+          "avg_ai_role_percentile": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Ai Role Percentile"
           }
         },
         "additionalProperties": false,
@@ -2372,10 +3300,40 @@
           "avg_vision_per_min",
           "avg_kill_participation",
           "avg_ai_score",
-          "ai_scored_games"
+          "ai_scored_games",
+          "avg_ai_role_percentile"
         ],
         "title": "ProfileStats",
         "description": "Season aggregates over ranked queues (420, 440), remakes excluded."
+      },
+      "QuadrakillCount": {
+        "properties": {
+          "puuid": {
+            "type": "string",
+            "title": "Puuid"
+          },
+          "game_name": {
+            "type": "string",
+            "title": "Game Name"
+          },
+          "tag_line": {
+            "type": "string",
+            "title": "Tag Line"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "puuid",
+          "game_name",
+          "tag_line",
+          "count"
+        ],
+        "title": "QuadrakillCount"
       },
       "RankEntry": {
         "properties": {
@@ -2564,6 +3522,218 @@
         ],
         "title": "RankPoint"
       },
+      "RecordCategory": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "most_kills",
+              "most_assists",
+              "most_deaths",
+              "best_kda",
+              "most_damage",
+              "highest_damage_per_min",
+              "most_cs",
+              "highest_cs_per_min",
+              "most_gold",
+              "highest_vision",
+              "highest_kill_participation",
+              "longest_game",
+              "fastest_win",
+              "highest_ai_score",
+              "largest_killing_spree",
+              "most_damage_taken",
+              "most_healing"
+            ],
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "count",
+              "number",
+              "percent",
+              "duration",
+              "per_min",
+              "score"
+            ],
+            "title": "Unit"
+          },
+          "higher_is_better": {
+            "type": "boolean",
+            "title": "Higher Is Better"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/RecordEntry"
+            },
+            "type": "array",
+            "title": "Entries"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "unit",
+          "higher_is_better",
+          "entries"
+        ],
+        "title": "RecordCategory"
+      },
+      "RecordEntry": {
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Rank"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "puuid": {
+            "type": "string",
+            "title": "Puuid"
+          },
+          "game_name": {
+            "type": "string",
+            "title": "Game Name"
+          },
+          "tag_line": {
+            "type": "string",
+            "title": "Tag Line"
+          },
+          "champion_name": {
+            "type": "string",
+            "title": "Champion Name"
+          },
+          "match_id": {
+            "type": "string",
+            "title": "Match Id"
+          },
+          "game_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Game Start"
+          },
+          "win": {
+            "type": "boolean",
+            "title": "Win"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "rank",
+          "value",
+          "puuid",
+          "game_name",
+          "tag_line",
+          "champion_name",
+          "match_id",
+          "game_start",
+          "win"
+        ],
+        "title": "RecordEntry",
+        "description": "One game holding a record (or a pentakill game)."
+      },
+      "Records": {
+        "properties": {
+          "since": {
+            "type": "string",
+            "enum": [
+              "season",
+              "all"
+            ],
+            "title": "Since"
+          },
+          "queue": {
+            "type": "string",
+            "enum": [
+              "all",
+              "solo",
+              "flex"
+            ],
+            "title": "Queue"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "roster",
+              "player"
+            ],
+            "title": "Scope"
+          },
+          "puuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Puuid"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/RecordCategory"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "pentakills": {
+            "items": {
+              "$ref": "#/components/schemas/RecordEntry"
+            },
+            "type": "array",
+            "title": "Pentakills"
+          },
+          "quadrakills": {
+            "items": {
+              "$ref": "#/components/schemas/QuadrakillCount"
+            },
+            "type": "array",
+            "title": "Quadrakills"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "since",
+          "queue",
+          "scope",
+          "puuid",
+          "model_version",
+          "limit",
+          "categories",
+          "pentakills",
+          "quadrakills"
+        ],
+        "title": "Records",
+        "description": "Single-game records. Scope \"roster\" = all tracked players; \"player\" = only ``puuid``\n(tracked or not). best_kda needs at least 5 takedowns; highest_kill_participation needs\nat least 10 team kills; highest_ai_score only uses active-model scores. A record must be\nabove zero. longest_game and fastest_win list each match once (the friend with the\nlowest participant id)."
+      },
       "RefreshResult": {
         "properties": {
           "status": {
@@ -2696,6 +3866,734 @@
           "profile_icon_id"
         ],
         "title": "RosterEntry"
+      },
+      "ScheduleCell": {
+        "properties": {
+          "dow": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Dow"
+          },
+          "hour": {
+            "type": "integer",
+            "maximum": 23.0,
+            "minimum": 0.0,
+            "title": "Hour"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "avg_ai_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Ai Score"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "dow",
+          "hour",
+          "games",
+          "wins",
+          "avg_ai_score"
+        ],
+        "title": "ScheduleCell"
+      },
+      "ScheduleDay": {
+        "properties": {
+          "dow": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Dow"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "winrate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Winrate"
+          },
+          "avg_ai_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Ai Score"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "dow",
+          "games",
+          "wins",
+          "winrate",
+          "avg_ai_score"
+        ],
+        "title": "ScheduleDay"
+      },
+      "ScheduleHour": {
+        "properties": {
+          "hour": {
+            "type": "integer",
+            "maximum": 23.0,
+            "minimum": 0.0,
+            "title": "Hour"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "winrate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Winrate"
+          },
+          "avg_ai_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Ai Score"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "hour",
+          "games",
+          "wins",
+          "winrate",
+          "avg_ai_score"
+        ],
+        "title": "ScheduleHour"
+      },
+      "ScheduleInsights": {
+        "properties": {
+          "puuid": {
+            "type": "string",
+            "title": "Puuid"
+          },
+          "since": {
+            "type": "string",
+            "enum": [
+              "season",
+              "all"
+            ],
+            "title": "Since"
+          },
+          "queue": {
+            "type": "string",
+            "enum": [
+              "all",
+              "solo",
+              "flex"
+            ],
+            "title": "Queue"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "tz": {
+            "type": "string",
+            "title": "Tz"
+          },
+          "min_games": {
+            "type": "integer",
+            "title": "Min Games"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleCell"
+            },
+            "type": "array",
+            "title": "Cells"
+          },
+          "by_dow": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleDay"
+            },
+            "type": "array",
+            "maxItems": 7,
+            "title": "By Dow"
+          },
+          "by_hour": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleHour"
+            },
+            "type": "array",
+            "maxItems": 24,
+            "title": "By Hour"
+          },
+          "best_window": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduleWindow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "worst_window": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduleWindow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "puuid",
+          "since",
+          "queue",
+          "model_version",
+          "tz",
+          "min_games",
+          "cells",
+          "by_dow",
+          "by_hour",
+          "best_window",
+          "worst_window"
+        ],
+        "title": "ScheduleInsights",
+        "description": "Best time to play: win rate by local day of week and hour of game start."
+      },
+      "ScheduleWindow": {
+        "properties": {
+          "dow": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Dow"
+          },
+          "start_hour": {
+            "type": "integer",
+            "maximum": 21.0,
+            "minimum": 0.0,
+            "title": "Start Hour"
+          },
+          "end_hour": {
+            "type": "integer",
+            "maximum": 24.0,
+            "minimum": 3.0,
+            "title": "End Hour"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "winrate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Winrate"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "dow",
+          "start_hour",
+          "end_hour",
+          "games",
+          "winrate"
+        ],
+        "title": "ScheduleWindow",
+        "description": "Three consecutive hours on one day of week (never crossing midnight)."
+      },
+      "SessionGameBucket": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "N"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "winrate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Winrate"
+          },
+          "avg_ai_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Ai Score"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "n",
+          "games",
+          "wins",
+          "winrate",
+          "avg_ai_score"
+        ],
+        "title": "SessionGameBucket"
+      },
+      "SessionInsights": {
+        "properties": {
+          "puuid": {
+            "type": "string",
+            "title": "Puuid"
+          },
+          "since": {
+            "type": "string",
+            "enum": [
+              "season",
+              "all"
+            ],
+            "title": "Since"
+          },
+          "queue": {
+            "type": "string",
+            "enum": [
+              "all",
+              "solo",
+              "flex"
+            ],
+            "title": "Queue"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "gap_minutes": {
+            "type": "integer",
+            "title": "Gap Minutes"
+          },
+          "min_games": {
+            "type": "integer",
+            "title": "Min Games"
+          },
+          "sessions": {
+            "type": "integer",
+            "title": "Sessions"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "avg_session_games": {
+            "type": "number",
+            "title": "Avg Session Games"
+          },
+          "longest_session_games": {
+            "type": "integer",
+            "title": "Longest Session Games"
+          },
+          "by_game_number": {
+            "items": {
+              "$ref": "#/components/schemas/SessionGameBucket"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "By Game Number"
+          },
+          "by_state": {
+            "items": {
+              "$ref": "#/components/schemas/SessionStateBucket"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "By State"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "puuid",
+          "since",
+          "queue",
+          "model_version",
+          "gap_minutes",
+          "min_games",
+          "sessions",
+          "games",
+          "avg_session_games",
+          "longest_session_games",
+          "by_game_number",
+          "by_state"
+        ],
+        "title": "SessionInsights",
+        "description": "Tilt detector. A session = consecutive ranked games of the player where\n``next.game_start - (previous.game_start + previous.duration) <= gap_minutes``."
+      },
+      "SessionStateBucket": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "first_game",
+              "after_win",
+              "after_one_loss",
+              "after_two_plus_losses"
+            ],
+            "title": "State"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "winrate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Winrate"
+          },
+          "avg_ai_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Ai Score"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "state",
+          "games",
+          "wins",
+          "winrate",
+          "avg_ai_score"
+        ],
+        "title": "SessionStateBucket"
+      },
+      "SquadPair": {
+        "properties": {
+          "a_puuid": {
+            "type": "string",
+            "title": "A Puuid"
+          },
+          "b_puuid": {
+            "type": "string",
+            "title": "B Puuid"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "winrate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Winrate"
+          },
+          "expected_winrate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Expected Winrate"
+          },
+          "winrate_delta": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Winrate Delta"
+          },
+          "avg_ai_a": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Ai A"
+          },
+          "avg_ai_b": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Ai B"
+          },
+          "scored_games": {
+            "type": "integer",
+            "title": "Scored Games"
+          },
+          "a_higher": {
+            "type": "integer",
+            "title": "A Higher"
+          },
+          "b_higher": {
+            "type": "integer",
+            "title": "B Higher"
+          },
+          "ties": {
+            "type": "integer",
+            "title": "Ties"
+          },
+          "avg_score_diff": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": -1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Score Diff"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "a_puuid",
+          "b_puuid",
+          "games",
+          "wins",
+          "winrate",
+          "expected_winrate",
+          "winrate_delta",
+          "avg_ai_a",
+          "avg_ai_b",
+          "scored_games",
+          "a_higher",
+          "b_higher",
+          "ties",
+          "avg_score_diff"
+        ],
+        "title": "SquadPair",
+        "description": "Two roster players who played ranked games on the SAME team.\n\nDuo synergy: ``games``/``wins``/``winrate`` of their shared games, compared with\n``expected_winrate``. Who carries whom: over ``scored_games`` (shared games where both\nhave an active-model score), how often a's score was higher / lower / equal to b's."
+      },
+      "SquadPairs": {
+        "properties": {
+          "since": {
+            "type": "string",
+            "enum": [
+              "season",
+              "all"
+            ],
+            "title": "Since"
+          },
+          "season_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Season Start"
+          },
+          "queue": {
+            "type": "string",
+            "enum": [
+              "all",
+              "solo",
+              "flex"
+            ],
+            "title": "Queue"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "min_games": {
+            "type": "integer",
+            "title": "Min Games"
+          },
+          "players": {
+            "items": {
+              "$ref": "#/components/schemas/SquadPlayer"
+            },
+            "type": "array",
+            "title": "Players"
+          },
+          "pairs": {
+            "items": {
+              "$ref": "#/components/schemas/SquadPair"
+            },
+            "type": "array",
+            "title": "Pairs"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "since",
+          "season_start",
+          "queue",
+          "model_version",
+          "min_games",
+          "players",
+          "pairs"
+        ],
+        "title": "SquadPairs"
+      },
+      "SquadPlayer": {
+        "properties": {
+          "puuid": {
+            "type": "string",
+            "title": "Puuid"
+          },
+          "game_name": {
+            "type": "string",
+            "title": "Game Name"
+          },
+          "tag_line": {
+            "type": "string",
+            "title": "Tag Line"
+          },
+          "profile_icon_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Icon Id"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "winrate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Winrate"
+          },
+          "avg_ai_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Ai Score"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "puuid",
+          "game_name",
+          "tag_line",
+          "profile_icon_id",
+          "games",
+          "wins",
+          "winrate",
+          "avg_ai_score"
+        ],
+        "title": "SquadPlayer",
+        "description": "One tracked (roster) player's totals in the requested period."
       },
       "SummonerProfile": {
         "properties": {
