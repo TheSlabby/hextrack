@@ -46,7 +46,15 @@ export function riotName(player: ParticipantSummary): string {
   return player.tag_line ? `${player.game_name}#${player.tag_line}` : player.game_name;
 }
 
-function highlightsFor(match: MatchDetail, player: ParticipantSummary): string[] {
+/**
+ * Notable facts about one player's game, most notable first. `skipAiRank` drops the "highest AI
+ * Score" line where an MVP / ACE pill already says it.
+ */
+export function highlightsFor(
+  match: MatchDetail,
+  player: ParticipantSummary,
+  { limit = 2, skipAiRank = false }: { limit?: number; skipAiRank?: boolean } = {},
+): string[] {
   if (match.remake) return ["Remade early, so this one isn't scored"];
 
   const everyone = allParticipants(match);
@@ -60,15 +68,16 @@ function highlightsFor(match: MatchDetail, player: ParticipantSummary): string[]
     player.largest_multikill === 4 && "Quadra kill",
     player.largest_multikill === 3 && "Triple kill",
     player.deaths === 0 && player.kills + player.assists > 0 && "Deathless game",
-    player.ai_rank === 1 && player.ai_score != null && "Highest AI Score in the lobby",
+    !skipAiRank && player.ai_rank === 1 && player.ai_score != null && "Highest AI Score in the lobby",
     topOf((p) => p.damage_to_champions) && "Most damage in the lobby",
     damageShare >= 0.3 && `${formatPercent(damageShare)} of team damage`,
     player.kill_participation >= 0.6 && `${formatPercent(player.kill_participation)} kill participation`,
     topOf((p) => p.vision_score) && "Top vision score in the lobby",
     player.cs_per_min >= 8 && `${formatDecimal(player.cs_per_min)} CS per minute`,
   ];
-  const picked = candidates.filter((c): c is string => Boolean(c)).slice(0, 2);
-  return picked.length > 0 ? picked : [`${formatPercent(player.kill_participation)} kill participation`];
+  const picked = candidates.filter((c): c is string => Boolean(c)).slice(0, limit);
+  if (picked.length > 0 || skipAiRank) return picked;
+  return [`${formatPercent(player.kill_participation)} kill participation`];
 }
 
 export function buildRecap(match: MatchDetail, player: ParticipantSummary): Recap {

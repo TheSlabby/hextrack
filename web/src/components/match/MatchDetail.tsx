@@ -5,26 +5,34 @@ import { ArrowUpRight, CalendarDays, Clock3, SearchX, Sparkles } from "lucide-re
 import { isApiError } from "@/api/client";
 import { useMatch } from "@/api/queries";
 import type { MatchDetail, ParticipantSummary, TeamDetail } from "@/api/types";
+import { AiScoreRing } from "@/components/common/AiScoreRing";
+import { ChampionIcon } from "@/components/common/ChampionIcon";
 import { DdragonPatch } from "@/components/common/DdragonPatch";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { GameImage } from "@/components/common/GameImage";
 import { GlowCard } from "@/components/common/GlowCard";
+import { ItemSlots } from "@/components/common/ItemSlots";
 import { Stagger, StaggerItem } from "@/components/common/Motion";
+import { RolePercentileLabel } from "@/components/common/RolePercentile";
 import { SectionHeader } from "@/components/common/SectionHeader";
+import { SpellIcons } from "@/components/common/SpellIcons";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 import { useDdragon } from "@/lib/ddragon";
-import { formatCompact, formatDateTime, formatDuration, formatDurationLong } from "@/lib/format";
+import { formatCompact, formatDateTime, formatDecimal, formatDuration, formatDurationLong, formatPercent } from "@/lib/format";
 import { championDisplayName } from "@/lib/champions";
 
 import { playerSearchValue } from "./focus";
 import { AiRankingChart, DamageShareChart } from "./MatchCharts";
 import { MatchDetailSkeleton } from "./MatchSkeletons";
-import { ShareRecapDialog } from "./ShareRecapDialog";
+import { InGameRankPill, KdaLine, KdaRatio } from "./MatchBits";
+import { ShareRecapButton } from "./ShareRecapButton";
+import { highlightsFor } from "./shareRecap";
 import { TeamPanel } from "./TeamPanel";
 import {
   allParticipants,
+  inGameRank,
   matchMaxima,
   OUTCOME_LABEL,
   OUTCOME_STYLES,
@@ -195,9 +203,12 @@ function MatchHero({ match, focus }: { match: MatchDetail; focus: ParticipantSum
       ) : null}
       <div className="relative flex flex-col gap-5 p-5 sm:p-6 @3xl:flex-row @3xl:items-end @3xl:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
-          <span className="label-caps text-text-secondary">
-            {match.queue_label} · Patch {match.patch}
-          </span>
+          <div className="flex items-start justify-between gap-3">
+            <span className="label-caps pt-1.5 text-text-secondary">
+              {match.queue_label} · Patch {match.patch}
+            </span>
+            {hero ? <ShareRecapButton match={match} player={hero} className="@3xl:hidden" /> : null}
+          </div>
           <h1 className="font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
             <span className={OUTCOME_STYLES[outcome].text}>{title}</span>
             {focus ? (
@@ -220,12 +231,76 @@ function MatchHero({ match, focus }: { match: MatchDetail; focus: ParticipantSum
                 Model {match.model_version}
               </Badge>
             ) : null}
-            {hero ? <ShareRecapDialog match={match} initialPlayer={hero} /> : null}
+          </div>
+          {focus ? <HeroPlayerLine match={match} player={focus} /> : null}
+        </div>
+        <div className="flex flex-col items-start gap-3 self-start @3xl:items-end @3xl:self-stretch @3xl:justify-between">
+          {hero ? <ShareRecapButton match={match} player={hero} className="hidden @3xl:block" /> : null}
+          <div className="flex flex-wrap items-end gap-4">
+            {focus && !match.remake ? <HeroScore match={match} player={focus} /> : null}
+            <Scoreline teams={match.teams} remake={match.remake} />
           </div>
         </div>
-        <Scoreline teams={match.teams} remake={match.remake} />
       </div>
     </GlowCard>
+  );
+}
+
+/** The focused player's game at a glance: champion, spells, KDA, key stats, items and highlights. */
+function HeroPlayerLine({ match, player }: { match: MatchDetail; player: ParticipantSummary }) {
+  const minutes = match.game_duration / 60;
+  const highlights = match.remake ? [] : highlightsFor(match, player, { limit: 3, skipAiRank: true });
+  const stats = [
+    { label: "CS", value: `${player.cs}`, detail: `${formatDecimal(player.cs_per_min)}/min` },
+    { label: "Kill part.", value: formatPercent(player.kill_participation) },
+    { label: "Damage", value: formatCompact(player.damage_to_champions), detail: minutes > 0 ? `${formatCompact(Math.round(player.damage_per_min))}/min` : undefined },
+    { label: "Vision", value: `${player.vision_score}` },
+  ];
+  return (
+    <div className="mt-2 flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+        <div className="flex items-center gap-2">
+          <ChampionIcon champion={player.champion_name} size="lg" level={player.champ_level} />
+          <SpellIcons spell1={player.summoner1_id} spell2={player.summoner2_id} patch={match.patch} />
+        </div>
+        <div className="flex flex-col">
+          <KdaLine kills={player.kills} deaths={player.deaths} assists={player.assists} className="font-display text-2xl font-semibold" />
+          <KdaRatio kda={player.kda} deaths={player.deaths} className="text-sm" />
+        </div>
+        <dl className="flex flex-wrap gap-x-5 gap-y-2">
+          {stats.map((stat) => (
+            <div key={stat.label} className="flex flex-col">
+              <dt className="text-[11px] font-semibold tracking-[0.08em] text-text-muted uppercase">{stat.label}</dt>
+              <dd className="text-sm font-semibold text-text tabular-nums">
+                {stat.value}
+                {stat.detail ? <span className="ml-1 font-normal text-text-secondary">{stat.detail}</span> : null}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <ItemSlots items={player.items} patch={match.patch} size="sm" />
+        {highlights.map((text) => (
+          <span key={text} className="inline-flex h-6 items-center rounded-full border border-gold/40 bg-gold/10 px-2.5 text-xs font-semibold text-gold-bright">
+            {text}
+          </span>
+        ))}
+        <RolePercentileLabel percentile={player.ai_role_percentile} position={player.team_position} variant="long" />
+      </div>
+    </div>
+  );
+}
+
+/** The focused player's AI Score ring with the MVP / ACE / #N pill under it. */
+function HeroScore({ match, player }: { match: MatchDetail; player: ParticipantSummary }) {
+  if (player.ai_score === null) return null;
+  const rank = inGameRank(player, match.teams, match.remake);
+  return (
+    <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border-strong bg-bg/60 px-3 py-2 backdrop-blur-sm">
+      <AiScoreRing score={player.ai_score} size={96} />
+      {rank ? <InGameRankPill rank={rank} /> : null}
+    </div>
   );
 }
 
