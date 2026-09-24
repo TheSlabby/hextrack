@@ -21,6 +21,7 @@ import { championDisplayName } from "@/lib/champions";
 import { playerSearchValue } from "./focus";
 import { AiRankingChart, DamageShareChart } from "./MatchCharts";
 import { MatchDetailSkeleton } from "./MatchSkeletons";
+import { ShareRecapDialog } from "./ShareRecapDialog";
 import { TeamPanel } from "./TeamPanel";
 import {
   allParticipants,
@@ -219,6 +220,7 @@ function MatchHero({ match, focus }: { match: MatchDetail; focus: ParticipantSum
                 Model {match.model_version}
               </Badge>
             ) : null}
+            {hero ? <ShareRecapDialog match={match} initialPlayer={hero} /> : null}
           </div>
         </div>
         <Scoreline teams={match.teams} remake={match.remake} />
