@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Copy, Download, Share2 } from "lucide-react";
+import { Check, ChevronDown, Copy, Download, Share2, User } from "lucide-react";
 import { toast } from "sonner";
 
 import type { MatchDetail, ParticipantSummary } from "@/api/types";
@@ -10,9 +10,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useQueryClient } from "@tanstack/react-query";
+
+import { squadPairsQuery } from "@/api/queries";
 import { useDdragon } from "@/lib/ddragon";
 
-import { buildRecap, canCopyImage, copyImage, downloadBlob, renderRecapPng } from "./shareRecap";
+import {
+  buildGroupRecap,
+  buildRecap,
+  canCopyImage,
+  copyImage,
+  downloadBlob,
+  groupMembers,
+  renderGroupRecapPng,
+  renderRecapPng,
+  type PairRecord,
+} from "./shareRecap";
 
 export interface ShareRecapButtonProps {
   match: MatchDetail;
@@ -20,13 +33,11 @@ export interface ShareRecapButtonProps {
   className?: string;
 }
 
-type Action = "copy" | "share" | "download";
+type Action = "copy" | "copySolo" | "share" | "download";
+/** Which card: just the player, or them with their tracked teammates. */
+type Variant = "solo" | "group";
 
-const ACTIONS = {
-  copy: { label: "Copy recap", menuLabel: "Copy image", icon: Copy },
-  share: { label: "Share recap", menuLabel: "Share…", icon: Share2 },
-  download: { label: "Download recap", menuLabel: "Download PNG", icon: Download },
-} as const;
+const ICONS = { copy: Copy, copySolo: User, share: Share2, download: Download } as const;
 
 function canShareFiles(): boolean {
   return (
@@ -47,15 +58,17 @@ function toDataUrl(blob: Blob): Promise<string> {
 
 /**
  * "Copy recap": one click puts the 1200x675 recap PNG on the clipboard, ready to paste into
- * Discord. The menu next to it downloads (or, on phones, shares) the same image. Where the
- * browser can't copy images, the main button downloads instead.
+ * Discord. When tracked friends were on the player's team it copies the duo / squad card, and
+ * the menu has "Just me" for the solo one. The menu also downloads (or, on phones, shares) the
+ * image. Where the browser can't copy images, the main button downloads instead.
  */
 export function ShareRecapButton({ match, player, className }: ShareRecapButtonProps) {
   const dd = useDdragon(match.patch);
+  const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [support] = useState(() => ({ copy: canCopyImage(), share: canShareFiles() }));
-  // Rendered on first hover / focus / click and reused, keyed by match + player.
-  const cache = useRef<{ key: string; blob: Promise<Blob> } | null>(null);
+  // Rendered on first hover / focus / click and reused, keyed by match + player + variant.
+  const cache = useRef<Map<string, Promise<Blob>>>(new Map());
 
   useEffect(() => {
     if (!copied) return;
@@ -63,59 +76,100 @@ export function ShareRecapButton({ match, player, className }: ShareRecapButtonP
     return () => window.clearTimeout(id);
   }, [copied]);
 
-  const recap = () => buildRecap(match, player);
-  const image = (): Promise<Blob> => {
-    const key = `${match.match_id}:${player.puuid}`;
-    if (cache.current?.key !== key) {
-      const blob = renderRecapPng(recap(), dd.championSplash(player.champion_name));
-      blob.catch(() => (cache.current = null));
-      cache.current = { key, blob };
-    }
-    return cache.current.blob;
-  };
-  const filename = `hextrack-${match.match_id}-${player.game_name ?? player.champion_name}.png`.replace(/[^\w.-]+/g, "_");
+  const members = groupMembers(match, player);
+  const groupWord = members.length === 2 ? "duo" : members.length > 2 ? "squad" : null;
+  const defaultVariant: Variant = groupWord ? "group" : "solo";
 
-  const onCopy = () => {
+  /** Season record for a duo, from the squad endpoint (cached with the Squad page's query). */
+  const pairRecord = async (): Promise<PairRecord | null> => {
+    const [a, b] = members;
+    if (members.length !== 2 || !a || !b) return null;
+    const data = await queryClient.fetchQuery(squadPairsQuery("season", "all")).catch(() => null);
+    const pair = data?.pairs.find(
+      (p) => (p.a_puuid === a.puuid && p.b_puuid === b.puuid) || (p.a_puuid === b.puuid && p.b_puuid === a.puuid),
+    );
+    return pair ? { games: pair.games, wins: pair.wins } : null;
+  };
+  const describe = (variant: Variant) => (variant === "group" ? buildGroupRecap(match, members, null) : buildRecap(match, player));
+  const image = (variant: Variant): Promise<Blob> => {
+    const key = `${match.match_id}:${player.puuid}:${variant}`;
+    let blob = cache.current.get(key);
+    if (!blob) {
+      const splash = dd.championSplash(player.champion_name);
+      blob =
+        variant === "group"
+          ? pairRecord().then((pair) =>
+              renderGroupRecapPng(
+                buildGroupRecap(match, members, pair),
+                splash,
+                members.map((m) => dd.championIcon(m.champion_name)),
+              ),
+            )
+          : renderRecapPng(buildRecap(match, player), splash);
+      blob.catch(() => cache.current.delete(key));
+      cache.current.set(key, blob);
+    }
+    return blob;
+  };
+  const filename = (variant: Variant) =>
+    `hextrack-${match.match_id}-${player.game_name ?? player.champion_name}${variant === "group" ? `-${groupWord}` : ""}.png`.replace(/[^\w.-]+/g, "_");
+
+  const onCopy = (variant: Variant) => {
     // Synchronous with the click: Safari drops clipboard writes made after an await.
-    const blob = image();
+    const blob = image(variant);
     copyImage(blob).then(
       async () => {
         setCopied(true);
         // A small preview in the toast, so it's clear what will be pasted.
         const src = await blob.then(toDataUrl).catch(() => null);
-        toast.success("Recap copied. Paste it into Discord.", {
+        toast.success(`${variant === "group" && groupWord ? `${groupWord === "duo" ? "Duo" : "Squad"} recap` : "Recap"} copied. Paste it into Discord.`, {
           description: src ? (
-            <img src={src} alt={recap().alt} className="mt-2 aspect-[16/9] w-full rounded-md border border-border-strong" />
+            <img src={src} alt={describe(variant).alt} className="mt-2 aspect-[16/9] w-full rounded-md border border-border-strong" />
           ) : undefined,
         });
       },
       () => toast.error("Couldn't copy the image", { description: "Your browser blocked it. Use Download instead." }),
     );
   };
-  const onDownload = () => {
-    image().then(
-      (blob) => downloadBlob(blob, filename),
+  const onDownload = (variant: Variant) => {
+    image(variant).then(
+      (blob) => downloadBlob(blob, filename(variant)),
       () => toast.error("Couldn't create the recap image"),
     );
   };
-  const onShare = () => {
-    image()
-      .then((blob) => navigator.share({ files: [new File([blob], filename, { type: "image/png" })], title: recap().title }))
+  const onShare = (variant: Variant) => {
+    image(variant)
+      .then((blob) =>
+        navigator.share({ files: [new File([blob], filename(variant), { type: "image/png" })], title: describe(variant).title }),
+      )
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
         toast.error("Couldn't share the image", { description: "Use Download instead." });
       });
   };
 
-  const warm = () => void image().catch(() => undefined);
-  const run = (action: Action) => (action === "copy" ? onCopy() : action === "share" ? onShare() : onDownload());
+  const warm = () => void image(defaultVariant).catch(() => undefined);
+  const run = (action: Action) => {
+    if (action === "copy") onCopy(defaultVariant);
+    else if (action === "copySolo") onCopy("solo");
+    else if (action === "share") onShare(defaultVariant);
+    else onDownload(defaultVariant);
+  };
   const primary: Action = support.copy ? "copy" : support.share ? "share" : "download";
   const menu: Action[] = [
+    ...(support.copy && groupWord ? (["copySolo"] as const) : []),
     ...(support.copy && support.share ? (["share"] as const) : []),
     ...(support.copy || support.share ? (["download"] as const) : []),
   ];
-  const PrimaryIcon = primary === "copy" && copied ? Check : ACTIONS[primary].icon;
-  const primaryLabel = primary === "copy" && copied ? "Copied" : ACTIONS[primary].label;
+  const noun = groupWord ? `${groupWord} recap` : "recap";
+  const labels: Record<Action, string> = {
+    copy: `Copy ${noun}`,
+    copySolo: "Copy just me",
+    share: primary === "share" ? `Share ${noun}` : "Share…",
+    download: primary === "download" ? `Download ${noun}` : "Download PNG",
+  };
+  const PrimaryIcon = primary === "copy" && copied ? Check : ICONS[primary];
+  const primaryLabel = primary === "copy" && copied ? "Copied" : labels[primary];
 
   return (
     <div className={className} onPointerEnter={warm} onFocus={warm}>
@@ -139,11 +193,11 @@ export function ShareRecapButton({ match, player, className }: ShareRecapButtonP
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {menu.map((action) => {
-                const Icon = ACTIONS[action].icon;
+                const Icon = ICONS[action];
                 return (
                   <DropdownMenuItem key={action} onSelect={() => run(action)}>
                     <Icon aria-hidden="true" />
-                    {ACTIONS[action].menuLabel}
+                    {labels[action]}
                   </DropdownMenuItem>
                 );
               })}

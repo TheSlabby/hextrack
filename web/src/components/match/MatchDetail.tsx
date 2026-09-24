@@ -28,7 +28,7 @@ import { AiRankingChart, DamageShareChart } from "./MatchCharts";
 import { MatchDetailSkeleton } from "./MatchSkeletons";
 import { InGameRankPill, KdaLine, KdaRatio, PlayerNameLink } from "./MatchBits";
 import { ShareRecapButton } from "./ShareRecapButton";
-import { highlightsFor } from "./shareRecap";
+import { groupMembers, highlightsFor } from "./shareRecap";
 import { TeamPanel } from "./TeamPanel";
 import {
   allParticipants,
@@ -209,7 +209,7 @@ function MatchHero({ match, focus }: { match: MatchDetail; focus: ParticipantSum
             </span>
             {hero ? <ShareRecapButton match={match} player={hero} className="@3xl:hidden" /> : null}
           </div>
-          {focus ? <HeroPlayerName player={focus} /> : null}
+          {focus ? <HeroPlayerName match={match} player={focus} /> : null}
           <h1 className="font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
             <span className={OUTCOME_STYLES[outcome].text}>{title}</span>
             {focus ? (
@@ -248,12 +248,26 @@ function MatchHero({ match, focus }: { match: MatchDetail; focus: ParticipantSum
 }
 
 /** The focused player's Riot ID above the result, linking to their profile. */
-function HeroPlayerName({ player }: { player: ParticipantSummary }) {
+function HeroPlayerName({ match, player }: { match: MatchDetail; player: ParticipantSummary }) {
+  const mates = groupMembers(match, player).slice(1);
   return (
-    <div className="-mb-1 flex min-w-0 items-baseline gap-2 font-display text-2xl leading-tight font-semibold sm:text-3xl">
-      <PlayerNameLink participant={player} focused className="min-w-0 text-text" />
-      {player.game_name && player.tag_line ? (
-        <span className="shrink-0 text-lg font-medium text-text-muted sm:text-xl">#{player.tag_line}</span>
+    <div className="-mb-1 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+      <span className="flex min-w-0 items-baseline gap-2 font-display text-2xl leading-tight font-semibold sm:text-3xl">
+        <PlayerNameLink participant={player} focused className="min-w-0 text-text" />
+        {player.game_name && player.tag_line ? (
+          <span className="shrink-0 text-lg font-medium text-text-muted sm:text-xl">#{player.tag_line}</span>
+        ) : null}
+      </span>
+      {mates.length > 0 ? (
+        <span className="inline-flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-sm text-text-secondary">
+          {mates.length === 1 ? "Duo with" : "Squad with"}
+          {mates.map((mate, i) => (
+            <Fragment key={mate.puuid}>
+              <PlayerNameLink participant={mate} />
+              {i < mates.length - 1 ? <span aria-hidden="true">·</span> : null}
+            </Fragment>
+          ))}
+        </span>
       ) : null}
     </div>
   );

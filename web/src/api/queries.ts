@@ -6,6 +6,7 @@
  */
 import {
   keepPreviousData,
+  queryOptions,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -351,14 +352,18 @@ export function useRoster() {
 // --- squad (friend group) -------------------------------------------------------------------
 
 /** Duo synergy and who-carries-whom for every pair of tracked players. */
-export function useSquadPairs(since: StatsSince = "season", queue: LeaderboardQueue = "all") {
-  return useQuery({
+/** Query options for squad pairs, shared by the hook and imperative `fetchQuery` callers. */
+export function squadPairsQuery(since: StatsSince = "season", queue: LeaderboardQueue = "all") {
+  return queryOptions({
     queryKey: queryKeys.squadPairs(since, queue),
     queryFn: ({ signal }) =>
       request(api.GET("/api/v1/squad/pairs", { params: { query: { since, queue } }, signal })),
     staleTime: 5 * MINUTE,
-    placeholderData: keepPreviousData,
   });
+}
+
+export function useSquadPairs(since: StatsSince = "season", queue: LeaderboardQueue = "all") {
+  return useQuery({ ...squadPairsQuery(since, queue), placeholderData: keepPreviousData });
 }
 
 // --- personal insights (Trends tab) ---------------------------------------------------------
