@@ -26,7 +26,7 @@ import { championDisplayName } from "@/lib/champions";
 import { playerSearchValue } from "./focus";
 import { AiRankingChart, DamageShareChart } from "./MatchCharts";
 import { MatchDetailSkeleton } from "./MatchSkeletons";
-import { InGameRankPill, KdaLine, KdaRatio } from "./MatchBits";
+import { InGameRankPill, KdaLine, KdaRatio, PlayerNameLink } from "./MatchBits";
 import { ShareRecapButton } from "./ShareRecapButton";
 import { highlightsFor } from "./shareRecap";
 import { TeamPanel } from "./TeamPanel";
@@ -209,6 +209,7 @@ function MatchHero({ match, focus }: { match: MatchDetail; focus: ParticipantSum
             </span>
             {hero ? <ShareRecapButton match={match} player={hero} className="@3xl:hidden" /> : null}
           </div>
+          {focus ? <HeroPlayerName player={focus} /> : null}
           <h1 className="font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
             <span className={OUTCOME_STYLES[outcome].text}>{title}</span>
             {focus ? (
@@ -243,6 +244,18 @@ function MatchHero({ match, focus }: { match: MatchDetail; focus: ParticipantSum
         </div>
       </div>
     </GlowCard>
+  );
+}
+
+/** The focused player's Riot ID above the result, linking to their profile. */
+function HeroPlayerName({ player }: { player: ParticipantSummary }) {
+  return (
+    <div className="-mb-1 flex min-w-0 items-baseline gap-2 font-display text-2xl leading-tight font-semibold sm:text-3xl">
+      <PlayerNameLink participant={player} focused className="min-w-0 text-text" />
+      {player.game_name && player.tag_line ? (
+        <span className="shrink-0 text-lg font-medium text-text-muted sm:text-xl">#{player.tag_line}</span>
+      ) : null}
+    </div>
   );
 }
 
