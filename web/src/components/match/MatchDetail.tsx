@@ -18,6 +18,7 @@ import { RolePercentileLabel } from "@/components/common/RolePercentile";
 import { SectionHeader } from "@/components/common/SectionHeader";
 import { SpellIcons } from "@/components/common/SpellIcons";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { useDdragon } from "@/lib/ddragon";
 import { formatCompact, formatDateTime, formatDecimal, formatDuration, formatDurationLong, formatPercent } from "@/lib/format";
@@ -28,7 +29,7 @@ import { AiRankingChart, DamageShareChart } from "./MatchCharts";
 import { MatchDetailSkeleton } from "./MatchSkeletons";
 import { InGameRankPill, KdaLine, KdaRatio, PlayerNameLink } from "./MatchBits";
 import { ShareRecapButton } from "./ShareRecapButton";
-import { groupMembers, highlightsFor } from "./shareRecap";
+import { buildGroupRecap, groupMembers, highlightsFor } from "./shareRecap";
 import { TeamPanel } from "./TeamPanel";
 import {
   allParticipants,
@@ -249,7 +250,9 @@ function MatchHero({ match, focus }: { match: MatchDetail; focus: ParticipantSum
 
 /** The focused player's Riot ID above the result, linking to their profile. */
 function HeroPlayerName({ match, player }: { match: MatchDetail; player: ParticipantSummary }) {
-  const mates = groupMembers(match, player).slice(1);
+  const members = groupMembers(match, player);
+  const mates = members.slice(1);
+  const group = members.length >= 2 ? buildGroupRecap(match, members, null) : null;
   return (
     <div className="-mb-1 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
       <span className="flex min-w-0 items-baseline gap-2 font-display text-2xl leading-tight font-semibold sm:text-3xl">
@@ -268,6 +271,24 @@ function HeroPlayerName({ match, player }: { match: MatchDetail; player: Partici
             </Fragment>
           ))}
         </span>
+      ) : null}
+      {group?.verdict ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              tabIndex={0}
+              className={cn(
+                "inline-flex h-6 items-center rounded-full border px-2.5 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-gold",
+                group.outcome === "win" ? "border-gold/45 bg-gold/10 text-gold-bright" : "border-loss/45 bg-loss/10 text-loss",
+              )}
+            >
+              {group.verdict}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-64">
+            From the teammates' AI Scores. They share the same result, so their scores compare fairly.
+          </TooltipContent>
+        </Tooltip>
       ) : null}
     </div>
   );
