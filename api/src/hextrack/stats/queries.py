@@ -548,8 +548,25 @@ async def explain_rows(
     return [(row[0], int(row[1])) for row in (await session.execute(stmt)).all()]
 
 
+async def explain_row(
+    session: AsyncSession, match_id: str, puuid: str
+) -> tuple[MatchParticipant, int, bool] | None:
+    """One player's line in one match as (participant row, game duration in seconds,
+    scorable), or None when they didn't play in it."""
+    stmt = (
+        select(MatchParticipant, Match.game_duration, scorable_clause())
+        .join(Match, Match.match_id == MatchParticipant.match_id)
+        .where(MatchParticipant.match_id == match_id, MatchParticipant.puuid == puuid)
+    )
+    row = (await session.execute(stmt)).first()
+    if row is None:
+        return None
+    return row[0], int(row[1]), bool(row[2])
+
+
 __all__ = [
     "InvalidCursor",
+    "explain_row",
     "MATCH_HEADER_COLUMNS",
     "MatchCursor",
     "PARKED_TAG_MARKER",

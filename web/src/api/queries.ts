@@ -24,6 +24,7 @@ import type {
   RefreshResult,
   RiotIdParts,
   LiveGames,
+  MatchAiExplain,
   StackGamePage,
   StackQueue,
   StackSize,
@@ -87,6 +88,7 @@ export const queryKeys = {
     ["squad", "stacks", "games", since, queue, size] as const,
   recentGames: () => ["squad", "recent"] as const,
   live: () => ["live"] as const,
+  matchAiExplain: (matchId: string, puuid: string) => ["match", matchId, "ai-explain", puuid] as const,
   records: (since: StatsSince, queue: LeaderboardQueue, puuid: string | null, limit: number) =>
     ["records", since, queue, puuid ?? "roster", limit] as const,
   recordsAll: () => ["records"] as const,
@@ -428,6 +430,24 @@ export function useRecentGames(pageSize = 8) {
     staleTime: MINUTE,
     // The feed is live: pick up newly polled games while the page is open.
     refetchInterval: 2 * MINUTE,
+  });
+}
+
+// --- per-game AI Score breakdown ---------------------------------------------------------------
+
+/** Which stats moved one player's AI Score in one game (fetched when the breakdown opens). */
+export function useMatchAiExplain(matchId: string, puuid: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.matchAiExplain(matchId, puuid),
+    queryFn: ({ signal }): Promise<MatchAiExplain> =>
+      request(
+        api.GET("/api/v1/matches/{match_id}/ai-explain", {
+          params: { path: { match_id: matchId }, query: { puuid } },
+          signal,
+        }),
+      ),
+    enabled,
+    staleTime: 10 * MINUTE,
   });
 }
 

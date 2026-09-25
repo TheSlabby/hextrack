@@ -225,6 +225,21 @@ def test_explain_player_shape(scorer, match_rows):
     assert all(p.grad is None for p in scorer.model.parameters())
 
 
+def test_single_game_attributions_add_up_to_the_score(scorer, match_rows):
+    """The per-game breakdown (GET /matches/{id}/ai-explain) relies on completeness: one
+    game's effects, converted to probability, sum to its score minus the base score."""
+    duration, rows = match_rows
+    base = scorer.base_probability()
+    slope = base * (1 - base)
+    for row in rows[:4]:
+        result = explain_player(scorer, [duration], [row], None)
+        score = float(scorer.score_rows([duration], [row])[0])
+        total = sum(item["mean_attribution"] for item in result) * slope
+        assert total == pytest.approx(score - base, abs=2e-3)
+        for item in result:  # one game: |mean| == mean |.|
+            assert item["mean_abs_attribution"] == pytest.approx(abs(item["mean_attribution"]))
+
+
 def test_explain_player_without_population_or_rows(scorer, match_rows):
     duration, rows = match_rows
     result = explain_player(scorer, [duration], rows[:1], None)

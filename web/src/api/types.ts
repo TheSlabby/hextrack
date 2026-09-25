@@ -61,6 +61,7 @@ export type LiveGames = Schemas["LiveGames"];
 export type LiveGame = Schemas["LiveGame"];
 export type LiveParticipant = Schemas["LiveParticipant"];
 export type LiveBan = Schemas["LiveBan"];
+export type MatchAiExplain = Schemas["MatchAiExplain"];
 // personal insights (Trends tab)
 export type SessionInsights = Schemas["SessionInsights"];
 export type SessionGameBucket = Schemas["SessionGameBucket"];

@@ -5,6 +5,7 @@ import { ArrowUpRight, CalendarDays, Clock3, SearchX, Sparkles } from "lucide-re
 import { isApiError } from "@/api/client";
 import { useMatch } from "@/api/queries";
 import type { MatchDetail, ParticipantSummary, TeamDetail } from "@/api/types";
+import { AiScoreBreakdownDialog } from "@/components/ai/AiScoreBreakdown";
 import { AiScoreRing } from "@/components/common/AiScoreRing";
 import { ChampionIcon } from "@/components/common/ChampionIcon";
 import { DdragonPatch } from "@/components/common/DdragonPatch";
@@ -18,6 +19,7 @@ import { RolePercentileLabel } from "@/components/common/RolePercentile";
 import { SectionHeader } from "@/components/common/SectionHeader";
 import { SpellIcons } from "@/components/common/SpellIcons";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { useDdragon } from "@/lib/ddragon";
@@ -114,6 +116,7 @@ function MatchDetailContent({ match, focusPuuid, embedded }: { match: MatchDetai
       key: `team-${team.team_id}`,
       node: (
         <TeamPanel
+          matchId={match.match_id}
           team={team}
           teams={match.teams}
           remake={match.remake}
@@ -362,6 +365,16 @@ function HeroScore({ match, player }: { match: MatchDetail; player: ParticipantS
     <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border-strong bg-bg/60 px-3 py-2 backdrop-blur-sm">
       <AiScoreRing score={player.ai_score} size={96} />
       {rank ? <InGameRankPill rank={rank} /> : null}
+      <AiScoreBreakdownDialog
+        matchId={match.match_id}
+        participant={player}
+        trigger={
+          <Button variant="ghost" size="xs" className="text-cyan hover:bg-cyan/10 hover:text-cyan">
+            <Sparkles aria-hidden="true" />
+            Why this score?
+          </Button>
+        }
+      />
     </div>
   );
 }

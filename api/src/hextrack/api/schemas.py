@@ -353,6 +353,28 @@ class AiExplain(ApiModel):
     features: list[FeatureAttribution]
 
 
+class MatchAiExplain(ApiModel):
+    """Why one player's stat line in one game got its AI Score.
+
+    ``features`` use the ``FeatureAttribution`` fields for a single game: ``mean_attribution``
+    is this game's effect (logits at the base score; x ``b(1-b)`` x 100 = AI Score points),
+    ``player_value`` the game's value. The effects add up to ``score - base_score``.
+    """
+
+    match_id: str
+    puuid: str
+    model_version: str
+    win: bool
+    #: What an all-average stat line scores (the starting point of the breakdown).
+    base_score: Rate | None
+    #: The loaded model's score for this stat line (what the breakdown adds up to).
+    score: Rate
+    #: The score stored for the game (differs from ``score`` only while a new model rescores).
+    stored_score: Rate | None
+    #: Sorted by |effect| descending.
+    features: list[FeatureAttribution]
+
+
 # --- leaderboard / roster --------------------------------------------------------------------
 
 

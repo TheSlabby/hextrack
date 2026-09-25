@@ -198,3 +198,57 @@ async def test_ai_explain_unknown_summoner(app, client, explain_fakes):
     install_fakes(app, scorer=StubScorer("v7"))
     resp = await client.get("/api/v1/summoners/nobody/ai-explain")
     assert resp.status_code == 404 and resp.json()["code"] == "not_found"
+
+
+class _ScoringStub(StubScorer):
+    """StubScorer that can also score a stat line (the per-game explain route needs it)."""
+
+    def score_rows(self, durations, rows):
+        return [0.83 for _ in rows]
+
+
+async def test_match_ai_explain_happy_path(app, client, session, explain_fakes):
+    await add_summoner(session, ME, "Hex Walker", "NA1")
+    await add_match(
+        session,
+        make_match_json("NA1_7", [spec(ME)], start=T0, duration_s=1800),
+        scores={ME: 0.8},
+    )
+    await session.commit()
+    install_fakes(app, scorer=_ScoringStub("v7"))
+
+    resp = await client.get("/api/v1/matches/NA1_7/ai-explain", params={"puuid": ME})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert (body["match_id"], body["puuid"], body["model_version"]) == ("NA1_7", ME, "v7")
+    assert body["base_score"] == 0.5 and body["score"] == 0.83 and body["stored_score"] == 0.8
+    assert isinstance(body["win"], bool)
+    assert [f["feature"] for f in body["features"]] == ["kills_per_min", "vision_per_min"]
+    ((durations, rows, population),) = explain_fakes["explain"]
+    assert durations == [1800] and [r["match_id"] for r in rows] == ["NA1_7"]
+    assert population == {"kills_per_min": 0.25, "vision_per_min": 1.1}
+
+
+async def test_match_ai_explain_errors(app, client, session, explain_fakes):
+    await add_summoner(session, ME, "Hex Walker", "NA1")
+    await add_match(session, make_match_json("NA1_8", [spec(ME)], remake=True, start=T0))
+    await add_match(session, make_match_json("NA1_9", [spec(ME)], start=T0))
+    await session.commit()
+    install_fakes(app, scorer=_ScoringStub("v7"))
+
+    missing = await client.get("/api/v1/matches/NA1_9/ai-explain", params={"puuid": "nobody"})
+    assert missing.status_code == 404 and missing.json()["code"] == "not_found"
+    remake = await client.get("/api/v1/matches/NA1_8/ai-explain", params={"puuid": ME})
+    assert remake.status_code == 409 and remake.json()["code"] == "not_scorable"
+    no_puuid = await client.get("/api/v1/matches/NA1_9/ai-explain")
+    assert no_puuid.status_code == 422
+    assert explain_fakes["explain"] == []
+
+
+async def test_match_ai_explain_requires_model(app, client, session):
+    await add_summoner(session, ME, "Hex Walker", "NA1")
+    await add_match(session, make_match_json("NA1_9", [spec(ME)], start=T0))
+    await session.commit()
+    install_fakes(app, scorer=None)
+    resp = await client.get("/api/v1/matches/NA1_9/ai-explain", params={"puuid": ME})
+    assert resp.status_code == 503

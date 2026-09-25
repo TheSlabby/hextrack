@@ -1123,6 +1123,96 @@
         }
       }
     },
+    "/api/v1/matches/{match_id}/ai-explain": {
+      "get": {
+        "tags": [
+          "matches"
+        ],
+        "summary": "Which stats moved one player's AI Score in this game",
+        "operationId": "get_match_ai_explain",
+        "parameters": [
+          {
+            "name": "match_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+              "examples": [
+                "NA1_5012345678"
+              ],
+              "title": "Match Id"
+            }
+          },
+          {
+            "name": "puuid",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+              "title": "Puuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchAiExplain"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Riot API key missing/rejected, or AI model not loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/leaderboard": {
       "get": {
         "tags": [
@@ -3262,6 +3352,79 @@
         ],
         "title": "LuckInsights",
         "description": "Unlucky losses (lost, but scored >= high_threshold) and lucky wins (won, but scored\n<= low_threshold), from games scored by the active model."
+      },
+      "MatchAiExplain": {
+        "properties": {
+          "match_id": {
+            "type": "string",
+            "title": "Match Id"
+          },
+          "puuid": {
+            "type": "string",
+            "title": "Puuid"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "win": {
+            "type": "boolean",
+            "title": "Win"
+          },
+          "base_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Score"
+          },
+          "score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Score"
+          },
+          "stored_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stored Score"
+          },
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/FeatureAttribution"
+            },
+            "type": "array",
+            "title": "Features"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "match_id",
+          "puuid",
+          "model_version",
+          "win",
+          "base_score",
+          "score",
+          "stored_score",
+          "features"
+        ],
+        "title": "MatchAiExplain",
+        "description": "Why one player's stat line in one game got its AI Score.\n\n``features`` use the ``FeatureAttribution`` fields for a single game: ``mean_attribution``\nis this game's effect (logits at the base score; x ``b(1-b)`` x 100 = AI Score points),\n``player_value`` the game's value. The effects add up to ``score - base_score``."
       },
       "MatchDetail": {
         "properties": {

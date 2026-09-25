@@ -1,6 +1,7 @@
 import { useId } from "react";
 
 import type { ParticipantSummary, TeamDetail } from "@/api/types";
+import { AiScoreBreakdownButton } from "@/components/ai/AiScoreBreakdown";
 import { ChampionIcon } from "@/components/common/ChampionIcon";
 import { GlowCard } from "@/components/common/GlowCard";
 import { ItemSlots } from "@/components/common/ItemSlots";
@@ -12,7 +13,7 @@ import { formatCompact, formatDecimal, formatInteger, formatPercent } from "@/li
 import { positionLabel } from "@/lib/positions";
 import { championDisplayName } from "@/lib/champions";
 
-import { AiScoreWithRank, KdaLine, KdaRatio, PlayerNameLink, StatBar } from "./MatchBits";
+import { KdaLine, KdaRatio, PlayerNameLink, StatBar } from "./MatchBits";
 import { TeamBans, TeamObjectives } from "./TeamObjectives";
 import {
   OUTCOME_LABEL,
@@ -32,6 +33,8 @@ export interface TeamPanelProps {
   /** Minutes played (for per-minute captions). */
   minutes: number;
   focusPuuid?: string;
+  /** For the "Why this score?" breakdown behind each AI Score. */
+  matchId: string;
   /** Inside an expanded match row: a panel instead of a card. */
   embedded?: boolean;
 }
@@ -78,7 +81,7 @@ function PlayerCell({ p, focused }: { p: ParticipantSummary; focused: boolean })
   );
 }
 
-function TeamTable({ team, teams, remake, maxima, minutes, focusPuuid, players }: TeamPanelProps & { players: ParticipantSummary[] }) {
+function TeamTable({ team, teams, remake, maxima, minutes, focusPuuid, matchId, players }: TeamPanelProps & { players: ParticipantSummary[] }) {
   const outcome = outcomeOf(remake, team.win);
   const style = OUTCOME_STYLES[outcome];
   const sum = totals(players);
@@ -115,7 +118,7 @@ function TeamTable({ team, teams, remake, maxima, minutes, focusPuuid, players }
               </TableCell>
               <TableCell className="py-2 text-center">
                 <div className="inline-flex flex-col items-center gap-1">
-                  <AiScoreWithRank participant={p} teams={teams} remake={remake} layout="stack" size="sm" />
+                  <AiScoreBreakdownButton matchId={matchId} participant={p} teams={teams} remake={remake} layout="stack" size="sm" />
                   <RolePercentileLabel percentile={p.ai_role_percentile} position={p.team_position} />
                 </div>
               </TableCell>
@@ -204,7 +207,7 @@ function TeamTable({ team, teams, remake, maxima, minutes, focusPuuid, players }
   );
 }
 
-function TeamList({ team, teams, remake, maxima, focusPuuid, players }: TeamPanelProps & { players: ParticipantSummary[] }) {
+function TeamList({ team, teams, remake, maxima, focusPuuid, matchId, players }: TeamPanelProps & { players: ParticipantSummary[] }) {
   const style = OUTCOME_STYLES[outcomeOf(remake, team.win)];
   const sum = totals(players);
   return (
@@ -232,7 +235,7 @@ function TeamList({ team, teams, remake, maxima, focusPuuid, players }: TeamPane
                 {/* Wider containers: items join the first line. */}
                 <ItemSlots items={p.items} size="sm" className="mr-1 hidden @xl:flex" />
                 <div className="flex shrink-0 flex-col items-center gap-1">
-                  <AiScoreWithRank participant={p} teams={teams} remake={remake} layout="stack" size="sm" />
+                  <AiScoreBreakdownButton matchId={matchId} participant={p} teams={teams} remake={remake} layout="stack" size="sm" />
                   <RolePercentileLabel percentile={p.ai_role_percentile} position={p.team_position} />
                 </div>
               </div>

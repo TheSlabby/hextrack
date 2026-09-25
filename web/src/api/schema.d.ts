@@ -242,6 +242,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/matches/{match_id}/ai-explain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Which stats moved one player's AI Score in this game */
+        get: operations["get_match_ai_explain"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/leaderboard": {
         parameters: {
             query?: never;
@@ -821,6 +838,32 @@ export interface components {
             unlucky_losses: components["schemas"]["LuckGame"][];
             /** Lucky Wins */
             lucky_wins: components["schemas"]["LuckGame"][];
+        };
+        /**
+         * MatchAiExplain
+         * @description Why one player's stat line in one game got its AI Score.
+         *
+         *     ``features`` use the ``FeatureAttribution`` fields for a single game: ``mean_attribution``
+         *     is this game's effect (logits at the base score; x ``b(1-b)`` x 100 = AI Score points),
+         *     ``player_value`` the game's value. The effects add up to ``score - base_score``.
+         */
+        MatchAiExplain: {
+            /** Match Id */
+            match_id: string;
+            /** Puuid */
+            puuid: string;
+            /** Model Version */
+            model_version: string;
+            /** Win */
+            win: boolean;
+            /** Base Score */
+            base_score: number | null;
+            /** Score */
+            score: number;
+            /** Stored Score */
+            stored_score: number | null;
+            /** Features */
+            features: components["schemas"]["FeatureAttribution"][];
         };
         /** MatchDetail */
         MatchDetail: {
@@ -2500,6 +2543,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_match_ai_explain: {
+        parameters: {
+            query: {
+                puuid: string;
+            };
+            header?: never;
+            path: {
+                match_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchAiExplain"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Riot API key missing/rejected, or AI model not loaded */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

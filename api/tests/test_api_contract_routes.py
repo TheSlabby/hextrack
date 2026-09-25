@@ -14,6 +14,7 @@ NEW_ROUTES = {
     "/api/v1/squad/stacks": {"since", "queue", "size"},
     "/api/v1/squad/stacks/games": {"since", "queue", "size", "cursor", "limit"},
     "/api/v1/squad/recent": {"cursor", "limit"},
+    "/api/v1/matches/{match_id}/ai-explain": {"match_id", "puuid"},
     "/api/v1/summoners/{puuid}/insights/sessions": {"puuid", "since", "queue", "gap_minutes"},
     "/api/v1/summoners/{puuid}/insights/schedule": {"puuid", "since", "queue", "tz"},
     "/api/v1/summoners/{puuid}/insights/matchups": {"puuid", "since", "queue", "min_games"},
