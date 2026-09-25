@@ -56,6 +56,11 @@ export type StackVerdict = Schemas["StackVerdict"];
 export type VerdictTier = StackVerdict["tier"];
 export type StackQueue = StackSummary["queue"];
 export type StackSize = 3 | 4 | 5;
+// live games (spectator)
+export type LiveGames = Schemas["LiveGames"];
+export type LiveGame = Schemas["LiveGame"];
+export type LiveParticipant = Schemas["LiveParticipant"];
+export type LiveBan = Schemas["LiveBan"];
 // personal insights (Trends tab)
 export type SessionInsights = Schemas["SessionInsights"];
 export type SessionGameBucket = Schemas["SessionGameBucket"];

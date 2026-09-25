@@ -22,6 +22,7 @@ const MatchPage = lazyRouteComponent(() => import("@/routes/match"), "MatchPage"
 const SquadPage = lazyRouteComponent(() => import("@/routes/squad"), "SquadPage");
 const RecordsPage = lazyRouteComponent(() => import("@/routes/records"), "RecordsPage");
 const StacksPage = lazyRouteComponent(() => import("@/routes/stacks"), "StacksPage");
+const LiveGamePage = lazyRouteComponent(() => import("@/routes/live"), "LiveGamePage");
 
 export interface SummonerSearch {
   tab?: SummonerTabValue;
@@ -146,6 +147,12 @@ const matchRoute = createRoute({
   component: MatchPage,
 });
 
+const liveRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/live/$gameId",
+  component: LiveGamePage,
+});
+
 const squadRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/squad",
@@ -175,6 +182,7 @@ const routeTree = rootRoute.addChildren([
   recordsRoute,
   summonerRoute,
   matchRoute,
+  liveRoute,
 ]);
 
 export const router = createRouter({

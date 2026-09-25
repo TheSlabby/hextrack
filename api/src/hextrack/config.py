@@ -115,6 +115,11 @@ class Settings(BaseSettings):
         default=datetime(2026, 1, 8, 20, 0, tzinfo=UTC),
         validation_alias=AliasChoices("HEXTRACK_SEASON_START", "season_start"),
     )
+    #: Check the roster for live games (spectator-v5) after every poll.
+    live_games: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("HEXTRACK_LIVE_GAMES", "live_games"),
+    )
     poll_interval_seconds: int = Field(
         default=120,
         ge=5,

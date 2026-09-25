@@ -367,6 +367,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Games roster players are in right now (as of the worker's last check) */
+        get: operations["get_live_games"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/records": {
         parameters: {
             query?: never;
@@ -630,6 +647,112 @@ export interface components {
             top_champions: string[];
             /** Recent Form */
             recent_form: boolean[];
+        };
+        /** LiveBan */
+        LiveBan: {
+            /** Champion Id */
+            champion_id: number;
+            /** Champion Name */
+            champion_name: string | null;
+            /**
+             * Team Id
+             * @enum {integer}
+             */
+            team_id: 100 | 200;
+        };
+        /** LiveGame */
+        LiveGame: {
+            /** Game Id */
+            game_id: number;
+            /** Match Id */
+            match_id: string;
+            /** Platform */
+            platform: string;
+            /** Queue Id */
+            queue_id: number | null;
+            /** Queue Label */
+            queue_label: string;
+            /** Game Mode */
+            game_mode: string | null;
+            /** Map Id */
+            map_id: number | null;
+            /** Started At */
+            started_at: string | null;
+            /**
+             * First Seen At
+             * Format: date-time
+             */
+            first_seen_at: string;
+            /**
+             * Seen At
+             * Format: date-time
+             */
+            seen_at: string;
+            /** Bans */
+            bans: components["schemas"]["LiveBan"][];
+            /** Participants */
+            participants: components["schemas"]["LiveParticipant"][];
+        };
+        /**
+         * LiveGames
+         * @description Games roster players are in right now, as of the worker's last check.
+         */
+        LiveGames: {
+            /** Checked At */
+            checked_at: string | null;
+            /** Interval Seconds */
+            interval_seconds: number;
+            /** Games */
+            games: components["schemas"]["LiveGame"][];
+        };
+        /**
+         * LiveParticipant
+         * @description One of the ten players in a live game, with what HexTrack knows about them.
+         */
+        LiveParticipant: {
+            /** Puuid */
+            puuid: string | null;
+            /** Game Name */
+            game_name: string | null;
+            /** Tag Line */
+            tag_line: string | null;
+            /**
+             * Team Id
+             * @enum {integer}
+             */
+            team_id: 100 | 200;
+            /** Champion Id */
+            champion_id: number;
+            /** Champion Name */
+            champion_name: string | null;
+            /** Spell1 Id */
+            spell1_id: number;
+            /** Spell2 Id */
+            spell2_id: number;
+            /** Keystone Id */
+            keystone_id: number | null;
+            /** Primary Style Id */
+            primary_style_id: number | null;
+            /** Secondary Style Id */
+            secondary_style_id: number | null;
+            /** Profile Icon Id */
+            profile_icon_id: number | null;
+            /** Bot */
+            bot: boolean;
+            /** Is Tracked */
+            is_tracked: boolean;
+            solo: components["schemas"]["RankEntry"] | null;
+            flex: components["schemas"]["RankEntry"] | null;
+            /** Season Games */
+            season_games: number;
+            /** Season Wins */
+            season_wins: number;
+            /** Avg Ai Score */
+            avg_ai_score: number | null;
+            /** Champion Games */
+            champion_games: number;
+            /** Champion Wins */
+            champion_wins: number;
         };
         /** LuckGame */
         LuckGame: {
@@ -2741,6 +2864,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_live_games: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveGames"];
                 };
             };
         };

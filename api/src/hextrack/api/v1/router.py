@@ -9,6 +9,7 @@ from hextrack.api.v1 import (
     health,
     insights,
     leaderboard,
+    live,
     matches,
     meta,
     records,
@@ -34,6 +35,7 @@ def build_router() -> APIRouter:
         leaderboard,
         roster,
         squad,
+        live,
         records,
     ):
         router.include_router(module.router)

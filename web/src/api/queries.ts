@@ -23,6 +23,7 @@ import type {
   QueueType,
   RefreshResult,
   RiotIdParts,
+  LiveGames,
   StackGamePage,
   StackQueue,
   StackSize,
@@ -85,6 +86,7 @@ export const queryKeys = {
   stackGames: (since: StatsSince, queue: StackQueue, size: StackSize) =>
     ["squad", "stacks", "games", since, queue, size] as const,
   recentGames: () => ["squad", "recent"] as const,
+  live: () => ["live"] as const,
   records: (since: StatsSince, queue: LeaderboardQueue, puuid: string | null, limit: number) =>
     ["records", since, queue, puuid ?? "roster", limit] as const,
   recordsAll: () => ["records"] as const,
@@ -426,6 +428,18 @@ export function useRecentGames(pageSize = 8) {
     staleTime: MINUTE,
     // The feed is live: pick up newly polled games while the page is open.
     refetchInterval: 2 * MINUTE,
+  });
+}
+
+// --- live games -------------------------------------------------------------------------------
+
+/** Games roster players are in right now (the worker re-checks every poll). */
+export function useLiveGames() {
+  return useQuery({
+    queryKey: queryKeys.live(),
+    queryFn: ({ signal }): Promise<LiveGames> => request(api.GET("/api/v1/live", { signal })),
+    staleTime: 30 * SECOND,
+    refetchInterval: MINUTE,
   });
 }
 

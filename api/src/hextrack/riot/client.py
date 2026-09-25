@@ -67,7 +67,13 @@ from hextrack.riot.errors import (
 )
 from hextrack.riot.ratelimit import DEFAULT_MARGIN_SECONDS, Clock, RateLimiter, Sleep
 from hextrack.riot.routing import platform_host, region_for_platform, regional_host
-from hextrack.riot.schemas import AccountDto, LeagueEntryDto, MatchDto, SummonerDto
+from hextrack.riot.schemas import (
+    AccountDto,
+    CurrentGameInfoDto,
+    LeagueEntryDto,
+    MatchDto,
+    SummonerDto,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +110,7 @@ METHOD_ROUTING: Final[Mapping[str, Routing]] = {
     "account_by_puuid": "regional",
     "summoner_by_puuid": "platform",
     "league_entries_by_puuid": "platform",
+    "active_game_by_puuid": "platform",
     "match_ids_by_puuid": "regional",
     "match": "regional",
 }
@@ -321,6 +328,19 @@ class RiotClient:
             "league_entries_by_puuid", f"/lol/league/v4/entries/by-puuid/{_segment(puuid)}"
         )
         return self._validate_adapter(_LEAGUE_ENTRIES, data, "league_entries_by_puuid")
+
+    # --- spectator-v5 (platform) ---------------------------------------------------------
+    async def active_game_by_puuid(self, puuid: str) -> CurrentGameInfoDto | None:
+        """GET /lol/spectator/v5/active-games/by-summoner/{puuid}; None when not in a game
+        (Riot answers 404)."""
+        try:
+            data = await self._get(
+                "active_game_by_puuid",
+                f"/lol/spectator/v5/active-games/by-summoner/{_segment(puuid)}",
+            )
+        except RiotNotFound:
+            return None
+        return self._validate(CurrentGameInfoDto, data, "active_game_by_puuid")
 
     # --- match-v5 (regional) --------------------------------------------------------------
     async def match_ids_by_puuid(

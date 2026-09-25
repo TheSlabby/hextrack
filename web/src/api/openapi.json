@@ -1745,6 +1745,27 @@
         }
       }
     },
+    "/api/v1/live": {
+      "get": {
+        "tags": [
+          "live"
+        ],
+        "summary": "Games roster players are in right now (as of the worker's last check)",
+        "operationId": "get_live_games",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveGames"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/records": {
       "get": {
         "tags": [
@@ -2688,6 +2709,379 @@
           "recent_form"
         ],
         "title": "LeaderboardEntry"
+      },
+      "LiveBan": {
+        "properties": {
+          "champion_id": {
+            "type": "integer",
+            "title": "Champion Id"
+          },
+          "champion_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Champion Name"
+          },
+          "team_id": {
+            "type": "integer",
+            "enum": [
+              100,
+              200
+            ],
+            "title": "Team Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "champion_id",
+          "champion_name",
+          "team_id"
+        ],
+        "title": "LiveBan"
+      },
+      "LiveGame": {
+        "properties": {
+          "game_id": {
+            "type": "integer",
+            "title": "Game Id"
+          },
+          "match_id": {
+            "type": "string",
+            "title": "Match Id"
+          },
+          "platform": {
+            "type": "string",
+            "title": "Platform"
+          },
+          "queue_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Id"
+          },
+          "queue_label": {
+            "type": "string",
+            "title": "Queue Label"
+          },
+          "game_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Mode"
+          },
+          "map_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Map Id"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "first_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Seen At"
+          },
+          "seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Seen At"
+          },
+          "bans": {
+            "items": {
+              "$ref": "#/components/schemas/LiveBan"
+            },
+            "type": "array",
+            "title": "Bans"
+          },
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/LiveParticipant"
+            },
+            "type": "array",
+            "title": "Participants"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "game_id",
+          "match_id",
+          "platform",
+          "queue_id",
+          "queue_label",
+          "game_mode",
+          "map_id",
+          "started_at",
+          "first_seen_at",
+          "seen_at",
+          "bans",
+          "participants"
+        ],
+        "title": "LiveGame"
+      },
+      "LiveGames": {
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "interval_seconds": {
+            "type": "integer",
+            "title": "Interval Seconds"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/LiveGame"
+            },
+            "type": "array",
+            "title": "Games"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "checked_at",
+          "interval_seconds",
+          "games"
+        ],
+        "title": "LiveGames",
+        "description": "Games roster players are in right now, as of the worker's last check."
+      },
+      "LiveParticipant": {
+        "properties": {
+          "puuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Puuid"
+          },
+          "game_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Name"
+          },
+          "tag_line": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tag Line"
+          },
+          "team_id": {
+            "type": "integer",
+            "enum": [
+              100,
+              200
+            ],
+            "title": "Team Id"
+          },
+          "champion_id": {
+            "type": "integer",
+            "title": "Champion Id"
+          },
+          "champion_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Champion Name"
+          },
+          "spell1_id": {
+            "type": "integer",
+            "title": "Spell1 Id"
+          },
+          "spell2_id": {
+            "type": "integer",
+            "title": "Spell2 Id"
+          },
+          "keystone_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keystone Id"
+          },
+          "primary_style_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Primary Style Id"
+          },
+          "secondary_style_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondary Style Id"
+          },
+          "profile_icon_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Icon Id"
+          },
+          "bot": {
+            "type": "boolean",
+            "title": "Bot"
+          },
+          "is_tracked": {
+            "type": "boolean",
+            "title": "Is Tracked"
+          },
+          "solo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RankEntry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "flex": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RankEntry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "season_games": {
+            "type": "integer",
+            "title": "Season Games"
+          },
+          "season_wins": {
+            "type": "integer",
+            "title": "Season Wins"
+          },
+          "avg_ai_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Ai Score"
+          },
+          "champion_games": {
+            "type": "integer",
+            "title": "Champion Games"
+          },
+          "champion_wins": {
+            "type": "integer",
+            "title": "Champion Wins"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "puuid",
+          "game_name",
+          "tag_line",
+          "team_id",
+          "champion_id",
+          "champion_name",
+          "spell1_id",
+          "spell2_id",
+          "keystone_id",
+          "primary_style_id",
+          "secondary_style_id",
+          "profile_icon_id",
+          "bot",
+          "is_tracked",
+          "solo",
+          "flex",
+          "season_games",
+          "season_wins",
+          "avg_ai_score",
+          "champion_games",
+          "champion_wins"
+        ],
+        "title": "LiveParticipant",
+        "description": "One of the ten players in a live game, with what HexTrack knows about them."
       },
       "LuckGame": {
         "properties": {

@@ -631,6 +631,77 @@ class StackSummary(ApiModel):
     highlights: list[StackHighlight]
 
 
+# --- live games (spectator) ---------------------------------------------------------------
+
+
+class LiveBan(ApiModel):
+    champion_id: int
+    #: Data Dragon key ("MonkeyKing"); None when the id isn't in champion.json yet.
+    champion_name: str | None
+    team_id: TeamId
+
+
+class LiveParticipant(ApiModel):
+    """One of the ten players in a live game, with what HexTrack knows about them."""
+
+    #: None for bots.
+    puuid: str | None
+    game_name: str | None
+    tag_line: str | None
+    team_id: TeamId
+    champion_id: int
+    champion_name: str | None
+    spell1_id: int
+    spell2_id: int
+    #: Rune ids (runesReforged.json): the keystone and the two trees.
+    keystone_id: int | None
+    primary_style_id: int | None
+    secondary_style_id: int | None
+    profile_icon_id: int | None
+    bot: bool
+    is_tracked: bool
+    #: Current standings (roster: stored snapshots; others: fetched once per game).
+    solo: RankEntry | None
+    flex: RankEntry | None
+    #: HexTrack's stored ranked games this season (0 for players it doesn't know).
+    season_games: int
+    season_wins: int
+    #: Mean AI Score this season, active model only (plain number, never graded).
+    avg_ai_score: Rate | None
+    #: Stored ranked games this season on the champion they're playing now.
+    champion_games: int
+    champion_wins: int
+
+
+class LiveGame(ApiModel):
+    game_id: int
+    #: Where the game will be once it ends and the worker stores it ("NA1_<game_id>").
+    match_id: str
+    platform: str
+    queue_id: int | None
+    queue_label: str
+    game_mode: str | None
+    map_id: int | None
+    #: None while the game is loading.
+    started_at: AwareDatetime | None
+    #: When the worker first / last saw the game in progress.
+    first_seen_at: AwareDatetime
+    seen_at: AwareDatetime
+    bans: list[LiveBan]
+    #: Blue team first, in Riot's order.
+    participants: list[LiveParticipant]
+
+
+class LiveGames(ApiModel):
+    """Games roster players are in right now, as of the worker's last check."""
+
+    #: When the worker last checked the roster; None if it never has (or the feature is off).
+    checked_at: AwareDatetime | None
+    #: Seconds between checks (the poll interval).
+    interval_seconds: int
+    games: list[LiveGame]
+
+
 # --- personal insights -----------------------------------------------------------------------
 
 SessionState = Literal["first_game", "after_win", "after_one_loss", "after_two_plus_losses"]

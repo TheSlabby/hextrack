@@ -92,3 +92,47 @@ class MatchDto(RiotDto):
 
     metadata: MatchMetadataDto
     info: MatchInfoDto
+
+
+class CurrentGamePerksDto(RiotDto):
+    perk_ids: list[int] = Field(default_factory=list, alias="perkIds")
+    perk_style: int | None = Field(default=None, alias="perkStyle")
+    perk_sub_style: int | None = Field(default=None, alias="perkSubStyle")
+
+
+class CurrentGameParticipantDto(RiotDto):
+    """spectator-v5 participants[] (a bot has no puuid)."""
+
+    puuid: str | None = None
+    team_id: int = Field(alias="teamId")
+    champion_id: int = Field(alias="championId")
+    spell1_id: int = Field(default=0, alias="spell1Id")
+    spell2_id: int = Field(default=0, alias="spell2Id")
+    #: "GameName#TAG"; absent for bots and some anonymised queues.
+    riot_id: str | None = Field(default=None, alias="riotId")
+    profile_icon_id: int | None = Field(default=None, alias="profileIconId")
+    bot: bool = False
+    perks: CurrentGamePerksDto | None = None
+
+
+class BannedChampionDto(RiotDto):
+    champion_id: int = Field(alias="championId")
+    team_id: int = Field(alias="teamId")
+    pick_turn: int = Field(default=0, alias="pickTurn")
+
+
+class CurrentGameInfoDto(RiotDto):
+    """spectator-v5 /lol/spectator/v5/active-games/by-summoner/{puuid}."""
+
+    game_id: int = Field(alias="gameId")
+    game_type: str | None = Field(default=None, alias="gameType")
+    #: Epoch milliseconds; 0 while the game is still loading.
+    game_start_time: int = Field(default=0, alias="gameStartTime")
+    map_id: int | None = Field(default=None, alias="mapId")
+    #: Seconds since the game started (as of Riot's last update).
+    game_length: int = Field(default=0, alias="gameLength")
+    platform_id: str | None = Field(default=None, alias="platformId")
+    game_mode: str | None = Field(default=None, alias="gameMode")
+    game_queue_config_id: int | None = Field(default=None, alias="gameQueueConfigId")
+    banned_champions: list[BannedChampionDto] = Field(default_factory=list, alias="bannedChampions")
+    participants: list[CurrentGameParticipantDto] = Field(min_length=1)
