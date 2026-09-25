@@ -13,7 +13,7 @@ umask 022
 [ "$(id -u)" = 0 ] || { echo "run with sudo" >&2; exit 1; }
 [ "$(hostname)" = rpi5 ] || { echo "this is for rpi5" >&2; exit 1; }
 SRC=$(cd "$(dirname "$0")" && pwd)
-cd /                                     # runuser/psql as other users would warn about ~walker                                   # the deploy/ folder of walker's checkout
+cd /  # psql and runuser as other users would warn about ~walker
 OLD_ENV=/home/walker/hextrack-v2/.env
 OLD_ARTIFACTS=/home/walker/hextrack-v2/api/artifacts
 PY_VERSION=3.12.14
