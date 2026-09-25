@@ -19,6 +19,8 @@ overview and web/DESIGN.md for the frontend design system.
   make it post (starting another instance, inserting `bot_events` rows, changing
   `last_post_date` in `app_state["bot_daily"]`).
 - Ship changes with `./deploy.sh` (below). Commit first; the Pi deploys what is on GitHub.
+- **Production runs as the `hextrack` user** (see Deployment). Don't run HexTrack as walker on
+  the Pi or restart the old walker user units; they're disabled.
 - Git: commit only when asked; git has no global identity on this Mac, so pass
   `-c user.name="Walker McGilvary" -c user.email="walker.mcgilvary@gmail.com"`.
 
@@ -139,11 +141,21 @@ browser ─https─▶ bloom (VPS, Caddy: hextrack.slabby.dev) ─tailscale─�
                                                             (API + web/dist, worker, bot, Postgres)
 ```
 
-- **rpi5** (`ssh rpi5`, Debian 12 arm64, 8 GB): code in `~/hextrack-v2`, systemd **user**
-  units `hextrack-api` (serve on 127.0.0.1:8000), `hextrack-worker`, `hextrack-bot`.
-  Database `hextrack_v2` in the Pi's Postgres 15 (password only in the Pi's `.env`).
-  Model artifacts in `~/hextrack-v2/api/artifacts/<version>/`, active one named in `ACTIVE`.
-  Exposed only via `tailscale serve --tcp 8000` (tailnet only; not on the LAN).
+- **rpi5** (`ssh rpi5`, Debian 12 arm64, 8 GB): HexTrack runs as the unprivileged system user
+  `hextrack` (no shell, no sudo) in hardened **system** units `hextrack-api` (127.0.0.1:8000),
+  `hextrack-worker`, `hextrack-bot`, plus the one-shot `hextrack-migrate` (runs as
+  `hextrack-migrate`). Layout, design and runbook: `deploy/README.md`.
+  - Releases in `/opt/hextrack/releases/<build>` (root-owned, read-only to the service),
+    `current`/`previous` symlinks; venvs in `/opt/hextrack/venvs/<uv.lock hash>`; Python in
+    `/opt/hextrack/python`. `~/hextrack-v2` is only walker's build checkout; nothing runs from it.
+  - Settings in `/etc/hextrack/hextrack.env`; secrets one file each in
+    `/etc/hextrack/credentials/` (root 0600, `LoadCredential=`). Don't print them.
+  - Models in `/var/lib/hextrack/artifacts/<version>/` (active one named in `ACTIVE`).
+  - Database `hextrack_v2` in the Pi's Postgres 15, peer auth over the Unix socket, no
+    passwords: the services use role `hextrack_app` (rows only), migrations use the owner
+    `hextrack_v2`. DB dumps in `/var/backups/hextrack/`.
+  - Exposed only via `tailscale serve --tcp 8000` (tailnet only; not on the LAN).
+  - Don't touch anything Baron (`/opt/baron`, `/etc/baron`, ...), which also runs on this Pi.
 - **bloom** (`ssh bloom`, Ubuntu 24.04 VPS, 1 CPU / 3.7 GB, runs a Minecraft server and the
   Amity Next.js site on mc.slabby.dev): Caddy's `/etc/caddy/Caddyfile` has a
   `hextrack.slabby.dev` block that reverse-proxies to `100.127.88.92:8000`. UFW allows only
@@ -156,16 +168,19 @@ browser ─https─▶ bloom (VPS, Caddy: hextrack.slabby.dev) ─tailscale─�
 Day to day:
 
 ```bash
-./deploy.sh              # push branch; Pi pulls, uv sync, migrate, build web if changed, restart, health check
-./deploy.sh --status     # commit, services, health on the Pi
+./deploy.sh              # push; Pi builds unprivileged, installs, migrates, restarts, health check (rolls back on failure)
+./deploy.sh --status     # release, services, health on the Pi
 ./deploy.sh --logs       # follow journald for all three services
-ssh rpi5 'cd ~/hextrack-v2/api && .venv/bin/hextrack train --activate'   # retrain on live data
-ssh rpi5 'cd ~/hextrack-v2/api && .venv/bin/hextrack backfill'           # re-list roster history
+./deploy.sh --rollback   # back to the previous release
+ssh rpi5 'sudo hextrack-admin train --activate'   # retrain on live data (runs as hextrack, sandboxed)
+ssh rpi5 'sudo systemctl stop hextrack-worker && sudo hextrack-admin backfill; sudo systemctl start hextrack-worker'
 ```
 
 Training is manual (suggested monthly or after a few hundred new games). Activation rescores
 stored games; the API (every 30 s) and worker (every poll) pick up the new model without a
-restart. Roll back with `hextrack model activate <version>` (`hextrack model list`).
+restart. Roll back with `sudo hextrack-admin model activate <version>` (`... model list`).
+walker's sudo rules for HexTrack are in `deploy/sudoers.hextrack` (walker also still has
+blanket passwordless sudo, by choice).
 
 ## History
 
