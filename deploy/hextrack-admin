@@ -18,7 +18,7 @@ case "${1:-}" in
   *) sed -n '2,11s/^# \{0,1\}//p' "$0" >&2; exit 2 ;;
 esac
 for arg in "$@"; do
-  case "$arg" in *$'\n'* | *$'\0'*) echo "hextrack-admin: bad argument" >&2; exit 2 ;; esac
+  case "$arg" in *$'\n'*) echo "hextrack-admin: bad argument" >&2; exit 2 ;; esac   # (argv can't hold NUL)
 done
 
 props=(
