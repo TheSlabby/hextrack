@@ -89,7 +89,7 @@ BODY
   -h | --help) awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; exit ;;
   *) fail "unknown option: $1 (see --help)" ;;
 esac
-MODE="${1:-}"
+MODE="${1:---normal}"   # never empty: ssh drops empty arguments
 
 branch=$(git branch --show-current)
 [ -n "$branch" ] || fail "not on a branch (detached HEAD)"
