@@ -7,15 +7,19 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { GlowCard } from "@/components/common/GlowCard";
 import { SectionHeader } from "@/components/common/SectionHeader";
-import { StackGameRow, StackGameRowSkeleton } from "@/components/stacks/StackGameRow";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+
+import { RecentGameItem } from "./RecentGameItem";
 
 /** Stop offering "Show more" after this many games; the profiles and Stacks page go further. */
 const MAX_GAMES = 40;
+/** One column on phones, two from lg: each card is one line, so the grid stays even. */
+const GRID = "grid grid-cols-1 gap-2 lg:grid-cols-2";
 
 /**
- * Home page feed: the roster's latest games. Each row is one team: a solo game shows one
- * player, friends who queued together share a row with the carry / "ran it down" line.
+ * Home page feed: the roster's latest games, one compact card each (RecentGameItem). A solo game
+ * shows one player; friends who queued together share a card with the carry / "ran it down" line.
  */
 export function RecentGames() {
   const query = useRecentGames();
@@ -39,9 +43,9 @@ export function RecentGames() {
   let body;
   if (query.isPending) {
     body = (
-      <div className="flex flex-col gap-2" role="status" aria-label="Loading recent games">
-        {Array.from({ length: 4 }, (_, i) => (
-          <StackGameRowSkeleton key={i} />
+      <div className={GRID} role="status" aria-label="Loading recent games">
+        {Array.from({ length: 8 }, (_, i) => (
+          <Skeleton key={i} className="h-[62px] rounded-xl" />
         ))}
       </div>
     );
@@ -64,14 +68,18 @@ export function RecentGames() {
     );
   } else {
     body = (
-      <div className="flex flex-col gap-2">
-        {games.map((game) => (
-          <StackGameRow key={`${game.match_id}-${game.team_id}`} game={game} />
-        ))}
+      <div className="flex flex-col gap-3">
+        <ul className={GRID}>
+          {games.map((game) => (
+            <li key={`${game.match_id}-${game.team_id}`} className="min-w-0">
+              <RecentGameItem game={game} />
+            </li>
+          ))}
+        </ul>
         {hasNextPage && games.length < MAX_GAMES ? (
           <Button
             variant="outline"
-            className="mt-1 self-center"
+            className="self-center"
             disabled={isFetchingNextPage}
             onClick={() => void fetchNextPage()}
           >
@@ -88,7 +96,7 @@ export function RecentGames() {
         eyebrow="Latest"
         icon={History}
         title={<span id="recent-games">Recent games</span>}
-        description="What the squad has been playing. Friends who queued together share a row."
+        description="What the squad has been playing. Friends who queued together share a card."
       />
       {body}
     </section>

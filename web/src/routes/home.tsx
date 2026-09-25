@@ -29,6 +29,8 @@ export function HomePage() {
     <div className="flex flex-col gap-14 sm:gap-20">
       <HomeHero examples={examples} loading={isPending} />
 
+      {hasRoster && !failed ? <RecentGames /> : null}
+
       <SquadSection
         data={data}
         standings={standings}
@@ -36,8 +38,6 @@ export function HomePage() {
         error={error}
         onRetry={() => void refetch()}
       />
-
-      {hasRoster && !failed ? <RecentGames /> : null}
 
       {hasRoster && !failed ? (
         <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)]">
