@@ -12,8 +12,8 @@ umask 022
 
 [ "$(id -u)" = 0 ] || { echo "run with sudo" >&2; exit 1; }
 [ "$(hostname)" = rpi5 ] || { echo "this is for rpi5" >&2; exit 1; }
-cd "$(dirname "$0")"
-SRC=$PWD                                   # the deploy/ folder of walker's checkout
+SRC=$(cd "$(dirname "$0")" && pwd)
+cd /                                     # runuser/psql as other users would warn about ~walker                                   # the deploy/ folder of walker's checkout
 OLD_ENV=/home/walker/hextrack-v2/.env
 OLD_ARTIFACTS=/home/walker/hextrack-v2/api/artifacts
 PY_VERSION=3.12.14
@@ -84,7 +84,7 @@ if ! grep -q 'map=hextrack' "$PG/pg_hba.conf"; then
   chown postgres:postgres "$PG/pg_hba.conf.new"; chmod 0640 "$PG/pg_hba.conf.new"
   mv "$PG/pg_hba.conf.new" "$PG/pg_hba.conf"
 fi
-runuser -u postgres -- psql -X -q -v ON_ERROR_STOP=1 -f "$SRC/postgres/roles.sql"
+runuser -u postgres -- psql -X -q -v ON_ERROR_STOP=1 -d postgres -f - <"$SRC/postgres/roles.sql"   # stdin: postgres cannot read ~walker
 systemctl reload postgresql
 
 step "config and secrets in /etc/hextrack (names only)"
