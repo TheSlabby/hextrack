@@ -95,3 +95,36 @@ async def get_stack_games(
         cursor=position,
         limit=limit,
     )
+
+
+@router.get(
+    "/recent",
+    response_model=StackGamePage,
+    summary="The roster's most recent games, newest first (cursor paginated)",
+    responses=error_responses(400),
+)
+async def get_recent_games(
+    session: SessionDep,
+    settings: SettingsDep,
+    scorer: OptionalScorerDep,
+    cursor: Annotated[str | None, Query(max_length=200)] = None,
+    limit: Annotated[int, Query(ge=1, le=20)] = 8,
+) -> StackGamePage:
+    """Every game a roster player played (the same rows as the Stacks page with a minimum of
+    one roster player): all queues except Arena and customs, remakes excluded. Friends on the
+    same team share a row, with the stack verdict when there are two or more."""
+    try:
+        position = queries.decode_cursor(cursor) if cursor else None
+    except queries.InvalidCursor as exc:
+        raise ApiError(400, "Invalid cursor", "invalid_cursor") from exc
+    version = await queries.resolve_model_version(session, scorer)
+    return await stacks.stack_games(
+        session,
+        settings,
+        since="all",
+        queue="all",
+        size=1,
+        model_version=version,
+        cursor=position,
+        limit=limit,
+    )

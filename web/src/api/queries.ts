@@ -84,6 +84,7 @@ export const queryKeys = {
   stacks: (since: StatsSince, queue: StackQueue, size: StackSize) => ["squad", "stacks", since, queue, size] as const,
   stackGames: (since: StatsSince, queue: StackQueue, size: StackSize) =>
     ["squad", "stacks", "games", since, queue, size] as const,
+  recentGames: () => ["squad", "recent"] as const,
   records: (since: StatsSince, queue: LeaderboardQueue, puuid: string | null, limit: number) =>
     ["records", since, queue, puuid ?? "roster", limit] as const,
   recordsAll: () => ["records"] as const,
@@ -406,6 +407,25 @@ export function useStackGames({ since = "season", queue = "all", size = 5 }: Sta
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.next_cursor,
     staleTime: MINUTE,
+  });
+}
+
+/** The roster's latest games, newest first (home page feed; friends on one team share a row). */
+export function useRecentGames(pageSize = 8) {
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.recentGames(), pageSize] as const,
+    queryFn: ({ pageParam, signal }): Promise<StackGamePage> =>
+      request(
+        api.GET("/api/v1/squad/recent", {
+          params: { query: { limit: pageSize, cursor: pageParam ?? undefined } },
+          signal,
+        }),
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.next_cursor,
+    staleTime: MINUTE,
+    // The feed is live: pick up newly polled games while the page is open.
+    refetchInterval: 2 * MINUTE,
   });
 }
 

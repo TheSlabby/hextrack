@@ -345,6 +345,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/squad/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The roster's most recent games, newest first (cursor paginated)
+         * @description Every game a roster player played (the same rows as the Stacks page with a minimum of
+         *     one roster player): all queues except Arena and customs, remakes excluded. Friends on the
+         *     same team share a row, with the stack verdict when there are two or more.
+         */
+        get: operations["get_recent_games"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/records": {
         parameters: {
             query?: never;
@@ -2644,6 +2666,47 @@ export interface operations {
                 queue?: "all" | "flex";
                 /** @description Fewest roster players on one team */
                 size?: number;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StackGamePage"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_recent_games: {
+        parameters: {
+            query?: {
                 cursor?: string | null;
                 limit?: number;
             };

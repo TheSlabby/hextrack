@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { useLeaderboard } from "@/api/queries";
 import { AiScoreTeaser } from "@/components/home/AiScoreTeaser";
 import { HomeHero } from "@/components/home/HomeHero";
+import { RecentGames } from "@/components/home/RecentGames";
 import { SITE_NAME, useDocumentTitle } from "@/lib/hooks";
 import { RosterHighlights } from "@/components/home/RosterHighlights";
 import { SquadSection } from "@/components/home/SquadSection";
@@ -35,6 +36,8 @@ export function HomePage() {
         error={error}
         onRetry={() => void refetch()}
       />
+
+      {hasRoster && !failed ? <RecentGames /> : null}
 
       {hasRoster && !failed ? (
         <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)]">

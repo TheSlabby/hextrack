@@ -435,3 +435,40 @@ async def test_stack_games_bad_cursor(client, session):
     resp = await client.get(GAMES_URL, params={"cursor": "not-a-cursor!"})
     assert resp.status_code == 400
     assert resp.json()["code"] == "invalid_cursor"
+
+
+RECENT_URL = "/api/v1/squad/recent"
+
+
+async def test_recent_games_is_every_roster_game(client, session):
+    await seed_stacks(session)
+    items: list[dict] = []
+    cursor = None
+    while True:
+        params = {"limit": 4} | ({"cursor": cursor} if cursor else {})
+        resp = await client.get(RECENT_URL, params=params)
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        items += body["items"]
+        cursor = body["next_cursor"]
+        if not cursor:
+            break
+
+    keys = [f"{g['match_id']}/{g['team_id']}" for g in items]
+    assert len(keys) == len(set(keys))
+    starts = [g["game_start"] for g in items]
+    assert starts == sorted(starts, reverse=True)
+    # Every stack (any size, any period) is in the feed; so is any single roster player.
+    stacks, _ = await _all_games(client, size=3, since="all", limit=50)
+    assert {f"{g['match_id']}/{g['team_id']}" for g in stacks} <= set(keys)
+    assert all(g["members"] and all(m["is_tracked"] for m in g["members"]) for g in items)
+    assert not any(g["queue_id"] in (0, 1700, 1710, 3100) for g in items)
+
+
+async def test_recent_games_limits(client, session):
+    await seed_stacks(session)
+    resp = await client.get(RECENT_URL, params={"cursor": "not-a-cursor!"})
+    assert resp.status_code == 400 and resp.json()["code"] == "invalid_cursor"
+    assert (await client.get(RECENT_URL, params={"limit": 21})).status_code == 422
+    # Default page: 8 matches (plus the other team when both teams had roster players).
+    assert len((await client.get(RECENT_URL)).json()["items"]) <= 8 + 1
