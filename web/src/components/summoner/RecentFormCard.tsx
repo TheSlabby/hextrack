@@ -1,11 +1,10 @@
 import type { ReactNode } from "react";
-import { Flame, History } from "lucide-react";
+import { Flame, History, Snowflake } from "lucide-react";
 
 import { EmptyState, FormDots, GlowCard, SectionHeader } from "@/components/common";
 import { cn } from "@/lib/cn";
 import { formatPercent, formatRecord } from "@/lib/format";
-
-import { currentStreak } from "./summonerFormat";
+import { currentStreak, PROFILE_FORM_LIMIT, streakInfo } from "@/lib/streaks";
 
 export interface RecentFormCardProps {
   /** Ranked results, newest first (up to 20). */
@@ -18,7 +17,10 @@ export function RecentFormCard({ form, className }: RecentFormCardProps) {
   const results = form.slice(0, 20);
   const wins = results.filter(Boolean).length;
   const losses = results.length - wins;
-  const streak = currentStreak(results);
+  const streak = currentStreak(results, PROFILE_FORM_LIMIT);
+  // 3+ in a row also gets a mood ("On fire") and a "+" when every game shown is part of it.
+  const hot = streakInfo(results, PROFILE_FORM_LIMIT);
+  const StreakIcon = hot?.win ? Flame : Snowflake;
 
   return (
     <GlowCard className={cn("flex flex-col gap-4 p-4 sm:p-5", className)}>
@@ -35,15 +37,25 @@ export function RecentFormCard({ form, className }: RecentFormCardProps) {
               value={
                 streak ? (
                   <span className="inline-flex items-center gap-1">
-                    {streak.win && streak.length >= 3 ? <Flame className="size-4 text-gold" aria-hidden="true" /> : null}
+                    {hot ? (
+                      <StreakIcon className={cn("size-4", hot.win ? "text-gold" : "text-loss")} aria-hidden="true" />
+                    ) : null}
                     <span className={streak.win ? "text-win" : "text-loss"}>
                       {streak.length}
+                      {hot?.open ? "+" : ""}
                       {streak.win ? "W" : "L"}
                     </span>
                   </span>
                 ) : (
                   "–"
                 )
+              }
+              note={
+                hot ? (
+                  <span className={hot.win ? "text-gold-bright" : "text-loss"} title={`${hot.description}. ${hot.mood}`}>
+                    {hot.mood}
+                  </span>
+                ) : null
               }
             />
           </div>
@@ -64,11 +76,12 @@ export function RecentFormCard({ form, className }: RecentFormCardProps) {
   );
 }
 
-function Figure({ label, value }: { label: string; value: ReactNode }) {
+function Figure({ label, value, note }: { label: string; value: ReactNode; note?: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-0.5 rounded-xl border border-border bg-white/[0.02] px-3 py-2">
       <span className="label-caps truncate">{label}</span>
       <span className="font-display text-lg leading-tight font-semibold tabular-nums text-text">{value}</span>
+      {note ? <span className="truncate text-[11px] leading-tight font-medium">{note}</span> : null}
     </div>
   );
 }

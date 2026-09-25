@@ -30,7 +30,7 @@ export function SummonerView({ profile, region, tab, onTabChange }: SummonerView
   return (
     <div className="flex flex-col gap-6 sm:gap-8">
       <Reveal>
-        <ProfileHeader profile={profile} region={region} />
+        <ProfileHeader profile={profile} region={region} onOpenTrends={() => onTabChange("trends")} />
       </Reveal>
 
       <div className={SUMMONER_GRID}>

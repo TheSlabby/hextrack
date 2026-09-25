@@ -7,10 +7,12 @@ import { AiScoreBadge } from "@/components/common/AiScoreBadge";
 import { RolePercentileAverage } from "@/components/common/RolePercentile";
 import { FormDots } from "@/components/common/FormDots";
 import { ProfileIcon } from "@/components/common/ProfileIcon";
+import { StreakBadge } from "@/components/common/StreakBadge";
 import { WinRateBar } from "@/components/common/WinRateBar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { LEADERBOARD_FORM_LIMIT } from "@/lib/streaks";
 import { formatAvgKdaLine, formatInteger, formatKdaRatio, plural } from "@/lib/format";
 import { summonerParams } from "@/lib/riotId";
 
@@ -200,7 +202,10 @@ export function LeaderboardTable({ entries, standings, queue, sort, onSort, clas
                 <TopChampions champions={entry.top_champions} />
               </TableCell>
               <TableCell className={cn(CELL, "pr-4")}>
-                <FormDots results={entry.recent_form} limit={10} size="sm" className="flex-nowrap" />
+                <span className="flex items-center gap-1.5 whitespace-nowrap">
+                  <FormDots results={entry.recent_form} limit={10} size="sm" className="flex-nowrap" />
+                  <StreakBadge results={entry.recent_form} limit={LEADERBOARD_FORM_LIMIT} size="sm" />
+                </span>
               </TableCell>
             </TableRow>
           );

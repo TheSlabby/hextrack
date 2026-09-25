@@ -10,6 +10,7 @@ import { GlowCard } from "@/components/common/GlowCard";
 import { Stagger, StaggerItem } from "@/components/common/Motion";
 import { ProfileIcon } from "@/components/common/ProfileIcon";
 import { SectionHeader } from "@/components/common/SectionHeader";
+import { StreakBadge } from "@/components/common/StreakBadge";
 import { TierBadge } from "@/components/common/TierBadge";
 import { WinRateBar } from "@/components/common/WinRateBar";
 import { LpDelta, RankCell, RiotIdText, StandingBadge } from "@/components/leaderboard/parts";
@@ -18,6 +19,7 @@ import { displayedRank, type Standings } from "@/components/leaderboard/sorting"
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
+import { LEADERBOARD_FORM_LIMIT } from "@/lib/streaks";
 import { formatPercent, formatRecord, formatShortDate, plural } from "@/lib/format";
 import { summonerParams } from "@/lib/riotId";
 
@@ -105,7 +107,11 @@ function PodiumCard({ entry, place, desktop }: { entry: LeaderboardEntry; place:
               place === 1 ? "text-lg md:text-xl" : "text-base md:text-lg",
             )}
           />
-          {rank ? <TierBadge entry={rank.entry} size="sm" /> : <TierBadge tier={null} size="sm" />}
+          <span className="flex flex-wrap items-center gap-1.5 md:justify-center">
+            {rank ? <TierBadge entry={rank.entry} size="sm" /> : <TierBadge tier={null} size="sm" />}
+            {/* Inside the card's link, so no tooltip (a nested tab stop isn't allowed). */}
+            <StreakBadge results={entry.recent_form} limit={LEADERBOARD_FORM_LIMIT} size="sm" tooltip={false} />
+          </span>
         </span>
 
         {/* One gauge sweeps per view (DESIGN.md → Motion): the other two places are static. */}
@@ -169,11 +175,14 @@ function SquadRow({ entry, standing, gamesNeeded }: { entry: LeaderboardEntry; s
       <StandingBadge standing={standing} />
       <ProfileIcon iconId={entry.profile_icon_id} size="sm" alt="" />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <RiotIdText
-          gameName={entry.game_name}
-          tagLine={entry.tag_line}
-          nameClassName="transition-colors group-hover:text-gold-bright"
-        />
+        <span className="flex min-w-0 items-center gap-1.5">
+          <RiotIdText
+            gameName={entry.game_name}
+            tagLine={entry.tag_line}
+            nameClassName="transition-colors group-hover:text-gold-bright"
+          />
+          <StreakBadge results={entry.recent_form} limit={LEADERBOARD_FORM_LIMIT} size="sm" tooltip={false} />
+        </span>
         <span className="truncate text-xs text-text-muted sm:hidden">
           {entry.games > 0
             ? `${formatPercent(entry.winrate)} win rate · ${plural(entry.games, "game")}`

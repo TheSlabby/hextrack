@@ -77,23 +77,6 @@ export function nextDivisionLabel(tier: Tier, rank: Division | null): string | n
   return isApexTier(nextTier) ? TIER_LABELS[nextTier] : `${TIER_LABELS[nextTier]} IV`;
 }
 
-export interface Streak {
-  win: boolean;
-  length: number;
-}
-
-/** Current streak from results ordered newest first; null when there are no results. */
-export function currentStreak(resultsNewestFirst: readonly boolean[]): Streak | null {
-  const first = resultsNewestFirst[0];
-  if (first === undefined) return null;
-  let length = 0;
-  for (const result of resultsNewestFirst) {
-    if (result !== first) break;
-    length += 1;
-  }
-  return { win: first, length };
-}
-
 /** Total games on a rank entry. */
 export function rankGames(entry: Pick<RankEntry, "wins" | "losses">): number {
   return entry.wins + entry.losses;

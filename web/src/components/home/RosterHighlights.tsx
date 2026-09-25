@@ -8,9 +8,11 @@ import { GlowCard } from "@/components/common/GlowCard";
 import { Stagger, StaggerItem } from "@/components/common/Motion";
 import { ProfileIcon } from "@/components/common/ProfileIcon";
 import { SectionHeader } from "@/components/common/SectionHeader";
+import { StreakBadge } from "@/components/common/StreakBadge";
 import { RiotIdText } from "@/components/leaderboard/parts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
+import { LEADERBOARD_FORM_LIMIT } from "@/lib/streaks";
 import { formatInteger, formatLpDelta, formatPercent, formatRecord, plural } from "@/lib/format";
 import { summonerParams } from "@/lib/riotId";
 
@@ -86,6 +88,8 @@ function PlayerHighlightCard({ icon, label, entry, value, caption, valueClassNam
               className="text-sm"
               nameClassName="transition-colors group-hover:text-gold-bright"
             />
+            {/* Inside the card's link, so no tooltip (a nested tab stop isn't allowed). */}
+            <StreakBadge results={entry.recent_form} limit={LEADERBOARD_FORM_LIMIT} size="sm" tooltip={false} />
           </>
         ) : (
           <span className="text-sm text-text-muted">Not enough games yet</span>

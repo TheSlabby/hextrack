@@ -1,16 +1,18 @@
 import { useMemo } from "react";
-import { ArrowDownRight, ArrowUpRight, CircleHelp, Clock, Minus, Users } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, CircleHelp, Clock, Minus, Skull, Users } from "lucide-react";
 
-import { useHealth, useMatchHistory } from "@/api/queries";
+import { useHealth, useMatchHistory, useMatchupInsights } from "@/api/queries";
 import type { MatchSummary, SummonerProfile } from "@/api/types";
 import { AiScoreExplainer } from "@/components/ai/AiScoreExplainer";
-import { AiScoreRing, ProfileIcon } from "@/components/common";
+import { AiScoreRing, ChampionIcon, ProfileIcon, StreakBadge } from "@/components/common";
 import { RolePercentileAverage } from "@/components/common/RolePercentile";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
-import { formatDate, formatDateTime, formatSigned, plural, timeAgo } from "@/lib/format";
+import { PROFILE_FORM_LIMIT } from "@/lib/streaks";
+import { championDisplayName } from "@/lib/champions";
+import { formatDate, formatDateTime, formatRecord, formatSigned, plural, timeAgo } from "@/lib/format";
 import { isRankedQueue } from "@/lib/queues";
 import { toScore100 } from "@/lib/score";
 
@@ -26,10 +28,12 @@ import { UpdateButton } from "./UpdateButton";
 export interface ProfileHeaderProps {
   profile: SummonerProfile;
   region: string;
+  /** Switches to the Trends tab (where the full nemesis list lives). */
+  onOpenTrends?: () => void;
 }
 
 /** Summoner hero: splash banner, identity, Update / copy-link actions and the season AI Score. */
-export function ProfileHeader({ profile, region }: ProfileHeaderProps) {
+export function ProfileHeader({ profile, region, onOpenTrends }: ProfileHeaderProps) {
   const now = useNow(30_000);
   const updated = profile.last_refreshed_at;
 
@@ -63,6 +67,8 @@ export function ProfileHeader({ profile, region }: ProfileHeaderProps) {
                 </Tooltip>
               ) : null}
               <Badge variant="secondary">{platformLabel(profile.platform)}</Badge>
+              <StreakBadge results={profile.recent_form} limit={PROFILE_FORM_LIMIT} />
+              <NemesisBadge puuid={profile.puuid} onOpenTrends={onOpenTrends} />
             </div>
 
             <h1 className="font-display text-[28px] leading-[1.1] font-bold tracking-tight [overflow-wrap:anywhere] text-text sm:text-4xl">
@@ -92,6 +98,50 @@ export function ProfileHeader({ profile, region }: ProfileHeaderProps) {
         <AiSummary profile={profile} />
       </div>
     </header>
+  );
+}
+
+/**
+ * The lane opponent's champion this player has the worst record against this season (3+
+ * games, losing record), from the Trends tab's matchup insights. Nothing when there isn't one.
+ */
+function NemesisBadge({ puuid, onOpenTrends }: { puuid: string; onOpenTrends?: () => void }) {
+  const { data } = useMatchupInsights(puuid);
+  const nemesis = data?.nemeses[0];
+  if (!nemesis) return null;
+  const champion = championDisplayName(nemesis.champion_name);
+  const record = formatRecord(nemesis.wins, nemesis.losses);
+  const pill = (
+    <>
+      <Skull className="size-3.5 text-loss" aria-hidden="true" />
+      <span className="text-text-secondary">Nemesis</span>
+      <ChampionIcon champion={nemesis.champion_name} size="xs" />
+      <span className="text-text">{champion}</span>
+      <span className="text-loss tabular-nums">{record}</span>
+    </>
+  );
+  const classes =
+    "inline-flex h-6 items-center gap-1.5 rounded-full border border-loss/35 bg-loss/[0.08] px-2.5 text-xs font-semibold whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
+  const label = `Nemesis: ${champion}, ${record} in lane this season`;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {onOpenTrends ? (
+          <button type="button" onClick={onOpenTrends} aria-label={`${label}. Open Trends`} className={cn(classes, "cursor-pointer transition-colors hover:border-loss/60")}>
+            {pill}
+          </button>
+        ) : (
+          <span tabIndex={0} aria-label={label} className={classes}>
+            {pill}
+          </span>
+        )}
+      </TooltipTrigger>
+      <TooltipContent className="max-w-64">
+        The lane opponent this player has the worst record against this season ({nemesis.games} games).
+        {onOpenTrends ? " Click for every matchup in Trends." : ""}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

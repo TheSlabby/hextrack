@@ -26,6 +26,7 @@ export {
   SkeletonText,
 } from "./Skeletons";
 export { SpellIcons, type SpellIconsProps } from "./SpellIcons";
+export { StreakBadge, type StreakBadgeProps } from "./StreakBadge";
 export { StatTile, type StatDelta, type StatTileProps } from "./StatTile";
 export { TierBadge, type TierBadgeProps } from "./TierBadge";
 export { WinRateBar, type WinRateBarProps } from "./WinRateBar";

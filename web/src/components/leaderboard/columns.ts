@@ -47,5 +47,10 @@ export const LEADERBOARD_COLUMNS: readonly LeaderboardColumn[] = [
   },
   { id: "ally", label: "Best duo", className: "w-32", hint: "Tracked teammate with the most wins together" },
   { id: "champions", label: "Champions", className: "w-24", hint: "Most played champions this season" },
-  { id: "form", label: "Form", className: "w-[104px] pr-4", hint: "Last 10 games, newest first" },
+  {
+    id: "form",
+    label: "Form",
+    className: "w-[156px] pr-4",
+    hint: "Last 10 games, newest first, with the current streak once it reaches 3",
+  },
 ];

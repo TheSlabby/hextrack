@@ -9,10 +9,12 @@ import { FormDots } from "@/components/common/FormDots";
 import { GlowCard } from "@/components/common/GlowCard";
 import { Stagger, StaggerItem } from "@/components/common/Motion";
 import { ProfileIcon } from "@/components/common/ProfileIcon";
+import { StreakBadge } from "@/components/common/StreakBadge";
 import { WinRateBar } from "@/components/common/WinRateBar";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/cn";
+import { LEADERBOARD_FORM_LIMIT } from "@/lib/streaks";
 import { formatAvgKdaLine, formatInteger, formatKdaRatio, plural } from "@/lib/format";
 import { summonerParams } from "@/lib/riotId";
 
@@ -123,7 +125,10 @@ export function LeaderboardCards({ entries, standings, queue, className }: Leade
               </div>
               <div className="mt-3 flex items-center justify-between gap-3">
                 <span className="label-caps">Form</span>
-                <FormDots results={entry.recent_form} limit={10} size="sm" className="flex-nowrap" />
+                <span className="flex items-center gap-1.5">
+                  <FormDots results={entry.recent_form} limit={10} size="sm" className="flex-nowrap" />
+                  <StreakBadge results={entry.recent_form} limit={LEADERBOARD_FORM_LIMIT} size="sm" />
+                </span>
               </div>
               {needed === 0 && entry.avg_ai_role_percentile !== null ? (
                 <div className="mt-2 flex items-center justify-between gap-3">
