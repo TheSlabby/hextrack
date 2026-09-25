@@ -1,0 +1,21 @@
+[Unit]
+Description=HexTrack Discord bot (rank changes, great games, daily leaderboard, /lp)
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=exec
+User=hextrack
+Group=hextrack
+EnvironmentFile=/etc/hextrack/hextrack.env
+# The bot only reads the database and talks to Discord: no Riot key, no model.
+LoadCredential=DISCORD_TOKEN:/etc/hextrack/credentials/DISCORD_TOKEN
+CacheDirectory=hextrack
+ExecStart=/opt/hextrack/current/venv/bin/python -m hextrack bot
+Restart=on-failure
+RestartSec=15
+MemoryMax=512M
+# MemoryDenyWriteExecute=yes   only if the pre-cutover test passes
+
+[Install]
+WantedBy=multi-user.target

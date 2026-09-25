@@ -1,0 +1,4 @@
+# Inserted into /etc/postgresql/15/main/pg_hba.conf directly BELOW the
+#   local   all   postgres   peer
+# line and ABOVE "local all all peer" (pg_hba is first-match). Socket-only, no password.
+local   hextrack_v2     hextrack_app,hextrack_v2                peer map=hextrack

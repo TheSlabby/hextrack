@@ -7,6 +7,7 @@ Values come from the process environment, then ``api/.env``, then the repo-root 
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
@@ -50,6 +51,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         # Later files take priority: api/.env overrides the repo-root .env.
         env_file=(REPO_ROOT / ".env", API_DIR / ".env"),
+        # systemd LoadCredential= (production): one file per secret, named like its env var
+        # (RIOT_API_KEY, DISCORD_TOKEN, ...). Environment variables still take priority.
+        secrets_dir=os.environ.get("CREDENTIALS_DIRECTORY") or None,
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,

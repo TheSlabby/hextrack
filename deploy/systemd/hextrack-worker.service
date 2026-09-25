@@ -1,0 +1,20 @@
+[Unit]
+Description=HexTrack Riot poller (roster matches, ranks, AI scores)
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=exec
+User=hextrack
+Group=hextrack
+EnvironmentFile=/etc/hextrack/hextrack.env
+LoadCredential=RIOT_API_KEY:/etc/hextrack/credentials/RIOT_API_KEY
+CacheDirectory=hextrack
+ExecStart=/opt/hextrack/current/venv/bin/python -m hextrack worker
+Restart=on-failure
+RestartSec=10
+MemoryMax=1536M
+# MemoryDenyWriteExecute=yes   only if the pre-cutover test passes (torch may JIT)
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,288 @@
+#!/usr/bin/python3 -I
+"""hextrack-install: install a HexTrack build that walker staged, as root.
+
+    sudo /usr/local/sbin/hextrack-install /home/walker/hextrack-staging/<build-id>
+    sudo /usr/local/sbin/hextrack-install --rollback
+
+Installs to /opt/hextrack (root:root, read-only for the service user) and points
+/opt/hextrack/current at the new release; /opt/hextrack/previous keeps the one before, and
+--rollback swaps the two. It does not migrate or restart anything: deploy.sh does that with
+`systemctl start hextrack-migrate` and `systemctl restart hextrack-...`.
+
+Staging layout (deploy.sh builds it as walker, from `git archive`, so it never holds .env):
+    BUILD              the build id (git short hash); must equal the directory name
+    VENV_ID            hex id of the dependency set (hash of uv.lock and the interpreter)
+    api/src/hextrack/  the package          api/alembic/, api/alembic.ini   migrations
+    web/dist/          the built frontend
+    venv/              only when /opt/hextrack/venvs/<VENV_ID> does not exist yet
+
+Walker is not trusted with root, so the staged tree is treated as hostile. It is read as
+walker (so it can only contain what walker can read anyway), streamed into a root-only file,
+and every archive member is checked before anything is unpacked: plain files, directories
+and symlinks only; no absolute or ".." paths; no member below a symlink; symlinks only in
+venv/, pointing inside the tree or at the interpreter in /opt/hextrack/python. Everything
+is then owned by root with 0755 / 0644 modes.
+"""
+
+from __future__ import annotations
+
+import fcntl
+import os
+import posixpath
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import tarfile
+import tempfile
+from pathlib import Path
+
+DEPLOY_USER = "walker"
+STAGING_ROOT = Path("/home/walker/hextrack-staging")
+OPT = Path("/opt/hextrack")
+RELEASES = OPT / "releases"
+VENVS = OPT / "venvs"
+PYTHON_DIR = "/opt/hextrack/python"
+CURRENT = OPT / "current"
+PREVIOUS = OPT / "previous"
+LOCK = "/run/lock/hextrack-install.lock"
+KEEP_RELEASES = 3
+MAX_BYTES = 6 * 1024**3
+
+BUILD_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+VENV_ID_RE = re.compile(r"^[0-9a-f]{16,64}$")
+TOP_LEVEL = {"BUILD", "VENV_ID", "api", "web", "venv"}
+REQUIRED_FILES = ("api/src/hextrack/__init__.py", "api/src/hextrack/__main__.py", "api/alembic.ini", "web/dist/index.html")
+
+
+def die(message: str) -> None:
+    print(f"hextrack-install: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+def say(message: str) -> None:
+    print(f"    {message}")
+
+
+# --- staged tree ------------------------------------------------------------------------------
+
+
+def check_staging_dir(arg: str) -> tuple[Path, str]:
+    match = re.fullmatch(rf"{re.escape(str(STAGING_ROOT))}/([^/]+)/?", arg)
+    if not match or not BUILD_RE.match(match.group(1)):
+        die(f"expected {STAGING_ROOT}/<build-id>, got {arg!r}")
+    build = match.group(1)
+    uid = _uid(DEPLOY_USER)
+    for path in (STAGING_ROOT, STAGING_ROOT / build):
+        st = os.lstat(path)
+        if not stat.S_ISDIR(st.st_mode) or st.st_uid != uid:
+            die(f"{path} must be a real directory owned by {DEPLOY_USER}")
+    return STAGING_ROOT / build, build
+
+
+def _uid(user: str) -> int:
+    import pwd
+
+    return pwd.getpwnam(user).pw_uid
+
+
+def read_as_deploy_user(src: Path, dest: Path) -> None:
+    """tar the staged tree as walker (symlinks archived as links, never followed)."""
+    with open(dest, "wb") as out:
+        result = subprocess.run(
+            ["/usr/sbin/runuser", "-u", DEPLOY_USER, "--", "/usr/bin/tar", "-C", str(src), "--format=gnu", "-cf", "-", "."],
+            stdout=out,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+    if result.returncode != 0:
+        die(f"could not read the staged build: {result.stderr.decode(errors='replace').strip()}")
+
+
+def safe_name(raw: str) -> str:
+    name = raw[2:] if raw.startswith("./") else raw
+    name = name.rstrip("/")
+    if name in ("", "."):
+        return ""
+    parts = name.split("/")
+    if raw.startswith("/") or any(p in ("", ".", "..") for p in parts) or "\n" in name or "\0" in name:
+        die(f"unsafe path in build: {raw!r}")
+    return name
+
+
+def check_members(archive: tarfile.TarFile, build: str) -> tuple[list[tarfile.TarInfo], bool]:
+    members: list[tarfile.TarInfo] = []
+    seen: set[str] = set()
+    symlinks: set[str] = set()
+    total = 0
+    for m in archive.getmembers():
+        name = safe_name(m.name)
+        if not name:
+            continue
+        if name in seen:
+            die(f"duplicate path in build: {name}")
+        seen.add(name)
+        parts = name.split("/")
+        if parts[0] not in TOP_LEVEL:
+            die(f"unexpected top-level entry: {parts[0]}")
+        for i in range(1, len(parts)):
+            if "/".join(parts[:i]) in symlinks:
+                die(f"path below a symlink: {name}")
+        if m.issym():
+            if parts[0] != "venv":
+                die(f"symlink outside venv/: {name}")
+            target = m.linkname
+            if target.startswith("/"):
+                norm = posixpath.normpath(target)
+                if not norm.startswith(PYTHON_DIR + "/"):
+                    die(f"symlink {name} points outside the tree: {target}")
+            else:
+                resolved = posixpath.normpath(posixpath.join(posixpath.dirname(name), target))
+                if not (resolved == "venv" or resolved.startswith("venv/")):
+                    die(f"symlink {name} escapes venv/: {target}")
+            symlinks.add(name)
+        elif not (m.isdir() or m.isreg()):
+            die(f"not a plain file, directory or symlink: {name}")
+        total += m.size
+        if total > MAX_BYTES:
+            die("build is too large")
+        m.name = name
+        m.uid = m.gid = 0
+        m.uname = m.gname = "root"
+        if m.isdir():
+            m.mode = 0o755
+        elif m.isreg():
+            m.mode = 0o755 if m.mode & 0o111 else 0o644
+        members.append(m)
+
+    for required in (*REQUIRED_FILES, "BUILD", "VENV_ID"):
+        if required not in seen:
+            die(f"build is missing {required}")
+    return members, any(n == "venv" or n.startswith("venv/") for n in seen)
+
+
+def read_small(archive: tarfile.TarFile, name: str) -> str:
+    member = archive.getmember(name)  # names were normalised by check_members
+    f = archive.extractfile(member)
+    if f is None or member.size > 256:
+        die(f"bad {name}")
+    return f.read().decode("ascii", errors="replace").strip()
+
+
+# --- install ------------------------------------------------------------------------------------
+
+
+def install(arg: str) -> None:
+    staged, build = check_staging_dir(arg)
+    scratch = Path(tempfile.mkdtemp(prefix=".install.", dir=OPT))
+    try:
+        tar_path = scratch / "build.tar"
+        read_as_deploy_user(staged, tar_path)
+        with tarfile.open(tar_path, "r:") as archive:
+            members, has_venv = check_members(archive, build)
+            if read_small(archive, "BUILD") != build:
+                die("BUILD does not match the directory name")
+            venv_id = read_small(archive, "VENV_ID")
+            if not VENV_ID_RE.match(venv_id):
+                die("bad VENV_ID")
+            need_venv = not (VENVS / venv_id).is_dir()
+            if need_venv and not has_venv:
+                die(f"dependency set {venv_id} is not installed and the build has no venv/")
+            keep = [m for m in members if need_venv or not (m.name == "venv" or m.name.startswith("venv/"))]
+            tree = scratch / "tree"
+            tree.mkdir(mode=0o755)
+            archive.extractall(tree, members=keep, numeric_owner=True)
+        tar_path.unlink()
+
+        if need_venv:
+            cfg = (tree / "venv" / "pyvenv.cfg").read_text(encoding="utf-8", errors="replace")
+            home = re.search(r"^home\s*=\s*(.+)$", cfg, re.M)
+            if not home or not home.group(1).strip().startswith(PYTHON_DIR + "/"):
+                die(f"venv/pyvenv.cfg must use the interpreter in {PYTHON_DIR}")
+            os.rename(tree / "venv", VENVS / venv_id)
+            say(f"installed dependency set {venv_id}")
+        else:
+            say(f"reusing dependency set {venv_id}")
+
+        os.symlink(f"../../venvs/{venv_id}", tree / "venv")
+        release = RELEASES / build
+        if release.exists():
+            if CURRENT.is_symlink() and os.readlink(CURRENT).rstrip("/").endswith(f"releases/{build}"):
+                die(f"{build} is the current release already")
+            shutil.rmtree(release)
+        os.rename(tree, release)
+        switch_to(release)
+        say(f"release {build} is current")
+        prune()
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def _link(path: Path, target: str) -> None:
+    tmp = path.with_name(f".{path.name}.new")
+    if tmp.is_symlink() or tmp.exists():
+        tmp.unlink()
+    os.symlink(target, tmp)
+    os.replace(tmp, path)  # atomic
+
+
+def switch_to(release: Path) -> None:
+    target = f"releases/{release.name}"
+    if CURRENT.is_symlink():
+        _link(PREVIOUS, os.readlink(CURRENT))
+    _link(CURRENT, target)
+
+
+def rollback() -> None:
+    if not (PREVIOUS.is_symlink() and CURRENT.is_symlink()):
+        die("no previous release to roll back to")
+    current, previous = os.readlink(CURRENT), os.readlink(PREVIOUS)
+    if not (OPT / previous).is_dir():
+        die(f"previous release {previous} is gone")
+    _link(CURRENT, previous)
+    _link(PREVIOUS, current)
+    say(f"current is now {previous} (was {current}); run --rollback again to undo")
+
+
+def prune() -> None:
+    """Keep the newest releases plus current/previous, and only the venvs they use."""
+    pinned = {os.readlink(p).split("/")[-1] for p in (CURRENT, PREVIOUS) if p.is_symlink()}
+    releases = sorted(RELEASES.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
+    for i, release in enumerate(releases):
+        if i >= KEEP_RELEASES and release.name not in pinned:
+            shutil.rmtree(release)
+    used = {os.readlink(r / "venv").split("/")[-1] for r in RELEASES.iterdir() if (r / "venv").is_symlink()}
+    for venv in VENVS.iterdir():
+        if venv.name not in used:
+            shutil.rmtree(venv)
+
+
+def main() -> None:
+    if os.geteuid() != 0:
+        die("must run as root (sudo)")
+    os.umask(0o022)
+    os.environ.clear()
+    os.environ.update(PATH="/usr/sbin:/usr/bin:/sbin:/bin", LC_ALL="C")
+    os.chdir("/")
+    if len(sys.argv) != 2:
+        die("usage: hextrack-install /home/walker/hextrack-staging/<build-id> | --rollback")
+    for d in (OPT, RELEASES, VENVS):
+        st = os.lstat(d)
+        if not stat.S_ISDIR(st.st_mode) or st.st_uid != 0 or st.st_mode & 0o022:
+            die(f"{d} must be a root-owned directory not writable by others (run root-setup.sh)")
+    with open(LOCK, "w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            die("another install is running")
+        for stale in OPT.glob(".install.*"):
+            shutil.rmtree(stale, ignore_errors=True)
+        if sys.argv[1] == "--rollback":
+            rollback()
+        else:
+            install(sys.argv[1])
+
+
+if __name__ == "__main__":
+    main()

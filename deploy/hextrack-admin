@@ -1,0 +1,39 @@
+#!/bin/bash
+# hextrack-admin: run a HexTrack maintenance command as the hextrack user, inside the same
+# sandbox as the services (the shared hextrack-.service.d drop-in applies to these units).
+#
+#   sudo hextrack-admin train [--activate] [--epochs N] ...   train (and activate) a model
+#   sudo hextrack-admin model list | activate <version> | rescore
+#   sudo hextrack-admin backfill [--since YYYY-MM-DD] [--player Name#TAG]   (stop the worker first)
+#   sudo hextrack-admin roster list | add <Name#TAG> | rm <Name#TAG>
+#
+# Arguments go to `python -m hextrack` as argv (no shell). Only these subcommands are allowed,
+# and they can only do what the unprivileged hextrack user can.
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C
+
+[ "$(id -u)" = 0 ] || { echo "hextrack-admin: run with sudo" >&2; exit 1; }
+case "${1:-}" in
+  train | model | backfill | roster) ;;
+  *) sed -n '2,11s/^# \{0,1\}//p' "$0" >&2; exit 2 ;;
+esac
+for arg in "$@"; do
+  case "$arg" in *$'\n'* | *$'\0'*) echo "hextrack-admin: bad argument" >&2; exit 2 ;; esac
+done
+
+props=(
+  -p User=hextrack -p Group=hextrack
+  -p EnvironmentFile=/etc/hextrack/hextrack.env
+  -p CacheDirectory=hextrack
+  -p MemoryMax=2G
+)
+case "$1" in
+  # Training writes a new model directory and may switch ACTIVE: the only writable state.
+  train | model) props+=(-p StateDirectory=hextrack -p StateDirectoryMode=0700) ;;
+  # These call Riot.
+  backfill | roster) props+=(-p LoadCredential=RIOT_API_KEY:/etc/hextrack/credentials/RIOT_API_KEY) ;;
+esac
+
+exec systemd-run --quiet --wait --pipe --collect --service-type=exec \
+  --unit="hextrack-admin-$1-$(date +%s)" "${props[@]}" \
+  -- /opt/hextrack/current/venv/bin/python -m hextrack "$@"

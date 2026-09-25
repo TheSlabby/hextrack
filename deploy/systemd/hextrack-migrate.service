@@ -1,0 +1,14 @@
+# Started by deploys (sudo systemctl start hextrack-migrate) before the services restart.
+# Runs as its own user, which Postgres maps to the schema owner role; the services' role
+# cannot change the schema.
+[Unit]
+Description=HexTrack database migrations
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=hextrack-migrate
+Group=hextrack-migrate
+EnvironmentFile=/etc/hextrack/migrate.env
+ExecStart=/opt/hextrack/current/venv/bin/python -m hextrack db upgrade
+MemoryMax=512M

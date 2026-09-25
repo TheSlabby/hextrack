@@ -1,0 +1,16 @@
+# /etc/sudoers.d/hextrack (root:root 0440). Everything walker needs to deploy and operate
+# HexTrack, and nothing else. Needs sudo >= 1.9.10 for ^regex$ arguments (the Pi has 1.9.13).
+# No "*" wildcards: in sudoers "*" also matches spaces, which would allow extra arguments.
+# Logs need no rule: walker is in the adm group, which can read the system journal
+# (journalctl -u hextrack-api ...).
+#
+# Note: this only narrows anything once walker's blanket NOPASSWD rule
+# (/etc/sudoers.d/010_pi-nopasswd) is removed. That is a separate decision.
+
+Cmnd_Alias HEXTRACK_INSTALL = /usr/local/sbin/hextrack-install ^/home/walker/hextrack-staging/[A-Za-z0-9][A-Za-z0-9._-]*/?$, \
+                              /usr/local/sbin/hextrack-install --rollback
+Cmnd_Alias HEXTRACK_SERVICE = /usr/bin/systemctl ^(start|stop|restart|try-restart) hextrack-(api|worker|bot)( hextrack-(api|worker|bot))*$, \
+                              /usr/bin/systemctl start hextrack-migrate
+Cmnd_Alias HEXTRACK_ADMIN   = /usr/local/sbin/hextrack-admin ^(train|model|backfill|roster)( [^;&|`$<>]*)?$
+
+walker ALL=(root) NOPASSWD: HEXTRACK_INSTALL, HEXTRACK_SERVICE, HEXTRACK_ADMIN
