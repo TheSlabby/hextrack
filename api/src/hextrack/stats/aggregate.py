@@ -72,20 +72,23 @@ LEADERBOARD_QUEUES: Final[dict[str, tuple[int, ...]]] = {
 
 def stat_rows(
     *,
-    queues: Collection[int],
+    queues: Collection[int] | None,
     since: datetime | None,
     puuids: Collection[str] | None = None,
+    exclude_queues: Collection[int] = (),
 ) -> Select:
-    """Participant lines that count towards stats: the given queues, games started at or
-    after ``since``, remakes excluded. Columns: match_id, puuid, team_id, game_start, win,
-    kills, deaths, assists, champion_id, champion_name, team_position, cs, damage,
-    vision_score, ai_score, model_version, game_duration."""
+    """Participant lines that count towards stats: the given queues (``None``: every queue
+    except ``exclude_queues``), games started at or after ``since``, remakes excluded.
+    Columns: match_id, puuid, team_id, queue_id, game_start, win, kills, deaths, assists,
+    champion_id, champion_name, team_position, cs, damage, vision_score, ai_score,
+    model_version, game_duration."""
     mp = MatchParticipant
     stmt = (
         select(
             mp.match_id,
             mp.puuid,
             mp.team_id,
+            mp.queue_id,
             mp.game_start,
             mp.win,
             mp.kills,
@@ -102,8 +105,29 @@ def stat_rows(
             Match.game_duration,
         )
         .join(Match, Match.match_id == mp.match_id)
-        .where(mp.queue_id.in_(sorted(queues)), queries.not_remake())
+        .where(queries.not_remake())
     )
+    # Queue lists are rendered as literals too (see the puuid note below).
+    if queues is not None:
+        stmt = stmt.where(
+            mp.queue_id.in_(
+                bindparam(
+                    "stat_queues", sorted(queues), expanding=True, literal_execute=True, unique=True
+                )
+            )
+        )
+    if exclude_queues:
+        stmt = stmt.where(
+            mp.queue_id.not_in(
+                bindparam(
+                    "stat_queues_out",
+                    sorted(exclude_queues),
+                    expanding=True,
+                    literal_execute=True,
+                    unique=True,
+                )
+            )
+        )
     if since is not None:
         stmt = stmt.where(mp.game_start >= since)
     if puuids is not None:

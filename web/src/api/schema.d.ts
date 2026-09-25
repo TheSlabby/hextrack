@@ -311,6 +311,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/squad/stacks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stacks (games the squad played together): record, awards, lineups, highlights */
+        get: operations["get_stack_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/squad/stacks/games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stacked games, newest first (cursor paginated) */
+        get: operations["get_stack_games"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/records": {
         parameters: {
             query?: never;
@@ -1325,6 +1359,221 @@ export interface components {
             /** Avg Ai Score */
             avg_ai_score: number | null;
         };
+        /** StackAward */
+        StackAward: {
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "carry_king" | "ran_it_down" | "tried_their_best";
+            /** Puuid */
+            puuid: string;
+            /** Count */
+            count: number;
+        };
+        /**
+         * StackGame
+         * @description One team in one match on which ``size``+ roster players played together.
+         */
+        StackGame: {
+            /** Match Id */
+            match_id: string;
+            /** Queue Id */
+            queue_id: number;
+            /** Queue Label */
+            queue_label: string;
+            /** Game Mode */
+            game_mode: string;
+            /**
+             * Game Start
+             * Format: date-time
+             */
+            game_start: string;
+            /** Game Duration */
+            game_duration: number;
+            /** Patch */
+            patch: string;
+            /**
+             * Team Id
+             * @enum {integer}
+             */
+            team_id: 100 | 200;
+            /** Win */
+            win: boolean;
+            /** Team Kills */
+            team_kills: number;
+            /** Enemy Kills */
+            enemy_kills: number;
+            /** Members */
+            members: components["schemas"]["ParticipantSummary"][];
+            verdict: components["schemas"]["StackVerdict"] | null;
+        };
+        /** StackGamePage */
+        StackGamePage: {
+            /** Items */
+            items: components["schemas"]["StackGame"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** StackHighlight */
+        StackHighlight: {
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "biggest_stomp" | "worst_loss" | "longest_game" | "fastest_win" | "most_team_kills";
+            /** Match Id */
+            match_id: string;
+            /**
+             * Game Start
+             * Format: date-time
+             */
+            game_start: string;
+            /** Queue Label */
+            queue_label: string;
+            /** Win */
+            win: boolean;
+            /** Game Duration */
+            game_duration: number;
+            /** Team Kills */
+            team_kills: number;
+            /** Enemy Kills */
+            enemy_kills: number;
+            /** Member Puuids */
+            member_puuids: string[];
+        };
+        /**
+         * StackLineup
+         * @description An exact set of roster players (sorted puuids) and their record together.
+         */
+        StackLineup: {
+            /** Puuids */
+            puuids: string[];
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Winrate */
+            winrate: number;
+            /**
+             * Last Played
+             * Format: date-time
+             */
+            last_played: string;
+        };
+        /**
+         * StackPlayer
+         * @description A roster player's numbers across the stacks in the requested scope.
+         */
+        StackPlayer: {
+            /** Puuid */
+            puuid: string;
+            /** Game Name */
+            game_name: string;
+            /** Tag Line */
+            tag_line: string;
+            /** Profile Icon Id */
+            profile_icon_id: number | null;
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Winrate */
+            winrate: number;
+            /** Avg Ai Score */
+            avg_ai_score: number | null;
+            /** Scored Games */
+            scored_games: number;
+            /** Kills */
+            kills: number;
+            /** Deaths */
+            deaths: number;
+            /** Assists */
+            assists: number;
+            /** Kda */
+            kda: number;
+            /** Hard Carries */
+            hard_carries: number;
+            /** Carries */
+            carries: number;
+            /** Ran Downs */
+            ran_downs: number;
+            /** Off Days */
+            off_days: number;
+            /** Tried */
+            tried: number;
+            /** Top Champion Id */
+            top_champion_id: number | null;
+            /** Top Champion Name */
+            top_champion_name: string | null;
+            /** Top Champion Games */
+            top_champion_games: number;
+        };
+        /** StackSummary */
+        StackSummary: {
+            /**
+             * Since
+             * @enum {string}
+             */
+            since: "season" | "all";
+            /**
+             * Season Start
+             * Format: date-time
+             */
+            season_start: string;
+            /**
+             * Queue
+             * @enum {string}
+             */
+            queue: "all" | "flex";
+            /** Size */
+            size: number;
+            /** Model Version */
+            model_version: string | null;
+            /** Min Lineup Games */
+            min_lineup_games: number;
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Winrate */
+            winrate: number;
+            /** Recent Form */
+            recent_form: boolean[];
+            /** Avg Duration */
+            avg_duration: number | null;
+            /** Avg Team Kills */
+            avg_team_kills: number | null;
+            /** Avg Enemy Kills */
+            avg_enemy_kills: number | null;
+            /** Verdict Games */
+            verdict_games: number;
+            /** Players */
+            players: components["schemas"]["StackPlayer"][];
+            /** Lineups */
+            lineups: components["schemas"]["StackLineup"][];
+            best_lineup: components["schemas"]["StackLineup"] | null;
+            most_played_lineup: components["schemas"]["StackLineup"] | null;
+            /** Awards */
+            awards: components["schemas"]["StackAward"][];
+            /** Highlights */
+            highlights: components["schemas"]["StackHighlight"][];
+        };
+        /**
+         * StackVerdict
+         * @description Banter verdict for one stack: teammates share the result, so their scores compare.
+         */
+        StackVerdict: {
+            /**
+             * Tier
+             * @enum {string}
+             */
+            tier: "hardCarry" | "carry" | "edge" | "winTogether" | "soloLost" | "ranDown" | "offDay" | "tried" | "loseTogether";
+            /** Target Puuid */
+            target_puuid: string | null;
+            /** Gap */
+            gap: number;
+        };
         /** SummonerProfile */
         SummonerProfile: {
             /** Puuid */
@@ -2337,6 +2586,85 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SquadPairs"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_stack_summary: {
+        parameters: {
+            query?: {
+                since?: "season" | "all";
+                queue?: "all" | "flex";
+                /** @description Fewest roster players on one team */
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StackSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_stack_games: {
+        parameters: {
+            query?: {
+                since?: "season" | "all";
+                queue?: "all" | "flex";
+                /** @description Fewest roster players on one team */
+                size?: number;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StackGamePage"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Validation Error */
