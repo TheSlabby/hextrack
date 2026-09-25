@@ -1594,7 +1594,7 @@ export interface components {
              * Tier
              * @enum {string}
              */
-            tier: "hardCarry" | "carry" | "edge" | "winTogether" | "soloLost" | "ranDown" | "offDay" | "tried" | "loseTogether";
+            tier: "hardCarry" | "carry" | "edge" | "passenger" | "winTogether" | "soloLost" | "ranDown" | "offDay" | "tried" | "loseTogether";
             /** Target Puuid */
             target_puuid: string | null;
             /** Gap */

@@ -59,7 +59,7 @@ function rowVerdict(game: StackGame): RowVerdict | null {
   const others = game.members.filter((m) => m.puuid !== (target ?? first).puuid);
   const rest = game.members.length === 2 && others[0] ? displayName(others[0]) : "the squad";
   return {
-    text: verdictText(verdict.tier, displayName(target ?? first), rest, game.match_id),
+    text: verdictText(verdict.tier, displayName(target ?? first), rest, game.match_id, game.members.length),
     tone: isPraise(verdict.tier) ? "praise" : "blame",
     targetPuuid: target?.puuid ?? null,
     badge: target ? verdictBadge(verdict.tier) : null,

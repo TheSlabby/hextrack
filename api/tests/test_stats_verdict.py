@@ -21,6 +21,13 @@ def _members(*scores: float | None) -> list[tuple[str, float | None]]:
         ((0.80, 0.41), "carry", "p0", 39),
         ((0.80, 0.40), "hardCarry", "p0", 40),
         ((0.50, 0.95, 0.60, 0.55, 0.52), "carry", "p1", 35),
+        # No clear carry, but a clear bottom in a 3+ stack: a passenger.
+        ((0.90, 0.85, 0.80, 0.60), "passenger", "p3", 20),
+        ((0.90, 0.85, 0.80, 0.61), "winTogether", None, 5),
+        # A clear carry wins over a passenger.
+        ((0.90, 0.75, 0.70, 0.20), "edge", "p0", 15),
+        # Duos never get "passenger": the only gap is the top one.
+        ((0.80, 0.71), "winTogether", None, 9),
     ],
 )
 def test_win_tiers(scores, tier, target, gap):

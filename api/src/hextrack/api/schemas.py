@@ -487,6 +487,7 @@ VerdictTier = Literal[
     "hardCarry",
     "carry",
     "edge",
+    "passenger",
     "winTogether",
     "soloLost",
     "ranDown",

@@ -34,7 +34,7 @@ export function RecentGameItem({ game }: { game: StackGame }) {
 
   const verdict = game.verdict;
   const rest = members.length === 2 ? (members.find((m) => m !== lead)?.game_name ?? "the squad") : "the squad";
-  const line = verdict ? verdictText(verdict.tier, lead.game_name ?? "", rest, game.match_id) : null;
+  const line = verdict ? verdictText(verdict.tier, lead.game_name ?? "", rest, game.match_id, members.length) : null;
   const names = members.map((m) => m.game_name ?? championDisplayName(m.champion_name)).join(", ");
   const queue = queueShortLabel(game.queue_id, game.game_mode);
   const when = timeAgoShort(game.game_start);

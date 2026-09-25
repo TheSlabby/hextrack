@@ -4,7 +4,7 @@
  * one place the site talks about carrying (see DESIGN.md).
  *
  * KEEP IN SYNC with api/src/hextrack/stats/verdict.py, which computes the same tiers for the
- * Stacks page and its award counts: the gaps (40 / 20 / 10), the "tried" rule, rounding
+ * Stacks page and its award counts: the gaps (40 / 20 / 10), the "tried" and "passenger" rules, rounding
  * (toScore100) and "every member scored". VERDICTS is typed against the API's VerdictTier, so
  * a renamed or missing tier breaks the build.
  */
@@ -20,7 +20,8 @@ export const TRIED_CLOSE = 10;
 
 /**
  * Banter lines per tier. `{top}` / `{low}` are the called-out player; `{rest}` is everyone
- * else ("Dantes", or "the squad"). One line is picked per match, so a game always reads the same.
+ * else ("Dantes", or "the squad"); `{All}` is "Both" for a duo and "Everyone" for 3+. One line is
+ * picked per match, so a game always reads the same.
  */
 export const VERDICTS = {
   hardCarry: [
@@ -31,7 +32,8 @@ export const VERDICTS = {
   ],
   carry: ["{top} carried", "{top} did the heavy lifting", "{top} had {rest} covered", "{top} brought {rest} along"],
   edge: ["{top} edged it", "{top} pulled a bit more weight", "Slight carry from {top}"],
-  winTogether: ["Carried together", "Perfectly balanced", "Both pulled their weight", "Nobody got carried"],
+  passenger: ["{low} got carried", "{low} was along for the ride", "{low} enjoyed the free win", "{rest} carried {low}"],
+  winTogether: ["Carried together", "Perfectly balanced", "{All} pulled their weight", "Nobody got carried"],
   soloLost: [
     "{low} solo lost it for {rest}",
     "{rest} had to watch {low} run it down",
@@ -41,7 +43,7 @@ export const VERDICTS = {
   ranDown: ["{low} ran it down", "{low} was the weak link", "{low} had a rough one", "{low} owes {rest} an apology"],
   offDay: ["{low} had an off day", "{low} could've done more", "Slightly more {low}'s fault"],
   tried: ["{top} tried their best", "{top} did everything they could", "{top} deserved better", "Not {top}'s fault"],
-  loseTogether: ["Went down together", "Shared the blame equally", "Nobody's fault. Everybody's fault", "Both ran it down"],
+  loseTogether: ["Went down together", "Shared the blame equally", "Nobody's fault. Everybody's fault", "{All} ran it down"],
 } as const satisfies Record<VerdictTier, readonly string[]>;
 
 
@@ -66,8 +68,14 @@ export function verdictTier(scores: readonly (number | null)[], outcome: Outcome
 
   if (outcome === "win") {
     const gap = first.score - second.score;
-    const tier: VerdictTier = gap >= HARD_GAP ? "hardCarry" : gap >= CARRY_GAP ? "carry" : gap >= EDGE_GAP ? "edge" : "winTogether";
-    return { tier, targetIndex: tier === "winTogether" ? null : first.index, gap };
+    if (gap >= EDGE_GAP) {
+      const tier: VerdictTier = gap >= HARD_GAP ? "hardCarry" : gap >= CARRY_GAP ? "carry" : "edge";
+      return { tier, targetIndex: first.index, gap };
+    }
+    // No clear carry, but a 3+ stack can still have a clear bottom (duos can't: one gap only).
+    const bottom = secondLast.score - last.score;
+    if (bottom >= CARRY_GAP) return { tier: "passenger", targetIndex: last.index, gap: bottom };
+    return { tier: "winTogether", targetIndex: null, gap };
   }
   if (secondLast.score - last.score < TRIED_CLOSE && first.score - second.score >= CARRY_GAP) {
     return { tier: "tried", targetIndex: first.index, gap: first.score - second.score };
@@ -84,9 +92,16 @@ export function pick<T>(options: readonly T[], seed: string): T {
   return options[h % options.length] as T;
 }
 
-/** The banter line for a tier; `seed` (the match id) picks the same line every time. */
-export function verdictText(tier: VerdictTier, target: string, rest: string, seed: string): string {
-  return pick(VERDICTS[tier], seed).replaceAll("{top}", target).replaceAll("{low}", target).replaceAll("{rest}", rest);
+/**
+ * The banter line for a tier; `seed` (the match id) picks the same line every time. `size` is the
+ * number of teammates compared ("Both" for 2, "Everyone" for more).
+ */
+export function verdictText(tier: VerdictTier, target: string, rest: string, seed: string, size: number): string {
+  return pick(VERDICTS[tier], seed)
+    .replaceAll("{top}", target)
+    .replaceAll("{low}", target)
+    .replaceAll("{rest}", rest)
+    .replaceAll("{All}", size === 2 ? "Both" : "Everyone");
 }
 
 export interface VerdictBadge {
@@ -108,6 +123,8 @@ export function verdictBadge(tier: VerdictTier): VerdictBadge | null {
       return { label: "RAN IT DOWN", kind: "down" };
     case "offDay":
       return { label: "OFF DAY", kind: "down" };
+    case "passenger":
+      return { label: "PASSENGER", kind: "down" };
     case "tried":
       return { label: "TRIED", kind: "carry" };
     default:

@@ -5454,6 +5454,7 @@
               "hardCarry",
               "carry",
               "edge",
+              "passenger",
               "winTogether",
               "soloLost",
               "ranDown",

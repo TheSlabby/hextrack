@@ -3,7 +3,9 @@
 Teammates share the result, so comparing their AI Scores is fair (the one place the site
 talks about carrying; see web/DESIGN.md). The tier depends on the gap in AI Score points:
 on a win the clear top scorer carried, on a loss the clear bottom scorer ran it down, and on
-a loss that's close at the bottom a teammate who clearly stood out "tried".
+a loss that's close at the bottom a teammate who clearly stood out "tried". On a win with no
+clear carry, a 3+ stack can still have a clear bottom: they were a "passenger" (got carried).
+With two players the top and bottom gaps are the same number, so duos never get "passenger".
 
 KEEP IN SYNC with web/src/components/match/verdicts.ts (``verdictTier``): the gaps, the
 "tried" rule, the rounding (JS ``Math.round``) and "every member scored". The TS side types
@@ -63,8 +65,12 @@ def team_verdict(
 
     if win:
         gap = first - second
-        tier = next((t for g, t in WIN_TIERS if gap >= g), "winTogether")
-        return Verdict(tier, first_p if tier != "winTogether" else None, gap)
+        tier = next((t for g, t in WIN_TIERS if gap >= g), None)
+        if tier is not None:
+            return Verdict(tier, first_p, gap)
+        if second_last - last >= CARRY_GAP:
+            return Verdict("passenger", last_p, second_last - last)
+        return Verdict("winTogether", None, gap)
 
     if second_last - last < TRIED_CLOSE and first - second >= CARRY_GAP:
         return Verdict("tried", first_p, first - second)

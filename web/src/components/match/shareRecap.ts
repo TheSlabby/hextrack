@@ -202,7 +202,7 @@ function teamVerdict(
   return {
     index: badge ? verdict.targetIndex : null,
     badge,
-    text: verdictText(verdict.tier, target.gameName, rest, seed),
+    text: verdictText(verdict.tier, target.gameName, rest, seed, recaps.length),
     tier: verdict.tier,
   };
 }
