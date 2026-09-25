@@ -154,6 +154,12 @@ cd web && npm run typecheck && npm run lint && npm run build
 - **Riot IDs** in URLs are `/summoner/na/<GameName>-<TAG>`, split on the LAST `-`
   (`web/src/lib/riotId.ts`, `api/src/hextrack/riotid.py`).
 - Demo data uses `DEMO_` match ids and `demo-` puuids; `hextrack clear-demo` removes it.
+- **Live games:** after each poll the worker asks spectator-v5 which roster players are in a
+  game (`ingest/live.py`, one call covers everyone in the same game; ranks of the other players
+  are fetched once per game) and stores a snapshot in `app_state["live_games"]`. `GET /api/v1/live`
+  (`stats/live.py`) serves it and hides it once it's stale. Riot has no live K/D/gold. Turn it
+  off with `HEXTRACK_LIVE_GAMES=false`. UI: home and Squad "Live now", profile "In game" badge,
+  `/live/<gameId>`.
 
 ## Frontend
 

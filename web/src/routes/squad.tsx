@@ -13,6 +13,7 @@ import { ErrorState } from "@/components/common/ErrorState";
 import { GlowCard } from "@/components/common/GlowCard";
 import { Reveal } from "@/components/common/Motion";
 import { SectionHeader } from "@/components/common/SectionHeader";
+import { LiveNowStrip } from "@/components/home/LiveNowStrip";
 import { QueueToggle } from "@/components/leaderboard/QueueToggle";
 import { RosterEmptyState } from "@/components/leaderboard/RosterEmptyState";
 import { CarryCard } from "@/components/squad/CarryCard";
@@ -284,6 +285,7 @@ export function SquadPage() {
           <FilterCaption data={data} model={model} since={since} queue={queue} failed={query.isError} />
         </div>
       </Reveal>
+      <LiveNowStrip />
       {body}
     </div>
   );

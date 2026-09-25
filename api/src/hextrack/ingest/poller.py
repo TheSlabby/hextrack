@@ -13,6 +13,10 @@ One tick (:func:`poll_once`):
 3. move every player's watermark up over what is now stored, mark finished backfills and
    write the heartbeat to ``app_state["poller"]``.
 
+After each completed tick, :func:`poll_forever` also refreshes the roster's live games
+(:mod:`hextrack.ingest.live`) unless ``settings.live_games`` is off; ``poll_once`` alone (the
+CLI) never does.
+
 Per-summoner / per-match failures are logged, recorded and skipped. A missing or
 rejected Riot key (:class:`RiotKeyMissing` / :class:`RiotForbidden`) aborts the tick and
 :func:`poll_forever` backs off :data:`AUTH_BACKOFF_SECONDS`.
@@ -46,6 +50,7 @@ from hextrack.db.repo import app_state as app_state_repo
 from hextrack.db.repo import summoners as summoners_repo
 from hextrack.demo.names import DEMO_PUUID_PREFIX
 from hextrack.ingest.context import IngestContext
+from hextrack.ingest.live import refresh_live_games
 from hextrack.ingest.service import (
     Discovery,
     advance_sync,
@@ -419,6 +424,39 @@ async def _run_tick(
                 await tick
 
 
+async def _refresh_live(ctx: IngestContext, stop: asyncio.Event) -> bool:
+    """Refresh the live games (:mod:`hextrack.ingest.live`) after a tick. Failures are
+    logged, never raised; returns False when ``stop`` was set meanwhile (the round is
+    cancelled: it writes nothing until its very end)."""
+    task = asyncio.create_task(refresh_live_games(ctx), name="hextrack-live-games")
+    stopper = asyncio.create_task(stop.wait(), name="hextrack-live-stop")
+    try:
+        await asyncio.wait({task, stopper}, return_when=asyncio.FIRST_COMPLETED)
+        if not task.done():
+            return False
+        live = task.result()
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.exception("live games refresh failed")
+        return not stop.is_set()
+    finally:
+        stopper.cancel()
+        if not task.done():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
+    logger.info(
+        "live: %d checked, %d %s, %d rank lookups%s",
+        live.checked,
+        live.games,
+        "game" if live.games == 1 else "games",
+        live.rank_lookups,
+        f", {len(live.errors)} errors" if live.errors else "",
+    )
+    return True
+
+
 async def poll_forever(ctx: IngestContext, stop: asyncio.Event | None = None) -> None:
     """Run :func:`poll_once` every ``poll_interval_seconds`` until ``stop`` is set or the
     task is cancelled. Errors are logged and recorded in the heartbeat, never raised; a
@@ -455,6 +493,8 @@ async def poll_forever(ctx: IngestContext, stop: asyncio.Event | None = None) ->
                             report.scored_matches,
                             len(report.errors),
                         )
+                        if ctx.settings.live_games and not await _refresh_live(ctx, stop):
+                            break
                 elif not standing_by:
                     logger.info("another poller holds the lock; standing by")
                     standing_by = True

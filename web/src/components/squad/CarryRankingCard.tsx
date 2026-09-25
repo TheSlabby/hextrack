@@ -6,6 +6,8 @@ import { GlowCard } from "@/components/common/GlowCard";
 import { ProfileIcon } from "@/components/common/ProfileIcon";
 import { SectionHeader } from "@/components/common/SectionHeader";
 import { StandingBadge } from "@/components/leaderboard/parts";
+import { InGameDot } from "@/components/live/InGameDot";
+import { useLivePuuids } from "@/components/live/useLivePuuids";
 import { cn } from "@/lib/cn";
 import { CHART_COLORS } from "@/lib/chartTheme";
 import { formatPercent, plural } from "@/lib/format";
@@ -46,6 +48,7 @@ export function CarryRankingCard({
 }) {
   // Qualified players come first (carryStandings), so their position is their standing.
   const rows = standings.filter((standing) => standing.rate !== null);
+  const live = useLivePuuids();
   return (
     <GlowCard className={cn("flex flex-col gap-3 p-4 sm:p-5", className)}>
       <SectionHeader
@@ -79,6 +82,7 @@ export function CarryRankingCard({
                   >
                     <ProfileIcon iconId={player.profile_icon_id} size="xs" alt="" />
                     <span className="truncate text-sm font-semibold">{name}</span>
+                    <InGameDot live={live.has(player.puuid)} />
                   </Link>
                   <ShareBar rate={rate} muted={!standing.qualified} />
                 </div>

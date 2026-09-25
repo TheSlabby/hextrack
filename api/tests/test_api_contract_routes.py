@@ -19,6 +19,7 @@ NEW_ROUTES = {
     "/api/v1/summoners/{puuid}/insights/matchups": {"puuid", "since", "queue", "min_games"},
     "/api/v1/summoners/{puuid}/insights/luck": {"puuid", "since", "queue", "limit"},
     "/api/v1/records": {"since", "queue", "puuid", "limit"},
+    "/api/v1/live": set(),
 }
 
 

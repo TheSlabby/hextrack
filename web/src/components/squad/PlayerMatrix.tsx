@@ -4,6 +4,8 @@ import { Link } from "@tanstack/react-router";
 import type { SquadPlayer } from "@/api/types";
 import { ProfileIcon } from "@/components/common/ProfileIcon";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { InGameDot } from "@/components/live/InGameDot";
+import { useLivePuuids } from "@/components/live/useLivePuuids";
 import { cn } from "@/lib/cn";
 import { formatRiotId, summonerParams } from "@/lib/riotId";
 
@@ -68,6 +70,7 @@ const VARIANT: Readonly<Record<MatrixCellSpec["variant"], string>> = {
  * cell also carries its full reading in `aria-label`, so the tooltip never gates a value.
  */
 export function PlayerMatrix({ players, labels, caption, cell, self, detail, className }: PlayerMatrixProps) {
+  const live = useLivePuuids();
   const tableRef = useRef<HTMLTableElement>(null);
   const anchorRef = useRef<HTMLElement | null>(null);
   const [focusPos, setFocusPos] = useState<readonly [number, number]>([0, 0]);
@@ -162,6 +165,7 @@ export function PlayerMatrix({ players, labels, caption, cell, self, detail, cla
                     >
                       {labels.get(player.puuid) ?? player.game_name}
                     </span>
+                    <InGameDot live={live.has(player.puuid)} className="-mt-0.5" />
                   </div>
                 </th>
               ))}

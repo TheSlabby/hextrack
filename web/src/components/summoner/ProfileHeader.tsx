@@ -1,9 +1,13 @@
 import { useMemo } from "react";
+import { Link } from "@tanstack/react-router";
 import { ArrowDownRight, ArrowUpRight, CircleHelp, Clock, Minus, Skull, Users } from "lucide-react";
 
-import { useHealth, useMatchHistory, useMatchupInsights } from "@/api/queries";
+import { useHealth, useLiveGames, useMatchHistory, useMatchupInsights } from "@/api/queries";
 import type { MatchSummary, SummonerProfile } from "@/api/types";
 import { AiScoreExplainer } from "@/components/ai/AiScoreExplainer";
+import { LiveDot } from "@/components/live/LiveDot";
+import { LiveTimer } from "@/components/live/LiveTimer";
+import { liveGameFor } from "@/components/live/model";
 import { AiScoreRing, ChampionIcon, ProfileIcon, StreakBadge } from "@/components/common";
 import { RolePercentileAverage } from "@/components/common/RolePercentile";
 import { Badge } from "@/components/ui/badge";
@@ -69,6 +73,7 @@ export function ProfileHeader({ profile, region, onOpenTrends }: ProfileHeaderPr
               <Badge variant="secondary">{platformLabel(profile.platform)}</Badge>
               <StreakBadge results={profile.recent_form} limit={PROFILE_FORM_LIMIT} />
               <NemesisBadge puuid={profile.puuid} onOpenTrends={onOpenTrends} />
+              <LiveBadge puuid={profile.puuid} />
             </div>
 
             <h1 className="font-display text-[28px] leading-[1.1] font-bold tracking-tight [overflow-wrap:anywhere] text-text sm:text-4xl">
@@ -98,6 +103,27 @@ export function ProfileHeader({ profile, region, onOpenTrends }: ProfileHeaderPr
         <AiSummary profile={profile} />
       </div>
     </header>
+  );
+}
+
+/** "In game" pill linking to the live game page while this player is in a game. */
+function LiveBadge({ puuid }: { puuid: string }) {
+  const { data } = useLiveGames();
+  const game = liveGameFor(data?.games, puuid);
+  if (!game) return null;
+  const champion = game.participants.find((p) => p.puuid === puuid)?.champion_name;
+
+  return (
+    <Link
+      to="/live/$gameId"
+      params={{ gameId: String(game.game_id) }}
+      className="inline-flex h-6 items-center gap-1.5 rounded-full border border-loss/35 bg-loss/[0.08] px-2.5 text-xs font-semibold whitespace-nowrap transition-colors hover:border-loss/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+    >
+      <LiveDot size="sm" showLabel={false} />
+      <span className="text-text">In game</span>
+      {champion ? <ChampionIcon champion={champion} size="xs" /> : null}
+      <LiveTimer game={game} className="text-loss" />
+    </Link>
   );
 }
 

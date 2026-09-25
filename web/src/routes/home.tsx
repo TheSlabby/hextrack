@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { useLeaderboard } from "@/api/queries";
 import { AiScoreTeaser } from "@/components/home/AiScoreTeaser";
 import { HomeHero } from "@/components/home/HomeHero";
+import { LiveNowStrip } from "@/components/home/LiveNowStrip";
 import { RecentGames } from "@/components/home/RecentGames";
 import { SITE_NAME, useDocumentTitle } from "@/lib/hooks";
 import { RosterHighlights } from "@/components/home/RosterHighlights";
@@ -29,7 +30,12 @@ export function HomePage() {
     <div className="flex flex-col gap-14 sm:gap-20">
       <HomeHero examples={examples} loading={isPending} />
 
-      {hasRoster && !failed ? <RecentGames /> : null}
+      {hasRoster && !failed ? (
+        <div className="flex flex-col gap-10">
+          <LiveNowStrip />
+          <RecentGames />
+        </div>
+      ) : null}
 
       <SquadSection
         data={data}

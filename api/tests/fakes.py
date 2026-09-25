@@ -187,6 +187,11 @@ class FakeRiotClient:
         self._enter("league_entries_by_puuid", puuid)
         return [e.model_copy() for e in self.league_entries.get(puuid, [])]
 
+    async def active_game_by_puuid(self, puuid: str) -> None:
+        """spectator-v5: nobody is in a live game here (test_ingest_live.py has its own fake)."""
+        self._enter("active_game_by_puuid", puuid)
+        return None
+
     async def match_ids_by_puuid(
         self,
         puuid: str,
