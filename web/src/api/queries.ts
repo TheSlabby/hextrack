@@ -23,6 +23,10 @@ import type {
   QueueType,
   RefreshResult,
   RiotIdParts,
+  StackGamePage,
+  StackQueue,
+  StackSize,
+  StackSummary,
   StatsSince,
 } from "./types";
 
@@ -77,6 +81,9 @@ export const queryKeys = {
     ["summoner", puuid, "insights", "luck", since, queue, limit] as const,
   squadPairs: (since: StatsSince, queue: LeaderboardQueue) => ["squad", "pairs", since, queue] as const,
   squadAll: () => ["squad"] as const,
+  stacks: (since: StatsSince, queue: StackQueue, size: StackSize) => ["squad", "stacks", since, queue, size] as const,
+  stackGames: (since: StatsSince, queue: StackQueue, size: StackSize) =>
+    ["squad", "stacks", "games", since, queue, size] as const,
   records: (since: StatsSince, queue: LeaderboardQueue, puuid: string | null, limit: number) =>
     ["records", since, queue, puuid ?? "roster", limit] as const,
   recordsAll: () => ["records"] as const,
@@ -364,6 +371,42 @@ export function squadPairsQuery(since: StatsSince = "season", queue: Leaderboard
 
 export function useSquadPairs(since: StatsSince = "season", queue: LeaderboardQueue = "all") {
   return useQuery({ ...squadPairsQuery(since, queue), placeholderData: keepPreviousData });
+}
+
+// --- stacks (games the squad played together) ------------------------------------------------
+
+export interface StackFilters {
+  since?: StatsSince;
+  queue?: StackQueue;
+  size?: StackSize;
+}
+
+/** Record, awards, lineups, players and highlights for the Stacks page. */
+export function useStackSummary({ since = "season", queue = "all", size = 5 }: StackFilters = {}) {
+  return useQuery({
+    queryKey: queryKeys.stacks(since, queue, size),
+    queryFn: ({ signal }): Promise<StackSummary> =>
+      request(api.GET("/api/v1/squad/stacks", { params: { query: { since, queue, size } }, signal })),
+    staleTime: 5 * MINUTE,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Stacked games, newest first, cursor paginated (both teams of a match share a page). */
+export function useStackGames({ since = "season", queue = "all", size = 5 }: StackFilters = {}, pageSize = 20) {
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.stackGames(since, queue, size), pageSize] as const,
+    queryFn: ({ pageParam, signal }): Promise<StackGamePage> =>
+      request(
+        api.GET("/api/v1/squad/stacks/games", {
+          params: { query: { since, queue, size, limit: pageSize, cursor: pageParam ?? undefined } },
+          signal,
+        }),
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.next_cursor,
+    staleTime: MINUTE,
+  });
 }
 
 // --- personal insights (Trends tab) ---------------------------------------------------------
