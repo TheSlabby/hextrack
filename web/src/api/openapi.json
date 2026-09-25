@@ -1483,6 +1483,195 @@
         }
       }
     },
+    "/api/v1/squad/stacks": {
+      "get": {
+        "tags": [
+          "squad"
+        ],
+        "summary": "Stacks (games the squad played together): record, awards, lineups, highlights",
+        "operationId": "get_stack_summary",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "season",
+                "all"
+              ],
+              "type": "string",
+              "default": "season",
+              "title": "Since"
+            }
+          },
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "flex"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Queue"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 5,
+              "minimum": 3,
+              "description": "Fewest roster players on one team",
+              "default": 5,
+              "title": "Size"
+            },
+            "description": "Fewest roster players on one team"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StackSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/squad/stacks/games": {
+      "get": {
+        "tags": [
+          "squad"
+        ],
+        "summary": "Stacked games, newest first (cursor paginated)",
+        "operationId": "get_stack_games",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "season",
+                "all"
+              ],
+              "type": "string",
+              "default": "season",
+              "title": "Since"
+            }
+          },
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "flex"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Queue"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 5,
+              "minimum": 3,
+              "description": "Fewest roster players on one team",
+              "default": 5,
+              "title": "Size"
+            },
+            "description": "Fewest roster players on one team"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StackGamePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/records": {
       "get": {
         "tags": [
@@ -4594,6 +4783,640 @@
         ],
         "title": "SquadPlayer",
         "description": "One tracked (roster) player's totals in the requested period."
+      },
+      "StackAward": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "carry_king",
+              "ran_it_down",
+              "tried_their_best"
+            ],
+            "title": "Key"
+          },
+          "puuid": {
+            "type": "string",
+            "title": "Puuid"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "puuid",
+          "count"
+        ],
+        "title": "StackAward"
+      },
+      "StackGame": {
+        "properties": {
+          "match_id": {
+            "type": "string",
+            "title": "Match Id"
+          },
+          "queue_id": {
+            "type": "integer",
+            "title": "Queue Id"
+          },
+          "queue_label": {
+            "type": "string",
+            "title": "Queue Label"
+          },
+          "game_mode": {
+            "type": "string",
+            "title": "Game Mode"
+          },
+          "game_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Game Start"
+          },
+          "game_duration": {
+            "type": "integer",
+            "title": "Game Duration"
+          },
+          "patch": {
+            "type": "string",
+            "title": "Patch"
+          },
+          "team_id": {
+            "type": "integer",
+            "enum": [
+              100,
+              200
+            ],
+            "title": "Team Id"
+          },
+          "win": {
+            "type": "boolean",
+            "title": "Win"
+          },
+          "team_kills": {
+            "type": "integer",
+            "title": "Team Kills"
+          },
+          "enemy_kills": {
+            "type": "integer",
+            "title": "Enemy Kills"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/ParticipantSummary"
+            },
+            "type": "array",
+            "title": "Members"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StackVerdict"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "match_id",
+          "queue_id",
+          "queue_label",
+          "game_mode",
+          "game_start",
+          "game_duration",
+          "patch",
+          "team_id",
+          "win",
+          "team_kills",
+          "enemy_kills",
+          "members",
+          "verdict"
+        ],
+        "title": "StackGame",
+        "description": "One team in one match on which ``size``+ roster players played together."
+      },
+      "StackGamePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StackGame"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "StackGamePage"
+      },
+      "StackHighlight": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "biggest_stomp",
+              "worst_loss",
+              "longest_game",
+              "fastest_win",
+              "most_team_kills"
+            ],
+            "title": "Key"
+          },
+          "match_id": {
+            "type": "string",
+            "title": "Match Id"
+          },
+          "game_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Game Start"
+          },
+          "queue_id": {
+            "type": "integer",
+            "title": "Queue Id"
+          },
+          "queue_label": {
+            "type": "string",
+            "title": "Queue Label"
+          },
+          "game_mode": {
+            "type": "string",
+            "title": "Game Mode"
+          },
+          "win": {
+            "type": "boolean",
+            "title": "Win"
+          },
+          "game_duration": {
+            "type": "integer",
+            "title": "Game Duration"
+          },
+          "team_kills": {
+            "type": "integer",
+            "title": "Team Kills"
+          },
+          "enemy_kills": {
+            "type": "integer",
+            "title": "Enemy Kills"
+          },
+          "member_puuids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Member Puuids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "match_id",
+          "game_start",
+          "queue_id",
+          "queue_label",
+          "game_mode",
+          "win",
+          "game_duration",
+          "team_kills",
+          "enemy_kills",
+          "member_puuids"
+        ],
+        "title": "StackHighlight"
+      },
+      "StackLineup": {
+        "properties": {
+          "puuids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Puuids"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "winrate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Winrate"
+          },
+          "last_played": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Played"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "puuids",
+          "games",
+          "wins",
+          "winrate",
+          "last_played"
+        ],
+        "title": "StackLineup",
+        "description": "An exact set of roster players (sorted puuids) and their record together."
+      },
+      "StackPlayer": {
+        "properties": {
+          "puuid": {
+            "type": "string",
+            "title": "Puuid"
+          },
+          "game_name": {
+            "type": "string",
+            "title": "Game Name"
+          },
+          "tag_line": {
+            "type": "string",
+            "title": "Tag Line"
+          },
+          "profile_icon_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Icon Id"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "winrate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Winrate"
+          },
+          "avg_ai_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Ai Score"
+          },
+          "scored_games": {
+            "type": "integer",
+            "title": "Scored Games"
+          },
+          "kills": {
+            "type": "integer",
+            "title": "Kills"
+          },
+          "deaths": {
+            "type": "integer",
+            "title": "Deaths"
+          },
+          "assists": {
+            "type": "integer",
+            "title": "Assists"
+          },
+          "kda": {
+            "type": "number",
+            "title": "Kda"
+          },
+          "hard_carries": {
+            "type": "integer",
+            "title": "Hard Carries"
+          },
+          "carries": {
+            "type": "integer",
+            "title": "Carries"
+          },
+          "ran_downs": {
+            "type": "integer",
+            "title": "Ran Downs"
+          },
+          "off_days": {
+            "type": "integer",
+            "title": "Off Days"
+          },
+          "tried": {
+            "type": "integer",
+            "title": "Tried"
+          },
+          "top_champion_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Champion Id"
+          },
+          "top_champion_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Champion Name"
+          },
+          "top_champion_games": {
+            "type": "integer",
+            "title": "Top Champion Games"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "puuid",
+          "game_name",
+          "tag_line",
+          "profile_icon_id",
+          "games",
+          "wins",
+          "winrate",
+          "avg_ai_score",
+          "scored_games",
+          "kills",
+          "deaths",
+          "assists",
+          "kda",
+          "hard_carries",
+          "carries",
+          "ran_downs",
+          "off_days",
+          "tried",
+          "top_champion_id",
+          "top_champion_name",
+          "top_champion_games"
+        ],
+        "title": "StackPlayer",
+        "description": "A roster player's numbers across the stacks in the requested scope."
+      },
+      "StackSummary": {
+        "properties": {
+          "since": {
+            "type": "string",
+            "enum": [
+              "season",
+              "all"
+            ],
+            "title": "Since"
+          },
+          "season_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Season Start"
+          },
+          "queue": {
+            "type": "string",
+            "enum": [
+              "all",
+              "flex"
+            ],
+            "title": "Queue"
+          },
+          "size": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 3.0,
+            "title": "Size"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "min_lineup_games": {
+            "type": "integer",
+            "title": "Min Lineup Games"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "winrate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Winrate"
+          },
+          "recent_form": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Recent Form"
+          },
+          "avg_duration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Duration"
+          },
+          "avg_team_kills": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Team Kills"
+          },
+          "avg_enemy_kills": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Enemy Kills"
+          },
+          "verdict_games": {
+            "type": "integer",
+            "title": "Verdict Games"
+          },
+          "players": {
+            "items": {
+              "$ref": "#/components/schemas/StackPlayer"
+            },
+            "type": "array",
+            "title": "Players"
+          },
+          "lineups": {
+            "items": {
+              "$ref": "#/components/schemas/StackLineup"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Lineups"
+          },
+          "best_lineup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StackLineup"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "most_played_lineup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StackLineup"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "awards": {
+            "items": {
+              "$ref": "#/components/schemas/StackAward"
+            },
+            "type": "array",
+            "title": "Awards"
+          },
+          "highlights": {
+            "items": {
+              "$ref": "#/components/schemas/StackHighlight"
+            },
+            "type": "array",
+            "title": "Highlights"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "since",
+          "season_start",
+          "queue",
+          "size",
+          "model_version",
+          "min_lineup_games",
+          "games",
+          "wins",
+          "winrate",
+          "recent_form",
+          "avg_duration",
+          "avg_team_kills",
+          "avg_enemy_kills",
+          "verdict_games",
+          "players",
+          "lineups",
+          "best_lineup",
+          "most_played_lineup",
+          "awards",
+          "highlights"
+        ],
+        "title": "StackSummary"
+      },
+      "StackVerdict": {
+        "properties": {
+          "tier": {
+            "type": "string",
+            "enum": [
+              "hardCarry",
+              "carry",
+              "edge",
+              "winTogether",
+              "soloLost",
+              "ranDown",
+              "offDay",
+              "tried",
+              "loseTogether"
+            ],
+            "title": "Tier"
+          },
+          "target_puuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Puuid"
+          },
+          "gap": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Gap"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tier",
+          "target_puuid",
+          "gap"
+        ],
+        "title": "StackVerdict",
+        "description": "Banter verdict for one stack: teammates share the result, so their scores compare."
       },
       "SummonerProfile": {
         "properties": {

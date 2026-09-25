@@ -477,6 +477,159 @@ class SquadPairs(ApiModel):
     pairs: list[SquadPair]
 
 
+# --- stacks (games the squad played together) ---------------------------------------------
+
+#: "all": every stored queue except Arena and customs; "flex": Ranked Flex only.
+StackQueue = Literal["all", "flex"]
+#: How lopsided the teammates' AI Scores were (stats/verdict.py). The frontend maps each tier
+#: to banter text (web/src/components/match/verdicts.ts); keep the two lists identical.
+VerdictTier = Literal[
+    "hardCarry",
+    "carry",
+    "edge",
+    "winTogether",
+    "soloLost",
+    "ranDown",
+    "offDay",
+    "tried",
+    "loseTogether",
+]
+
+
+class StackVerdict(ApiModel):
+    """Banter verdict for one stack: teammates share the result, so their scores compare."""
+
+    tier: VerdictTier
+    #: The called-out player (carrier, the one who ran it down...); None for "together" tiers.
+    target_puuid: str | None
+    #: AI Score points (0..100) between the target and the next teammate.
+    gap: Annotated[int, Field(ge=0, le=100)]
+
+
+class StackGame(ApiModel):
+    """One team in one match on which ``size``+ roster players played together."""
+
+    match_id: str
+    queue_id: int
+    queue_label: str
+    game_mode: str
+    game_start: AwareDatetime
+    game_duration: int
+    patch: str
+    team_id: TeamId
+    win: bool
+    team_kills: int
+    enemy_kills: int
+    #: The stack's roster players, lane order.
+    members: list[ParticipantSummary]
+    #: None when a member isn't scored by the active model.
+    verdict: StackVerdict | None
+
+
+class StackGamePage(ApiModel):
+    #: Newest first. Both teams of a match (two opposing stacks) are always on the same page.
+    items: list[StackGame]
+    #: Opaque; pass back as ?cursor= for the next page. None when exhausted.
+    next_cursor: str | None
+
+
+class StackPlayer(ApiModel):
+    """A roster player's numbers across the stacks in the requested scope."""
+
+    puuid: str
+    game_name: str
+    tag_line: str
+    profile_icon_id: int | None
+    games: int
+    wins: int
+    winrate: Rate
+    #: Mean AI Score over games scored by the active model (a plain number, never graded).
+    avg_ai_score: Rate | None
+    scored_games: int
+    kills: int
+    deaths: int
+    assists: int
+    kda: float
+    #: Verdict counts: carries = hardCarry + carry + edge, ran_downs = soloLost + ranDown.
+    hard_carries: int
+    carries: int
+    ran_downs: int
+    off_days: int
+    tried: int
+    top_champion_id: int | None
+    top_champion_name: str | None
+    top_champion_games: int
+
+
+class StackLineup(ApiModel):
+    """An exact set of roster players (sorted puuids) and their record together."""
+
+    puuids: list[str]
+    games: int
+    wins: int
+    winrate: Rate
+    last_played: AwareDatetime
+
+
+StackAwardKey = Literal["carry_king", "ran_it_down", "tried_their_best"]
+
+
+class StackAward(ApiModel):
+    key: StackAwardKey
+    puuid: str
+    count: int
+
+
+StackHighlightKey = Literal[
+    "biggest_stomp", "worst_loss", "longest_game", "fastest_win", "most_team_kills"
+]
+
+
+class StackHighlight(ApiModel):
+    key: StackHighlightKey
+    match_id: str
+    game_start: AwareDatetime
+    queue_id: int
+    queue_label: str
+    game_mode: str
+    win: bool
+    game_duration: int
+    team_kills: int
+    enemy_kills: int
+    member_puuids: list[str]
+
+
+class StackSummary(ApiModel):
+    since: StatsSince
+    season_start: AwareDatetime
+    queue: StackQueue
+    #: Fewest roster players on one team for it to count (5 = a full stack).
+    size: Annotated[int, Field(ge=3, le=5)]
+    model_version: str | None
+    #: A lineup needs this many games to be "best lineup".
+    min_lineup_games: int
+    games: int
+    wins: int
+    winrate: Rate
+    #: Newest first, at most 20.
+    recent_form: list[bool] = Field(max_length=20)
+    #: Seconds; None without games.
+    avg_duration: float | None
+    avg_team_kills: float | None
+    avg_enemy_kills: float | None
+    #: Stacks with a verdict (every member scored by the active model).
+    verdict_games: int
+    #: Roster players with at least one stack, most games first.
+    players: list[StackPlayer]
+    #: Most-played lineups, at most 10.
+    lineups: list[StackLineup] = Field(max_length=10)
+    best_lineup: StackLineup | None
+    most_played_lineup: StackLineup | None
+    #: Only awards with a count above zero.
+    awards: list[StackAward]
+    highlights: list[StackHighlight]
+
+
 # --- personal insights -----------------------------------------------------------------------
 
 SessionState = Literal["first_game", "after_win", "after_one_loss", "after_two_plus_losses"]

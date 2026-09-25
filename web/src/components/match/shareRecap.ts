@@ -3,11 +3,12 @@
  * (`renderRecapPng`), drawn straight onto a canvas so it uses the site's fonts and the
  * champion splash. No React here.
  */
-import type { MatchDetail, ParticipantSummary } from "@/api/types";
+import type { MatchDetail, ParticipantSummary, VerdictTier } from "@/api/types";
 import { championDisplayName } from "@/lib/champions";
 import { formatCompact, formatDecimal, formatDuration, formatKdaRatio, formatPercent, formatShortDate } from "@/lib/format";
 import { AI_SCORE_RESULT_NOTE, gradeForScore, toScore100, type GradeInfo } from "@/lib/score";
 
+import { isPraise, verdictBadge, verdictText, verdictTier } from "./verdicts";
 import { allParticipants, inGameRank, OUTCOME_LABEL, outcomeOf, sortByPosition, type Outcome } from "./matchUtils";
 
 export const RECAP_WIDTH = 1200;
@@ -163,6 +164,8 @@ export interface GroupRecap {
   together: string | null;
   /** Banter headline from comparing teammates' AI Scores: "colton carried", "Dantes ran it down". */
   verdict: string | null;
+  /** The verdict's tier (colour it with `isPraise`). */
+  verdictTier: VerdictTier | null;
   meta: string;
   alt: string;
 }
@@ -180,77 +183,28 @@ const MIN_TOGETHER_GAMES = 3;
  * players; `{rest}` is everyone else ("Dantes", or "the squad"). One line is picked per match, so
  * the same game always reads the same.
  */
-const VERDICTS = {
-  hardCarry: [
-    "{top} put {rest} on their back",
-    "{top} hard carried {rest}",
-    "{rest} got a free win from {top}",
-    "{top} played 1v9 and won",
-  ],
-  carry: ["{top} carried", "{top} did the heavy lifting", "{top} had {rest} covered", "{top} brought {rest} along"],
-  edge: ["{top} edged it", "{top} pulled a bit more weight", "Slight carry from {top}"],
-  winTogether: ["Carried together", "Perfectly balanced", "Both pulled their weight", "Nobody got carried"],
-  soloLost: [
-    "{low} solo lost it for {rest}",
-    "{rest} had to watch {low} run it down",
-    "{low} ran it all the way down",
-    "{rest} never stood a chance with {low}",
-  ],
-  ranDown: ["{low} ran it down", "{low} was the weak link", "{low} had a rough one", "{low} owes {rest} an apology"],
-  offDay: ["{low} had an off day", "{low} could've done more", "Slightly more {low}'s fault"],
-  tried: ["{top} tried their best", "{top} did everything they could", "{top} deserved better", "Not {top}'s fault"],
-  loseTogether: ["Went down together", "Shared the blame equally", "Nobody's fault. Everybody's fault", "Both ran it down"],
-} as const;
-
-/** Stable small hash so a match always gets the same line. */
-function pick<T>(options: readonly T[], seed: string): T {
-  let h = 0;
-  for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return options[h % options.length] as T;
-}
-
-/**
- * Teammates share the result, so their AI Scores compare fairly (see AI_SCORE_RESULT_NOTE).
- * On a win the clear top scorer carried; on a loss the clear bottom scorer ran it down. The
- * bigger the gap, the louder the line. Returns the member to badge (null when it's close).
- */
 function teamVerdict(
   recaps: readonly Recap[],
   kind: "duo" | "squad",
   seed: string,
-): { index: number | null; badge: RecapBadge | null; text: string } | null {
-  const scored = recaps.flatMap((r, index) => (r.score === null ? [] : [{ r, index, score: r.score }]));
+): { index: number | null; badge: RecapBadge | null; text: string; tier: VerdictTier } | null {
   const outcome = recaps[0]?.outcome;
-  if (scored.length < 2 || scored.length !== recaps.length || outcome === "remake") return null;
-  const sorted = [...scored].sort((a, b) => b.score - a.score);
-  const [first, second] = sorted;
-  const last = sorted[sorted.length - 1];
-  const secondLast = sorted[sorted.length - 2];
-  if (!first || !second || !last || !secondLast) return null;
-
-  const win = outcome === "win";
-  // On a close loss at the bottom, a squad member who clearly stood out still gets credit.
-  const tried = !win && secondLast.score - last.score < 10 && first.score - second.score >= 20;
-  const target = win || tried ? first : last;
-  const gap = win || tried ? first.score - second.score : secondLast.score - last.score;
-  const others = recaps.filter((_, i) => i !== target.index);
+  if (!outcome) return null;
+  const verdict = verdictTier(
+    recaps.map((r) => r.score),
+    outcome,
+  );
+  if (!verdict) return null;
+  const target = recaps[verdict.targetIndex ?? 0] as Recap;
+  const others = recaps.filter((_, i) => i !== (verdict.targetIndex ?? 0));
   const rest = kind === "duo" && others[0] ? others[0].gameName : "the squad";
-  const fill = (line: string) =>
-    line.replaceAll("{top}", target.r.gameName).replaceAll("{low}", target.r.gameName).replaceAll("{rest}", rest);
-
-  const tier = win
-    ? gap >= 40 ? "hardCarry" : gap >= 20 ? "carry" : gap >= 10 ? "edge" : "winTogether"
-    : tried ? "tried"
-    : gap >= 40 ? "soloLost" : gap >= 20 ? "ranDown" : gap >= 10 ? "offDay" : "loseTogether";
-  const text = fill(pick(VERDICTS[tier], seed));
-  const badge: RecapBadge | null =
-    tier === "hardCarry" ? { label: "HARD CARRY", kind: "carry" }
-    : tier === "carry" || tier === "edge" ? { label: "CARRIED", kind: "carry" }
-    : tier === "soloLost" || tier === "ranDown" ? { label: "RAN IT DOWN", kind: "down" }
-    : tier === "offDay" ? { label: "OFF DAY", kind: "down" }
-    : tier === "tried" ? { label: "TRIED", kind: "carry" }
-    : null;
-  return { index: badge ? target.index : null, badge, text };
+  const badge = verdictBadge(verdict.tier);
+  return {
+    index: badge ? verdict.targetIndex : null,
+    badge,
+    text: verdictText(verdict.tier, target.gameName, rest, seed),
+    tier: verdict.tier,
+  };
 }
 
 /**
@@ -296,7 +250,7 @@ export function buildGroupRecap(match: MatchDetail, members: readonly Participan
   const alt = [title, verdict?.text, ...recaps.map((r) => r.alt.split(". ").slice(0, 3).join(", ")), teamLine, together, meta]
     .filter(Boolean)
     .join(". ");
-  return { kind, outcome: leadRecap.outcome, title, members: recaps, teamLine, together, verdict: verdict?.text ?? null, meta, alt };
+  return { kind, outcome: leadRecap.outcome, title, members: recaps, teamLine, together, verdict: verdict?.text ?? null, verdictTier: verdict?.tier ?? null, meta, alt };
 }
 
 // --- rendering ------------------------------------------------------------------------------
@@ -640,7 +594,7 @@ function drawGroup(
     const titleEnd = left + ctx.measureText(title).width;
     const room = W - left - titleEnd - 40;
     fitSize(ctx, group.verdict, (v) => `600 ${v}px ${DISPLAY}`, 34, 22, room);
-    ctx.fillStyle = group.outcome === "win" ? C.gold : "#ff8a95";
+    ctx.fillStyle = group.verdictTier && isPraise(group.verdictTier) ? C.gold : "#ff8a95";
     ctx.textAlign = "right";
     ctx.fillText(fit(ctx, group.verdict, room), W - left, 132);
     ctx.textAlign = "left";

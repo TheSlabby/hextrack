@@ -7,6 +7,10 @@ from typing import Final
 RANKED_SOLO: Final = 420
 RANKED_FLEX: Final = 440
 RANKED_QUEUES: Final[frozenset[int]] = frozenset({RANKED_SOLO, RANKED_FLEX})
+#: Arena's "teams" are 2-player subteams, and customs aren't real games: neither counts as a
+#: squad stack (see stats/stacks.py).
+ARENA_QUEUES: Final[frozenset[int]] = frozenset({1700, 1710})
+CUSTOM_QUEUES: Final[frozenset[int]] = frozenset({0, 3100})
 
 QUEUE_LABELS: Final[dict[int, str]] = {
     0: "Custom",

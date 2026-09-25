@@ -168,6 +168,10 @@ cd web && npm run typecheck && npm run lint && npm run build
   `Promise<Blob>` to `ClipboardItem` synchronously, which Safari requires. The duo/squad
   "carried / ran it down" lines (`VERDICTS`) are the one allowed exception to the no-"carry"
   rule (see DESIGN.md).
+- Stacks page (`/stacks`, `components/stacks/`): games where 3–5 roster players were on one
+  team. The API (`stats/stacks.py`) computes each stack's carry / "ran it down" tier with
+  `stats/verdict.py`; `components/match/verdicts.ts` holds the same rules plus the banter text
+  (typed against the API's `VerdictTier`). Keep the two in sync.
 - Streaks: `lib/streaks.ts` + `components/common/StreakBadge.tsx` (pass the list cap:
   profile 20, leaderboard 10). Nemesis badge on the profile header comes from the Trends
   tab's matchup insights.

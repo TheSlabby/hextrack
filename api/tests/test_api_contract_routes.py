@@ -11,6 +11,8 @@ P = "puuid-contract"
 
 NEW_ROUTES = {
     "/api/v1/squad/pairs": {"since", "queue"},
+    "/api/v1/squad/stacks": {"since", "queue", "size"},
+    "/api/v1/squad/stacks/games": {"since", "queue", "size", "cursor", "limit"},
     "/api/v1/summoners/{puuid}/insights/sessions": {"puuid", "since", "queue", "gap_minutes"},
     "/api/v1/summoners/{puuid}/insights/schedule": {"puuid", "since", "queue", "tz"},
     "/api/v1/summoners/{puuid}/insights/matchups": {"puuid", "since", "queue", "min_games"},
@@ -32,6 +34,14 @@ async def test_new_routes_in_openapi(client):
     [
         "/api/v1/squad/pairs?since=ever",
         "/api/v1/squad/pairs?queue=aram",
+        "/api/v1/squad/stacks?size=2",
+        "/api/v1/squad/stacks?size=6",
+        "/api/v1/squad/stacks?queue=solo",
+        "/api/v1/squad/stacks/games?size=2",
+        "/api/v1/squad/stacks/games?size=6",
+        "/api/v1/squad/stacks/games?queue=solo",
+        "/api/v1/squad/stacks/games?limit=0",
+        "/api/v1/squad/stacks/games?limit=51",
         f"/api/v1/summoners/{P}/insights/sessions?gap_minutes=5",
         f"/api/v1/summoners/{P}/insights/sessions?gap_minutes=181",
         f"/api/v1/summoners/{P}/insights/schedule?tz=Not%20A%20Zone",

@@ -35,7 +35,8 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    // PORT lets a preview tool pick a free port; `make web` keeps 5173.
+    port: Number(process.env.PORT) || 5173,
     strictPort: true,
     proxy: {
       "/api": { target: API_TARGET, changeOrigin: true },

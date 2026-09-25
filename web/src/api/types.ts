@@ -44,6 +44,18 @@ export type ValidationError = Schemas["ValidationError"];
 export type SquadPairs = Schemas["SquadPairs"];
 export type SquadPair = Schemas["SquadPair"];
 export type SquadPlayer = Schemas["SquadPlayer"];
+// stacks (games the squad played together)
+export type StackSummary = Schemas["StackSummary"];
+export type StackGame = Schemas["StackGame"];
+export type StackGamePage = Schemas["StackGamePage"];
+export type StackPlayer = Schemas["StackPlayer"];
+export type StackLineup = Schemas["StackLineup"];
+export type StackAward = Schemas["StackAward"];
+export type StackHighlight = Schemas["StackHighlight"];
+export type StackVerdict = Schemas["StackVerdict"];
+export type VerdictTier = StackVerdict["tier"];
+export type StackQueue = StackSummary["queue"];
+export type StackSize = 3 | 4 | 5;
 // personal insights (Trends tab)
 export type SessionInsights = Schemas["SessionInsights"];
 export type SessionGameBucket = Schemas["SessionGameBucket"];

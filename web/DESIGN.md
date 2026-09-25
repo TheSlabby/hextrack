@@ -141,9 +141,10 @@ typically score around 90, losses around 10. Averages over a season collapse ont
   against games with the same result. All the copy lives in `lib/score.ts` (`GRADES`, `AI_SCORE_SUMMARY`,
   `AI_SCORE_RESULT_NOTE`, `AI_AVERAGE_NOTE`); don't write new wording next to a score.
 - **Don't** call a score a carry, claim it ignores the result, or say a high score is "above what a winner posts".
-  The one exception is the duo / squad share card (`components/match/shareRecap.ts`, `VERDICTS`): teammates share the
-  result, so comparing their scores is fair, and the card calls out who carried or ran it down by the size of the gap.
-  That banter stays on the share card.
+  The one exception is teammate banter: teammates share the result, so comparing their scores is fair, and a verdict
+  calls out who carried or ran it down by the size of the gap. It appears only on the share card, the match hero and the
+  Stacks page (all via `components/match/verdicts.ts`, with tiers computed server-side in `stats/verdict.py` for
+  Stacks). Averages stay plain numbers.
 - **Don't** grade an average (season, roster, champion) or give it a single game's description. Show the number with
   `kind="average"`, next to its distance from a coin flip or its place on the roster.
 - Rank a roster on averages only with a minimum sample and shrinkage towards 50 (`computeStandings`), so ten good games
