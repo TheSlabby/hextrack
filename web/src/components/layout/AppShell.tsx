@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Medal, Search, Trophy, UsersRound, type LucideIcon } from "lucide-react";
+import { Layers, Medal, Search, Trophy, UsersRound, type LucideIcon } from "lucide-react";
 
 import { Kbd } from "@/components/common/Kbd";
 import { MotionMemory } from "@/components/common/Motion";
@@ -25,9 +25,10 @@ const NAV_LINK =
   "inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-text-secondary transition-colors hover:bg-white/5 hover:text-text";
 
 /** Top-level pages in the nav: text links from `sm`, icon buttons on phones. */
-const NAV_ITEMS: readonly { to: "/leaderboard" | "/squad" | "/records"; label: string; icon: LucideIcon }[] = [
+const NAV_ITEMS: readonly { to: "/leaderboard" | "/squad" | "/stacks" | "/records"; label: string; icon: LucideIcon }[] = [
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { to: "/squad", label: "Squad", icon: UsersRound },
+  { to: "/stacks", label: "Stacks", icon: Layers },
   { to: "/records", label: "Records", icon: Medal },
 ];
 
@@ -68,7 +69,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="glass sticky top-0 z-40 border-b border-border">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-4 sm:gap-4 sm:px-6 lg:px-8">
           <Link to="/" className="shrink-0 rounded-lg" aria-label="HexTrack home">
-            <Logo />
+            {/* Below 360px the five phone nav buttons need the wordmark's room; the mark stays. */}
+            <Logo className="max-[359px]:[&>span:not(.sr-only)]:hidden" />
           </Link>
 
           <nav aria-label="Main" className="hidden items-center gap-1 sm:flex">
@@ -85,7 +87,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-1 sm:gap-2">
             <button
               type="button"
               onClick={openPalette}

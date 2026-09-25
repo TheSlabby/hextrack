@@ -4953,9 +4953,17 @@
             "format": "date-time",
             "title": "Game Start"
           },
+          "queue_id": {
+            "type": "integer",
+            "title": "Queue Id"
+          },
           "queue_label": {
             "type": "string",
             "title": "Queue Label"
+          },
+          "game_mode": {
+            "type": "string",
+            "title": "Game Mode"
           },
           "win": {
             "type": "boolean",
@@ -4987,7 +4995,9 @@
           "key",
           "match_id",
           "game_start",
+          "queue_id",
           "queue_label",
+          "game_mode",
           "win",
           "game_duration",
           "team_kills",

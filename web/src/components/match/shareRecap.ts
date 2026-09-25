@@ -3,12 +3,12 @@
  * (`renderRecapPng`), drawn straight onto a canvas so it uses the site's fonts and the
  * champion splash. No React here.
  */
-import type { MatchDetail, ParticipantSummary } from "@/api/types";
+import type { MatchDetail, ParticipantSummary, VerdictTier } from "@/api/types";
 import { championDisplayName } from "@/lib/champions";
 import { formatCompact, formatDecimal, formatDuration, formatKdaRatio, formatPercent, formatShortDate } from "@/lib/format";
 import { AI_SCORE_RESULT_NOTE, gradeForScore, toScore100, type GradeInfo } from "@/lib/score";
 
-import { verdictBadge, verdictText, verdictTier } from "./verdicts";
+import { isPraise, verdictBadge, verdictText, verdictTier } from "./verdicts";
 import { allParticipants, inGameRank, OUTCOME_LABEL, outcomeOf, sortByPosition, type Outcome } from "./matchUtils";
 
 export const RECAP_WIDTH = 1200;
@@ -164,6 +164,8 @@ export interface GroupRecap {
   together: string | null;
   /** Banter headline from comparing teammates' AI Scores: "colton carried", "Dantes ran it down". */
   verdict: string | null;
+  /** The verdict's tier (colour it with `isPraise`). */
+  verdictTier: VerdictTier | null;
   meta: string;
   alt: string;
 }
@@ -185,7 +187,7 @@ function teamVerdict(
   recaps: readonly Recap[],
   kind: "duo" | "squad",
   seed: string,
-): { index: number | null; badge: RecapBadge | null; text: string } | null {
+): { index: number | null; badge: RecapBadge | null; text: string; tier: VerdictTier } | null {
   const outcome = recaps[0]?.outcome;
   if (!outcome) return null;
   const verdict = verdictTier(
@@ -201,6 +203,7 @@ function teamVerdict(
     index: badge ? verdict.targetIndex : null,
     badge,
     text: verdictText(verdict.tier, target.gameName, rest, seed),
+    tier: verdict.tier,
   };
 }
 
@@ -247,7 +250,7 @@ export function buildGroupRecap(match: MatchDetail, members: readonly Participan
   const alt = [title, verdict?.text, ...recaps.map((r) => r.alt.split(". ").slice(0, 3).join(", ")), teamLine, together, meta]
     .filter(Boolean)
     .join(". ");
-  return { kind, outcome: leadRecap.outcome, title, members: recaps, teamLine, together, verdict: verdict?.text ?? null, meta, alt };
+  return { kind, outcome: leadRecap.outcome, title, members: recaps, teamLine, together, verdict: verdict?.text ?? null, verdictTier: verdict?.tier ?? null, meta, alt };
 }
 
 // --- rendering ------------------------------------------------------------------------------
@@ -591,7 +594,7 @@ function drawGroup(
     const titleEnd = left + ctx.measureText(title).width;
     const room = W - left - titleEnd - 40;
     fitSize(ctx, group.verdict, (v) => `600 ${v}px ${DISPLAY}`, 34, 22, room);
-    ctx.fillStyle = group.outcome === "win" ? C.gold : "#ff8a95";
+    ctx.fillStyle = group.verdictTier && isPraise(group.verdictTier) ? C.gold : "#ff8a95";
     ctx.textAlign = "right";
     ctx.fillText(fit(ctx, group.verdict, room), W - left, 132);
     ctx.textAlign = "left";

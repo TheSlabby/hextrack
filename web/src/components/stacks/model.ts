@@ -15,6 +15,9 @@ export function stackLabelPlural(size: StackSize): string {
   return `${stackLabel(size)}s`;
 }
 
+/** Queues that never count as stacks (Arena pairs, customs). Mirrors ARENA_QUEUES | CUSTOM_QUEUES in api/src/hextrack/queues.py. */
+export const NON_STACK_QUEUES: ReadonlySet<number> = new Set([0, 1700, 1710, 3100]);
+
 export const STACK_SIZES: readonly StackSize[] = [5, 4, 3];
 
 export const STACK_QUEUE_LABEL: Readonly<Record<StackQueue, string>> = {

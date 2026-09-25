@@ -7,7 +7,7 @@
  */
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from "@tanstack/react-router";
 
-import type { LeaderboardQueue, StatsSince } from "@/api/types";
+import type { LeaderboardQueue, StackQueue, StackSize, StatsSince } from "@/api/types";
 import { AppShell } from "@/components/layout/AppShell";
 import { DEFAULT_SORT, SORT_LABELS, type SortDirection, type SortKey } from "@/components/leaderboard/sorting";
 import { NotFoundPage, RouteErrorPage, RoutePending } from "@/components/layout/RouteStates";
@@ -21,6 +21,7 @@ const SummonerPage = lazyRouteComponent(() => import("@/routes/summoner"), "Summ
 const MatchPage = lazyRouteComponent(() => import("@/routes/match"), "MatchPage");
 const SquadPage = lazyRouteComponent(() => import("@/routes/squad"), "SquadPage");
 const RecordsPage = lazyRouteComponent(() => import("@/routes/records"), "RecordsPage");
+const StacksPage = lazyRouteComponent(() => import("@/routes/stacks"), "StacksPage");
 
 export interface SummonerSearch {
   tab?: SummonerTabValue;
@@ -61,6 +62,26 @@ function validateStatsFilterSearch(search: Record<string, unknown>): StatsFilter
   const result: StatsFilterSearch = {};
   if (search.since === "all") result.since = "all";
   if (search.queue === "solo" || search.queue === "flex") result.queue = search.queue;
+  return result;
+}
+
+/**
+ * /stacks filters; defaults (this season, all queues, full 5-stacks) are omitted:
+ * `?since=all&queue=flex&size=4`.
+ */
+export interface StacksSearch {
+  since?: Exclude<StatsSince, "season">;
+  queue?: Exclude<StackQueue, "all">;
+  size?: Exclude<StackSize, 5>;
+}
+
+function validateStacksSearch(search: Record<string, unknown>): StacksSearch {
+  const result: StacksSearch = {};
+  if (search.since === "all") result.since = "all";
+  if (search.queue === "flex") result.queue = "flex";
+  // Accept `size=4` whether the router parsed it as a number or left it a string.
+  const size = typeof search.size === "string" ? Number(search.size) : search.size;
+  if (size === 3 || size === 4) result.size = size;
   return result;
 }
 
@@ -132,6 +153,13 @@ const squadRoute = createRoute({
   component: SquadPage,
 });
 
+const stacksRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/stacks",
+  validateSearch: validateStacksSearch,
+  component: StacksPage,
+});
+
 const recordsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/records",
@@ -143,6 +171,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   leaderboardRoute,
   squadRoute,
+  stacksRoute,
   recordsRoute,
   summonerRoute,
   matchRoute,

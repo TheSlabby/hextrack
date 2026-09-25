@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { useDdragon } from "@/lib/ddragon";
+import { NON_STACK_QUEUES } from "@/components/stacks/model";
 import { formatCompact, formatDateTime, formatDecimal, formatDuration, formatDurationLong, formatPercent } from "@/lib/format";
 import { championDisplayName } from "@/lib/champions";
 
@@ -30,6 +31,7 @@ import { MatchDetailSkeleton } from "./MatchSkeletons";
 import { InGameRankPill, KdaLine, KdaRatio, PlayerNameLink } from "./MatchBits";
 import { ShareRecapButton } from "./ShareRecapButton";
 import { buildGroupRecap, groupMembers, highlightsFor } from "./shareRecap";
+import { isPraise } from "./verdicts";
 import { TeamPanel } from "./TeamPanel";
 import {
   allParticipants,
@@ -272,6 +274,16 @@ function HeroPlayerName({ match, player }: { match: MatchDetail; player: Partici
           ))}
         </span>
       ) : null}
+      {members.length >= 3 && !NON_STACK_QUEUES.has(match.queue_id) ? (
+        <Link
+          to="/stacks"
+          search={{ size: members.length >= 5 ? undefined : members.length === 4 ? 4 : 3 }}
+          className="inline-flex items-center gap-1 rounded-sm text-sm font-medium text-gold transition-colors hover:text-gold-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+        >
+          See stacks
+          <ArrowUpRight className="size-3.5" aria-hidden="true" />
+        </Link>
+      ) : null}
       {group?.verdict ? (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -279,7 +291,9 @@ function HeroPlayerName({ match, player }: { match: MatchDetail; player: Partici
               tabIndex={0}
               className={cn(
                 "inline-flex h-6 items-center rounded-full border px-2.5 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-gold",
-                group.outcome === "win" ? "border-gold/45 bg-gold/10 text-gold-bright" : "border-loss/45 bg-loss/10 text-loss",
+                group.verdictTier && isPraise(group.verdictTier)
+                  ? "border-gold/45 bg-gold/10 text-gold-bright"
+                  : "border-loss/45 bg-loss/10 text-loss",
               )}
             >
               {group.verdict}

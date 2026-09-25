@@ -589,7 +589,9 @@ class StackHighlight(ApiModel):
     key: StackHighlightKey
     match_id: str
     game_start: AwareDatetime
+    queue_id: int
     queue_label: str
+    game_mode: str
     win: bool
     game_duration: int
     team_kills: int

@@ -1429,8 +1429,12 @@ export interface components {
              * Format: date-time
              */
             game_start: string;
+            /** Queue Id */
+            queue_id: number;
             /** Queue Label */
             queue_label: string;
+            /** Game Mode */
+            game_mode: string;
             /** Win */
             win: boolean;
             /** Game Duration */
