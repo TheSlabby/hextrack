@@ -21,8 +21,38 @@ overview and web/DESIGN.md for the frontend design system.
 - Ship changes with `./deploy.sh` (below). Commit first; the Pi deploys what is on GitHub.
 - **Production runs as the `hextrack` user** (see Deployment). Don't run HexTrack as walker on
   the Pi or restart the old walker user units; they're disabled.
-- Git: commit only when asked; git has no global identity on this Mac, so pass
+- Git: git has no global identity on this Mac, so pass
   `-c user.name="Walker McGilvary" -c user.email="walker.mcgilvary@gmail.com"`.
+  Stage only the files you changed (`api/research/` is Walker's untracked scratch; leave it).
+
+## How we work (the usual loop)
+
+Walker asks for a feature or fix in casual terms and wants it live. Unless he says otherwise,
+the default is to ship it end to end, then say what's live:
+
+1. Build it, following DESIGN.md and the contracts below.
+2. Run the checks (Commands section). Backend: ruff + pytest. Frontend: typecheck, lint, build.
+3. Look at it in the Browser pane: `preview_start` with `api` (serve only, **no poller**,
+   safe against the local DB) and `web` from `.claude/launch.json`. Match pages take
+   `?player=<GameName>-<TAG>` to focus a player. To eyeball the share-card PNG at full size,
+   `await import('/src/components/match/shareRecap.ts')` in the page and render it into an `<img>`.
+   Stop both servers when done.
+4. Commit on `main` with a clear message, then `./deploy.sh`. Its health check and rollback
+   cover the Pi; report the commit and what changed.
+
+Still ask first for: anything that makes the Discord bot post, deleting data, and changes
+to the Pi's system setup (units, sudoers, Postgres roles) beyond a normal deploy. When a
+choice is genuinely his (product direction, trade-offs), ask briefly with a recommendation;
+otherwise decide. He likes fun, social features for the friend group (share cards, carry /
+"ran it down" banter, streaks, nemesis), as long as the AI Score wording rules hold.
+
+Gotchas seen before:
+- `./deploy.sh` says `Could not resolve hostname rpi5`: Tailscale is off on the Mac, or
+  NordVPN is connected and swallowing the tailnet. Ask Walker to fix it; don't change VPNs.
+- The Browser pane can start refusing clipboard writes (`NotAllowedError`) after a few
+  copies. That's the pane, not the code; check the image render separately.
+- "Add X to players.txt" means the roster: `players.txt` was v1 (archived). Use
+  `ssh rpi5 'sudo hextrack-admin roster add "Name#TAG"'` (and `roster rm` / `roster list`).
 
 ## Layout
 
@@ -133,6 +163,14 @@ cd web && npm run typecheck && npm run lint && npm run build
 - Data comes only through the hooks in `src/api/queries.ts`; types from `src/api/types.ts`.
 - Item and champion icons resolve against the game's own patch (`lib/ddragon.ts`), because
   old matches contain removed items.
+- Share cards: `components/match/shareRecap.ts` draws the 1200x675 recap PNG on a canvas
+  (solo, duo and squad), and `ShareRecapButton.tsx` copies it. Copying passes a
+  `Promise<Blob>` to `ClipboardItem` synchronously, which Safari requires. The duo/squad
+  "carried / ran it down" lines (`VERDICTS`) are the one allowed exception to the no-"carry"
+  rule (see DESIGN.md).
+- Streaks: `lib/streaks.ts` + `components/common/StreakBadge.tsx` (pass the list cap:
+  profile 20, leaderboard 10). Nemesis badge on the profile header comes from the Trends
+  tab's matchup insights.
 
 ## Deployment (live)
 
