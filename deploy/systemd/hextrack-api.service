@@ -15,7 +15,8 @@ ExecStart=/opt/hextrack/current/venv/bin/python -m hextrack serve --host 127.0.0
 Restart=on-failure
 RestartSec=5
 MemoryMax=1536M
-# MemoryDenyWriteExecute=yes   only if the pre-cutover test passes (torch may JIT)
+# No MemoryDenyWriteExecute: torch's oneDNN JIT (Xbyak) needs W+X pages. Tested 2026-09-24:
+# it fails with "Xbyak::Error" and falls back to slower kernels.
 
 [Install]
 WantedBy=multi-user.target

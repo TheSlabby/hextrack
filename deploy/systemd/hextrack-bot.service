@@ -15,7 +15,8 @@ ExecStart=/opt/hextrack/current/venv/bin/python -m hextrack bot
 Restart=on-failure
 RestartSec=15
 MemoryMax=512M
-# MemoryDenyWriteExecute=yes   only if the pre-cutover test passes
+# No torch here, so W+X memory can be refused (tested 2026-09-24).
+MemoryDenyWriteExecute=yes
 
 [Install]
 WantedBy=multi-user.target
