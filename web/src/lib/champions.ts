@@ -36,3 +36,18 @@ export function championDisplayName(key: string): string {
 export function championSlug(key: string): string {
   return key.toLowerCase();
 }
+
+/** "Patches 16.18 + 16.17", "Patch 16.18", "Whole season". */
+export function patchWindowLabel(
+  value: string,
+  recent: readonly string[] = [],
+): string {
+  if (value === "season") return "Whole season";
+  if (value === "recent")
+    return recent.length > 1
+      ? `Patches ${recent.join(" + ")}`
+      : recent[0]
+        ? `Patch ${recent[0]}`
+        : "Recent patches";
+  return `Patch ${value}`;
+}
