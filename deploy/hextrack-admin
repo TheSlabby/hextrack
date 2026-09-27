@@ -6,6 +6,7 @@
 #   sudo hextrack-admin model list | activate <version> | rescore
 #   sudo hextrack-admin backfill [--since YYYY-MM-DD] [--player Name#TAG]   (stop the worker first)
 #   sudo hextrack-admin roster list | add <Name#TAG> | rm <Name#TAG>
+#   sudo hextrack-admin crawl status | seed --tier GOLD --division II [--pages N]
 #
 # Arguments go to `python -m hextrack` as argv (no shell). Only these subcommands are allowed,
 # and they can only do what the unprivileged hextrack user can.
@@ -14,8 +15,8 @@ export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C
 
 [ "$(id -u)" = 0 ] || { echo "hextrack-admin: run with sudo" >&2; exit 1; }
 case "${1:-}" in
-  train | model | backfill | roster) ;;
-  *) sed -n '2,11s/^# \{0,1\}//p' "$0" >&2; exit 2 ;;
+  train | model | backfill | roster | crawl) ;;
+  *) sed -n '2,12s/^# \{0,1\}//p' "$0" >&2; exit 2 ;;
 esac
 for arg in "$@"; do
   case "$arg" in *$'\n'*) echo "hextrack-admin: bad argument" >&2; exit 2 ;; esac   # (argv can't hold NUL)
@@ -32,6 +33,12 @@ case "$1" in
   train | model) props+=(-p StateDirectory=hextrack -p StateDirectoryMode=0700) ;;
   # These call Riot.
   backfill | roster) props+=(-p LoadCredential=RIOT_API_KEY:/etc/hextrack/credentials/RIOT_API_KEY) ;;
+  # `crawl status` only reads the database; `crawl seed` lists ladder pages with the key.
+  crawl)
+    if [ "${2:-}" = seed ]; then
+      props+=(-p LoadCredential=RIOT_API_KEY:/etc/hextrack/credentials/RIOT_API_KEY)
+    fi
+    ;;
 esac
 
 exec systemd-run --quiet --wait --pipe --collect --service-type=exec \

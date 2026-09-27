@@ -61,6 +61,15 @@ MIN_TRAIN_ROWS: Final = 200
 DEFAULT_SEED: Final = 41
 VAL_FRACTION: Final = 0.2
 BATCH_SIZE: Final = 64
+#: With lots of data the batch grows so an epoch stays around this many optimizer steps
+#: (the data crawler can add millions of rows; batch 64 would take hours per epoch on a Pi).
+TARGET_STEPS_PER_EPOCH: Final = 2000
+#: Stop when validation loss hasn't improved for this many epochs (the best epoch is kept).
+EARLY_STOP_PATIENCE: Final = 15
+#: Newest games used for training by default; bounds memory (~120 bytes per row as float32).
+DEFAULT_MAX_MATCHES: Final = 300_000
+#: Matches loaded per query while building the arrays.
+LOAD_CHUNK_MATCHES: Final = 20_000
 LEARNING_RATE: Final = 1e-3
 #: Match ids created by ``hextrack seed-demo`` start with this prefix.
 DEMO_MATCH_PREFIX: Final = "DEMO_"
@@ -96,10 +105,14 @@ class NotEnoughData(Exception):
 class TrainingData:
     """Scorable participant rows as arrays (one entry per participant)."""
 
-    match_ids: npt.NDArray[np.str_]
+    #: One integer per match (rows of the same match share it); only equality matters.
+    match_ids: npt.NDArray[np.int64]
     labels: FloatArray
-    features: FloatArray
+    #: float32 to halve memory on large datasets.
+    features: npt.NDArray[np.float32]
     game_starts: list[datetime]
+    #: Matches from ``hextrack seed-demo`` (ids starting with DEMO_MATCH_PREFIX).
+    demo_matches: int
     #: patch -> number of matches.
     patches: dict[str, int]
 
@@ -130,45 +143,64 @@ def load_training_data(
     since: datetime | None,
     queues: Sequence[int],
     feature_names: Sequence[str] = FEATURE_NAMES,
+    max_matches: int | None = DEFAULT_MAX_MATCHES,
+    chunk_matches: int = LOAD_CHUNK_MATCHES,
 ) -> TrainingData:
-    """Participants of scorable matches in ``queues`` (and on/after ``since``)."""
-    stmt = (
-        select(
-            MatchParticipant.match_id,
-            MatchParticipant.win,
-            Match.game_duration,
-            Match.game_start,
-            Match.patch,
-            *registry.participant_feature_columns(feature_names),
-        )
-        .join(Match, Match.match_id == MatchParticipant.match_id)
+    """Participants of scorable matches in ``queues`` (and on/after ``since``): the newest
+    ``max_matches`` games (None: all), read ``chunk_matches`` games per query straight into
+    float32 arrays, so millions of crawled rows never sit in memory as Python objects."""
+    header = (
+        select(Match.match_id, Match.game_start, Match.patch)
         .where(registry.scorable_match_clause(), Match.queue_id.in_(list(queues)))
-        .order_by(MatchParticipant.match_id, MatchParticipant.participant_id)
+        .order_by(Match.game_start.desc(), Match.match_id.desc())
     )
     if since is not None:
-        stmt = stmt.where(Match.game_start >= since)
-    with engine.connect() as conn:
-        rows = conn.execute(stmt).all()
+        header = header.where(Match.game_start >= since)
+    if max_matches is not None:
+        header = header.limit(int(max_matches))
+    feature_columns = registry.participant_feature_columns(feature_names)
 
-    match_ids = np.array([row.match_id for row in rows], dtype=np.str_)
-    labels = np.fromiter((1.0 if row.win else 0.0 for row in rows), np.float64, len(rows))
-    features = registry.feature_matrix_from_result_rows(rows, feature_names)
-    starts: dict[str, datetime] = {}
-    patches: dict[str, str] = {}
-    for row in rows:
-        starts.setdefault(row.match_id, row.game_start)
-        patches.setdefault(row.match_id, row.patch)
+    ids: list[npt.NDArray[np.int64]] = []
+    labels: list[FloatArray] = []
+    features: list[npt.NDArray[np.float32]] = []
+    with engine.connect() as conn:
+        games = conn.execute(header).all()
+        code = {row.match_id: i for i, row in enumerate(games)}
+        for start in range(0, len(games), chunk_matches):
+            chunk = [row.match_id for row in games[start : start + chunk_matches]]
+            stmt = (
+                select(
+                    MatchParticipant.match_id,
+                    MatchParticipant.win,
+                    Match.game_duration,
+                    *feature_columns,
+                )
+                .join(Match, Match.match_id == MatchParticipant.match_id)
+                .where(MatchParticipant.match_id.in_(chunk))
+            )
+            rows = conn.execute(stmt).all()
+            if not rows:
+                continue
+            ids.append(np.fromiter((code[r.match_id] for r in rows), np.int64, len(rows)))
+            labels.append(np.fromiter((1.0 if r.win else 0.0 for r in rows), np.float64, len(rows)))
+            features.append(
+                registry.feature_matrix_from_result_rows(rows, feature_names).astype(np.float32)
+            )
+            del rows
+
+    n_features = len(feature_names)
     return TrainingData(
-        match_ids=match_ids,
-        labels=labels,
-        features=features,
-        game_starts=sorted(starts.values()),
-        patches=dict(sorted(Counter(patches.values()).items())),
+        match_ids=np.concatenate(ids) if ids else np.zeros(0, np.int64),
+        labels=np.concatenate(labels) if labels else np.zeros(0, np.float64),
+        features=np.concatenate(features) if features else np.zeros((0, n_features), np.float32),
+        game_starts=sorted(row.game_start for row in games),
+        demo_matches=sum(1 for row in games if row.match_id.startswith(DEMO_MATCH_PREFIX)),
+        patches=dict(sorted(Counter(row.patch for row in games).items())),
     )
 
 
 def group_split(
-    match_ids: npt.NDArray[np.str_], *, val_fraction: float, seed: int
+    match_ids: npt.NDArray[Any], *, val_fraction: float, seed: int
 ) -> tuple[npt.NDArray[np.bool_], int, int]:
     """Boolean validation mask over rows, holding out ``val_fraction`` of the matches.
     Returns ``(val_mask, n_train_matches, n_val_matches)``."""
@@ -217,6 +249,7 @@ def _fit(
     batch_size: int,
     lr: float,
     seed: int,
+    patience: int = EARLY_STOP_PATIENCE,
 ) -> tuple[WinPredictionNet, list[EpochStats], int]:
     """Train and return the best-validation-log-loss model, the history and best epoch."""
     n_train = x_train.shape[0]
@@ -233,6 +266,9 @@ def _fit(
         best_state: dict[str, torch.Tensor] = copy.deepcopy(model.state_dict())
         log_every = max(1, epochs // 10)
         for epoch in range(1, epochs + 1):
+            if epoch - best_epoch > patience and best_epoch > 0:
+                logger.info("no validation improvement for %d epochs; stopping", patience)
+                break
             model.train()
             order = torch.randperm(n_train, generator=generator)
             running = 0.0
@@ -406,8 +442,9 @@ def train(
     activate: bool = True,
     rescore: bool = True,
     seed: int = DEFAULT_SEED,
-    batch_size: int = BATCH_SIZE,
+    batch_size: int | None = None,
     learning_rate: float = LEARNING_RATE,
+    max_matches: int | None = DEFAULT_MAX_MATCHES,
     val_fraction: float = VAL_FRACTION,
     min_rows: int = MIN_TRAIN_ROWS,
 ) -> TrainReport:
@@ -432,7 +469,7 @@ def train(
 
     engine = make_sync_engine(settings)
     try:
-        data = load_training_data(engine, since=since, queues=queue_list)
+        data = load_training_data(engine, since=since, queues=queue_list, max_matches=max_matches)
         scope = f"queues {','.join(map(str, queue_list))}" + (
             f" since {since.date().isoformat()}" if since else ""
         )
@@ -464,6 +501,11 @@ def train(
             n_val_matches,
             scope,
         )
+        # None: BATCH_SIZE, grown so an epoch is about TARGET_STEPS_PER_EPOCH steps.
+        effective_batch = batch_size or max(
+            BATCH_SIZE, math.ceil(x_train.shape[0] / TARGET_STEPS_PER_EPOCH)
+        )
+        logger.info("batch size %d", effective_batch)
         xt = torch.as_tensor(x_train, dtype=torch.float32)
         xv = torch.as_tensor(x_val, dtype=torch.float32)
         model, history, best_epoch = _fit(
@@ -472,7 +514,7 @@ def train(
             xv,
             y_val,
             epochs=epochs,
-            batch_size=batch_size,
+            batch_size=effective_batch,
             lr=learning_rate,
             seed=seed,
         )
@@ -501,8 +543,7 @@ def train(
             "n_train_matches": n_train_matches,
             "n_val_matches": n_val_matches,
         }
-        unique_ids = np.unique(data.match_ids)
-        demo_matches = int(np.char.startswith(unique_ids, DEMO_MATCH_PREFIX).sum())
+        demo_matches = data.demo_matches
         meta: dict[str, Any] = {
             "version": version,
             "feature_set": FEATURE_SET,
@@ -515,7 +556,9 @@ def train(
             "trained_at": trained_at.isoformat(),
             "hyperparameters": {
                 "epochs": epochs,
-                "batch_size": batch_size,
+                "batch_size": effective_batch,
+                "max_matches": max_matches,
+                "early_stop_patience": EARLY_STOP_PATIENCE,
                 "learning_rate": learning_rate,
                 "optimizer": "adam",
                 "loss": "bce_with_logits",

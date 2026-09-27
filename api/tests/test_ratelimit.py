@@ -329,3 +329,25 @@ def test_announced_windows_that_are_not_configured_are_adopted_as_is() -> None:
     limiter, _ = make_limiter([(20, 1.0), (100, 120.0)])
     limiter.update_from_headers("m", {"X-App-Rate-Limit": "500:10,30000:600"})
     assert limiter.app_limits == (RateLimit(500, 10.0), RateLimit(30000, 600.0))
+
+
+async def test_headroom_views_for_background_jobs() -> None:
+    """app_headroom is the tightest window; the long-window views are what the data
+    crawler compares with the poller's per-interval budget."""
+    limiter, clock = make_limiter([(15, 1.0), (80, 120.0)])
+    start = limiter.now()
+    for _ in range(10):
+        await limiter.acquire("match")
+    assert limiter.app_headroom() == 15 - 10
+    assert limiter.long_window_headroom() == 80 - 10
+    assert limiter.long_window_sent_since(start - 1) == 10
+    await clock.sleep(2.0)  # the 1 s window is empty again, the 2 min one isn't
+    assert limiter.app_headroom() == 15
+    assert limiter.long_window_headroom() == 70
+    mark = limiter.now()
+    for _ in range(3):
+        await limiter.acquire("match")
+    assert limiter.long_window_sent_since(mark) == 3
+    await clock.sleep(121.0)  # everything slid out of the long window
+    assert limiter.long_window_headroom() == 80
+    assert limiter.long_window_sent_since(start - 1) == 0

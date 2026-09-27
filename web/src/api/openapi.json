@@ -2382,6 +2382,16 @@
           },
           "bot": {
             "$ref": "#/components/schemas/HealthBot"
+          },
+          "crawler": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HealthCrawler"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -2393,7 +2403,8 @@
           "model",
           "riot",
           "poller",
-          "bot"
+          "bot",
+          "crawler"
         ],
         "title": "Health"
       },
@@ -2445,6 +2456,111 @@
           "last_error"
         ],
         "title": "HealthBot"
+      },
+      "HealthCrawler": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "running": {
+            "type": "boolean",
+            "title": "Running"
+          },
+          "paused_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused Reason"
+          },
+          "heartbeat_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeat At"
+          },
+          "matches_added_today": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matches Added Today"
+          },
+          "matches_total_crawled": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matches Total Crawled"
+          },
+          "frontier_uncrawled": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frontier Uncrawled"
+          },
+          "frontier_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frontier Total"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "enabled",
+          "running",
+          "paused_reason",
+          "heartbeat_at",
+          "matches_added_today",
+          "matches_total_crawled",
+          "frontier_uncrawled",
+          "frontier_total",
+          "last_error"
+        ],
+        "title": "HealthCrawler",
+        "description": "The data crawler (games of untracked players, kept for AI training)."
       },
       "HealthModel": {
         "properties": {

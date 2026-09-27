@@ -1034,6 +1034,26 @@ class HealthBot(ApiModel):
     last_error: str | None
 
 
+class HealthCrawler(ApiModel):
+    """The data crawler (games of untracked players, kept for AI training)."""
+
+    #: HEXTRACK_CRAWL is on for this deployment.
+    enabled: bool
+    #: The worker wrote a crawler heartbeat in the last 5 minutes and did not report stopping.
+    running: bool
+    #: Why it is waiting while running ("budget", "disk", ...), from the heartbeat.
+    paused_reason: str | None
+    heartbeat_at: AwareDatetime | None
+    #: Games the crawler stored today (UTC).
+    matches_added_today: int | None
+    #: Stored games with ``source = "crawl"`` (cached for a few minutes).
+    matches_total_crawled: int | None
+    #: Frontier players not crawled yet / in the frontier, from the heartbeat.
+    frontier_uncrawled: int | None
+    frontier_total: int | None
+    last_error: str | None
+
+
 class Health(ApiModel):
     #: "degraded" when the DB is unreachable or the Riot key is missing/rejected.
     status: Literal["ok", "degraded"]
@@ -1043,6 +1063,8 @@ class Health(ApiModel):
     riot: HealthRiot
     poller: HealthPoller
     bot: HealthBot
+    #: The data crawler; absent from older servers.
+    crawler: HealthCrawler | None = None
 
 
 __all__ = [
@@ -1060,6 +1082,7 @@ __all__ = [
     "FeatureGroup",
     "Health",
     "HealthBot",
+    "HealthCrawler",
     "HealthModel",
     "HealthPoller",
     "HealthRiot",

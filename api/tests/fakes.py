@@ -67,6 +67,10 @@ class FakeRiotClient:
         self._failures: dict[str, deque[_Failure]] = defaultdict(deque)
         self._status = RiotStatus(key_configured=key_configured)
         self.wait_estimate = 0.0
+        #: What ``app_headroom`` reports (free app-limit slots); plenty by default.
+        self.headroom = 1_000_000
+        #: (queue, tier, division) -> {page: entries} for ``league_exp_entries``.
+        self.ladder: dict[tuple[str, str, str], dict[int, list[LeagueEntryDto]]] = defaultdict(dict)
 
     # --- configuration ------------------------------------------------------------------------
     def add_account(
@@ -125,6 +129,31 @@ class FakeRiotClient:
                     ids.append(match_id)
                     ids.sort(key=lambda i: self._start_ms(i) or 0, reverse=True)
         return match_id
+
+    def add_ladder_page(
+        self,
+        tier: str,
+        division: str,
+        puuids: list[str],
+        *,
+        page: int = 1,
+        queue: str = "RANKED_SOLO_5x5",
+    ) -> list[LeagueEntryDto]:
+        """Serve ``puuids`` as league-exp page ``page`` of ``queue``/``tier``/``division``."""
+        entries = [
+            LeagueEntryDto(
+                queueType=queue,
+                tier=tier,
+                rank=division,
+                leaguePoints=50,
+                wins=20,
+                losses=20,
+                puuid=puuid,
+            )
+            for puuid in puuids
+        ]
+        self.ladder[(queue, tier, division)][page] = entries
+        return entries
 
     def fail(self, method: str, error: RiotError, *, times: int | None = 1) -> None:
         """Raise ``error`` from ``method`` for the next ``times`` calls (None = always)."""
@@ -186,6 +215,19 @@ class FakeRiotClient:
     async def league_entries_by_puuid(self, puuid: str) -> list[LeagueEntryDto]:
         self._enter("league_entries_by_puuid", puuid)
         return [e.model_copy() for e in self.league_entries.get(puuid, [])]
+
+    async def league_exp_entries(
+        self, queue: str, tier: str, division: str, *, page: int = 1
+    ) -> list[LeagueEntryDto]:
+        """league-exp ladder page; empty past the configured pages (like Riot)."""
+        self._enter("league_exp_entries", queue, tier, division, page=page)
+        return [e.model_copy() for e in self.ladder.get((queue, tier, division), {}).get(page, [])]
+
+    def app_headroom(self, method: str) -> int:
+        """Mirror of the real client: free app-limit slots (``self.headroom``)."""
+        if method not in METHOD_ROUTING:
+            raise ValueError(f"unknown Riot client method {method!r}")
+        return self.headroom
 
     async def active_game_by_puuid(self, puuid: str) -> None:
         """spectator-v5: nobody is in a live game here (test_ingest_live.py has its own fake)."""

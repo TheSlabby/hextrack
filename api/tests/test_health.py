@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from hextrack.api.v1.health import bot_status, poller_status
+from hextrack.api.v1.health import bot_status, crawler_status, poller_status
 from hextrack.db.models import AppState
 from hextrack.riot.errors import RiotForbidden
 from tests.fakes import install_fakes
@@ -208,3 +208,95 @@ async def test_health_keeps_its_own_riot_status_when_it_is_newer(
 
     assert body["riot"]["key_ok"] is True
     assert body["status"] == "ok"
+
+
+def test_crawler_status_staleness_and_counters(settings):
+    now = datetime(2026, 9, 26, 12, tzinfo=UTC)
+    fresh = {
+        "running": True,
+        "updated_at": (now - timedelta(seconds=30)).isoformat(),
+        "paused_reason": "budget",
+        "matches_added_today": 42,
+        "day": "2026-09-26",
+        "frontier_uncrawled": 80,
+        "frontier_total": 100,
+    }
+    status = crawler_status(fresh, settings, 1234, now=now)
+    assert status.enabled is settings.crawl
+    assert status.running is True
+    assert status.paused_reason == "budget"
+    assert status.matches_added_today == 42
+    assert status.matches_total_crawled == 1234
+    assert (status.frontier_uncrawled, status.frontier_total) == (80, 100)
+
+    # older than 5 minutes: the worker is gone, a paused reason is no longer meaningful
+    stale = {**fresh, "updated_at": (now - timedelta(minutes=6)).isoformat()}
+    status = crawler_status(stale, settings, None, now=now)
+    assert status.running is False and status.paused_reason is None
+    assert status.heartbeat_at is not None
+
+    stopped = {**fresh, "running": False, "last_error": "disk full"}
+    status = crawler_status(stopped, settings, None, now=now)
+    assert status.running is False and status.last_error == "disk full"
+
+    yesterday = {**fresh, "day": "2026-09-25"}
+    assert crawler_status(yesterday, settings, None, now=now).matches_added_today == 0
+
+    # every field is optional
+    status = crawler_status({"bogus": 1}, settings, None, now=now)
+    assert status.running is False and status.matches_added_today is None
+    assert crawler_status(None, settings, None, now=now).running is False
+    disabled = settings.model_copy(update={"crawl": False})
+    assert crawler_status(None, disabled, None, now=now).enabled is False
+
+
+async def test_health_reads_crawler_heartbeat_and_counts_crawled_games(
+    app, client, session_factory
+):
+    from sqlalchemy import update
+
+    from hextrack.db.models import Match
+    from tests.factories import make_match_json
+    from tests.test_ai_support import insert_matches
+
+    ids = await insert_matches(
+        session_factory, [make_match_json(f"NA1_CRAWLHEALTH{i}") for i in range(3)]
+    )
+    now = datetime.now(UTC)
+    async with session_factory() as s:
+        await s.execute(update(Match).where(Match.match_id.in_(ids[:2])).values(source="crawl"))
+        s.add(
+            AppState(
+                key="crawler",
+                value={
+                    "running": True,
+                    "updated_at": now.isoformat(),
+                    "started_at": (now - timedelta(hours=1)).isoformat(),
+                    "matches_added": 2,
+                    "matches_added_today": 2,
+                    "day": now.date().isoformat(),
+                    "frontier_uncrawled": 7,
+                    "frontier_total": 9,
+                    "last_error": None,
+                    "reserve": {"app": 30},
+                },
+            )
+        )
+        await s.commit()
+
+    body = (await client.get("/api/v1/health")).json()
+    crawler = body["crawler"]
+    assert crawler["running"] is True
+    assert crawler["matches_added_today"] == 2
+    assert crawler["matches_total_crawled"] == 2
+    assert crawler["frontier_uncrawled"] == 7
+    assert crawler["frontier_total"] == 9
+    assert crawler["last_error"] is None
+    assert body["status"] == "ok"
+
+
+async def test_health_crawler_without_heartbeat(client):
+    body = (await client.get("/api/v1/health")).json()
+    assert body["crawler"]["running"] is False
+    assert body["crawler"]["heartbeat_at"] is None
+    assert body["crawler"]["matches_total_crawled"] == 0

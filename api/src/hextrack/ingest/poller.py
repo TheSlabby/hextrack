@@ -17,6 +17,11 @@ After each completed tick, :func:`poll_forever` also refreshes the roster's live
 (:mod:`hextrack.ingest.live`) unless ``settings.live_games`` is off; ``poll_once`` alone (the
 CLI) never does.
 
+The standalone worker (:func:`run_worker`) also runs the data crawler
+(:mod:`hextrack.ingest.crawler`) while it holds the poller lock, when ``settings.crawl`` is
+on. The crawler is paused while a tick and the live refresh run, and each tick reports what
+it spent on Riot's limits so the crawler leaves that much free for the next one.
+
 Per-summoner / per-match failures are logged, recorded and skipped. A missing or
 rejected Riot key (:class:`RiotKeyMissing` / :class:`RiotForbidden`) aborts the tick and
 :func:`poll_forever` backs off :data:`AUTH_BACKOFF_SECONDS`.
@@ -50,6 +55,7 @@ from hextrack.db.repo import app_state as app_state_repo
 from hextrack.db.repo import summoners as summoners_repo
 from hextrack.demo.names import DEMO_PUUID_PREFIX
 from hextrack.ingest.context import IngestContext
+from hextrack.ingest.crawler import CrawlBudget, run_crawler
 from hextrack.ingest.live import refresh_live_games
 from hextrack.ingest.service import (
     Discovery,
@@ -457,19 +463,80 @@ async def _refresh_live(ctx: IngestContext, stop: asyncio.Event) -> bool:
     return True
 
 
-async def poll_forever(ctx: IngestContext, stop: asyncio.Event | None = None) -> None:
+class _CrawlerRunner:
+    """The data crawler task (:mod:`hextrack.ingest.crawler`) next to the poll loop: runs
+    only while this process holds the poller lock, is paused (``poll_active``) while a tick
+    and the live refresh run, and learns from :attr:`budget` what one tick costs."""
+
+    def __init__(self, ctx: IngestContext) -> None:
+        self.ctx = ctx
+        self.budget = CrawlBudget(ctx.riot)
+        self.poll_active = asyncio.Event()
+        self._stop = asyncio.Event()
+        self._task: asyncio.Task[None] | None = None
+
+    def ensure_started(self) -> None:
+        if self._task is not None and not self._task.done():
+            return
+        self._stop = asyncio.Event()
+        self._task = asyncio.create_task(
+            run_crawler(self.ctx, self._stop, self.poll_active, budget=self.budget),
+            name="hextrack-crawler",
+        )
+        self._task.add_done_callback(_log_crawler_exit)
+
+    def tick_started(self) -> None:
+        self.poll_active.set()
+        self.budget.tick_started()
+
+    def tick_finished(self) -> None:
+        self.budget.tick_finished()
+        self.poll_active.clear()
+
+    async def stop(self) -> None:
+        """Stop the crawler (it finishes its current request), cancelling it after
+        :data:`STOP_GRACE_SECONDS`."""
+        task, self._task = self._task, None
+        self._stop.set()
+        if task is None or task.done():
+            return
+        await asyncio.wait({task}, timeout=STOP_GRACE_SECONDS)
+        if not task.done():
+            logger.warning("crawler still busy %.0fs after stop; cancelling", STOP_GRACE_SECONDS)
+            task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await task
+
+
+def _log_crawler_exit(task: asyncio.Task[None]) -> None:
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        logger.error("crawler exited with an error", exc_info=exc)
+
+
+async def poll_forever(
+    ctx: IngestContext, stop: asyncio.Event | None = None, *, crawler: bool = False
+) -> None:
     """Run :func:`poll_once` every ``poll_interval_seconds`` until ``stop`` is set or the
     task is cancelled. Errors are logged and recorded in the heartbeat, never raised; a
     RiotForbidden / RiotKeyMissing backs off :data:`AUTH_BACKOFF_SECONDS`.
 
     Holds the poller advisory lock for as long as it runs; while another process holds it,
     this loop stands by and retries every interval.
+
+    ``crawler=True`` (the standalone worker only, never the API's in-process poller) also
+    runs the data crawler while the lock is held, when ``settings.crawl`` is on.
     """
     stop = stop if stop is not None else asyncio.Event()
     interval = float(ctx.settings.poll_interval_seconds)
     lock = AdvisoryLock(_engine_of(ctx))
     standing_by = False
-    logger.info("poller started (every %.0fs)", interval)
+    crawl = _CrawlerRunner(ctx) if crawler and ctx.settings.crawl else None
+    logger.info(
+        "poller started (every %.0fs%s)", interval, ", with the data crawler" if crawl else ""
+    )
     try:
         while not stop.is_set():
             delay = interval
@@ -479,25 +546,37 @@ async def poll_forever(ctx: IngestContext, stop: asyncio.Event | None = None) ->
                     if standing_by:
                         logger.info("poller lock acquired; polling")
                         standing_by = False
-                    report = await _run_tick(ctx, lock, stop)
-                    if report is None:
-                        break
-                    if report.auth_failed:
-                        delay = max(interval, AUTH_BACKOFF_SECONDS)
-                        logger.warning("Riot key missing or rejected; next poll in %.0fs", delay)
-                    else:
-                        logger.info(
-                            "poll: %d summoners, %d new matches (%d scored), %d errors",
-                            report.summoners,
-                            report.new_matches,
-                            report.scored_matches,
-                            len(report.errors),
-                        )
-                        if ctx.settings.live_games and not await _refresh_live(ctx, stop):
+                    if crawl is not None:
+                        crawl.tick_started()
+                        crawl.ensure_started()
+                    try:
+                        report = await _run_tick(ctx, lock, stop)
+                        if report is None:
                             break
-                elif not standing_by:
-                    logger.info("another poller holds the lock; standing by")
-                    standing_by = True
+                        if report.auth_failed:
+                            delay = max(interval, AUTH_BACKOFF_SECONDS)
+                            logger.warning(
+                                "Riot key missing or rejected; next poll in %.0fs", delay
+                            )
+                        else:
+                            logger.info(
+                                "poll: %d summoners, %d new matches (%d scored), %d errors",
+                                report.summoners,
+                                report.new_matches,
+                                report.scored_matches,
+                                len(report.errors),
+                            )
+                            if ctx.settings.live_games and not await _refresh_live(ctx, stop):
+                                break
+                    finally:
+                        if crawl is not None:
+                            crawl.tick_finished()
+                else:
+                    if crawl is not None:
+                        await crawl.stop()
+                    if not standing_by:
+                        logger.info("another poller holds the lock; standing by")
+                        standing_by = True
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -509,6 +588,8 @@ async def poll_forever(ctx: IngestContext, stop: asyncio.Event | None = None) ->
             if await _sleep_until_stopped(stop, delay):
                 break
     finally:
+        if crawl is not None:
+            await crawl.stop()
         if lock.held:
             await _write_heartbeat(ctx, {"running": False})
         await lock.release()
@@ -618,7 +699,7 @@ async def run_worker(settings: Settings) -> None:
                 riot=riot,
                 scorer=scorer,
             )
-            await poll_forever(ctx, stop)
+            await poll_forever(ctx, stop, crawler=True)
     finally:
         for sig in installed:
             with contextlib.suppress(Exception):

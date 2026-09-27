@@ -15,6 +15,7 @@ export type ErrorResponse = Schemas["ErrorResponse"];
 export type FeatureAttribution = Schemas["FeatureAttribution"];
 export type HTTPValidationError = Schemas["HTTPValidationError"];
 export type Health = Schemas["Health"];
+export type HealthCrawler = Schemas["HealthCrawler"];
 export type HealthModel = Schemas["HealthModel"];
 export type HealthPoller = Schemas["HealthPoller"];
 export type HealthRiot = Schemas["HealthRiot"];

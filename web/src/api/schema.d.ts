@@ -563,6 +563,7 @@ export interface components {
             riot: components["schemas"]["HealthRiot"];
             poller: components["schemas"]["HealthPoller"];
             bot: components["schemas"]["HealthBot"];
+            crawler: components["schemas"]["HealthCrawler"] | null;
         };
         /** HealthBot */
         HealthBot: {
@@ -574,6 +575,30 @@ export interface components {
             connected: boolean;
             /** Heartbeat At */
             heartbeat_at: string | null;
+            /** Last Error */
+            last_error: string | null;
+        };
+        /**
+         * HealthCrawler
+         * @description The data crawler (games of untracked players, kept for AI training).
+         */
+        HealthCrawler: {
+            /** Enabled */
+            enabled: boolean;
+            /** Running */
+            running: boolean;
+            /** Paused Reason */
+            paused_reason: string | null;
+            /** Heartbeat At */
+            heartbeat_at: string | null;
+            /** Matches Added Today */
+            matches_added_today: number | null;
+            /** Matches Total Crawled */
+            matches_total_crawled: number | null;
+            /** Frontier Uncrawled */
+            frontier_uncrawled: number | null;
+            /** Frontier Total */
+            frontier_total: number | null;
             /** Last Error */
             last_error: string | null;
         };

@@ -40,8 +40,12 @@ app = typer.Typer(
 model_app = typer.Typer(help="Manage trained AI Score models.", no_args_is_help=True)
 roster_app = typer.Typer(help="Manage the tracked friends roster.", no_args_is_help=True)
 db_app = typer.Typer(help="Database migrations.", no_args_is_help=True)
+crawl_app = typer.Typer(
+    help="Data crawler (untracked players' games for AI training).", no_args_is_help=True
+)
 app.add_typer(model_app, name="model")
 app.add_typer(roster_app, name="roster")
+app.add_typer(crawl_app, name="crawl")
 app.add_typer(db_app, name="db")
 
 
@@ -159,6 +163,29 @@ async def _with_ingest_ctx[T](
                 return result
     finally:
         await engine.dispose()
+
+
+async def _with_session[T](settings: Settings, fn: Callable[[AsyncSession], Awaitable[T]]) -> T:
+    """Run ``fn`` in one read-only DB session (no Riot client, no commit)."""
+    from hextrack.db.engine import make_async_engine, make_session_factory
+
+    engine = make_async_engine(settings, pool_size=1, max_overflow=0)
+    try:
+        async with make_session_factory(engine)() as session:
+            return await fn(session)
+    finally:
+        await engine.dispose()
+
+
+def _bytes(n: int | None) -> str:
+    if n is None:
+        return "-"
+    size = float(n)
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024:
+            return f"{size:.1f} {unit}" if unit != "B" else f"{int(size)} B"
+        size /= 1024
+    return f"{size:.1f} TB"
 
 
 # --- servers ---------------------------------------------------------------------------------
@@ -487,6 +514,118 @@ def roster_list() -> None:
             s.last_refreshed_at.isoformat(timespec="minutes") if s.last_refreshed_at else "-",
         )
     console.print(table)
+
+
+# --- data crawler ----------------------------------------------------------------------------
+
+
+@crawl_app.command("status")
+def crawl_status_cmd() -> None:
+    """Show the crawler heartbeat, its frontier, crawled games and disk use (no Riot key)."""
+    from hextrack.stats.crawl import crawl_status
+
+    settings = get_settings()
+    st = _run(_with_session(settings, lambda s: crawl_status(s, settings)))
+    hb = st.interpreted
+
+    if not st.enabled:
+        state = "[dim]disabled (HEXTRACK_CRAWL=false)[/]"
+    elif hb.running:
+        state = "[green]running[/]" + (
+            f" [yellow](paused: {hb.paused_reason})[/]" if hb.paused_reason else ""
+        )
+    elif st.heartbeat is None:
+        state = "[yellow]no heartbeat yet[/] (is hextrack-worker running?)"
+    else:
+        state = "[red]not running[/] (heartbeat stale or stopped)"
+    console.print(f"crawler: {state}")
+
+    table = Table(title="Heartbeat", show_header=False, title_justify="left")
+    table.add_column("field", style="bold cyan")
+    table.add_column("value")
+    for key, value in sorted((st.heartbeat or {}).items()):
+        if isinstance(value, dict):
+            for sub, sub_value in sorted(value.items()):
+                table.add_row(f"{key}.{sub}", str(sub_value))
+        else:
+            table.add_row(key, str(value))
+    if st.heartbeat_row_updated_at is not None:
+        table.add_row("(row updated_at)", st.heartbeat_row_updated_at.isoformat(timespec="seconds"))
+    if st.heartbeat:
+        console.print(table)
+
+    for title, rows in (("Frontier by source", st.by_found_via), ("Frontier by tier", st.by_tier)):
+        t = Table(title=title, title_justify="left")
+        for col in ("group", "players", "not crawled", "last crawl failed"):
+            t.add_column(col, justify="left" if col == "group" else "right")
+        for r in rows:
+            t.add_row(
+                r.label, f"{r.total:,}", f"{r.uncrawled:,}", f"{r.errored:,}" if r.errored else "0"
+            )
+        if rows:
+            t.add_row(
+                "[bold]total[/]",
+                f"[bold]{sum(r.total for r in rows):,}[/]",
+                f"[bold]{sum(r.uncrawled for r in rows):,}[/]",
+                f"{sum(r.errored for r in rows):,}",
+            )
+        else:
+            t.add_row("(empty)", "0", "0", "0")
+        console.print(t)
+
+    console.print(
+        f"crawled games: {st.crawled_total:,} stored ({st.crawled_24h:,} in the last 24 h) "
+        f"of {st.matches_total:,} games in the database"
+    )
+    console.print(f"database size: {_bytes(st.db_size_bytes)}")
+    if st.disk_free_bytes is not None:
+        low = st.disk_free_bytes < st.min_free_gb * 1024**3
+        free = _bytes(st.disk_free_bytes)
+        console.print(
+            f"free disk: {'[red]' + free + '[/]' if low else free} of {_bytes(st.disk_total_bytes)}"
+            f" on {st.disk_path} (crawler pauses below {st.min_free_gb:g} GB)"
+        )
+    else:
+        console.print("free disk: unknown")
+
+
+@crawl_app.command("seed")
+def crawl_seed_cmd(
+    tier: Annotated[str, typer.Option(help="Ladder tier, e.g. GOLD.")],
+    division: Annotated[str, typer.Option(help="I, II, III or IV (apex tiers: I).")] = "I",
+    pages: Annotated[
+        int, typer.Option(min=1, max=50, help="Ladder pages (~205 players each).")
+    ] = 1,
+    first_page: Annotated[int, typer.Option(min=1, help="First ladder page.")] = 1,
+) -> None:
+    """Add solo-queue ladder players of TIER DIVISION to the crawl frontier.
+
+    Uses the Riot API key (one league-exp call per page) on top of the worker's traffic;
+    the crawler picks the players up on its next round.
+    """
+    from hextrack.ingest.crawl_seed import SeedError, seed_from_ladder
+
+    setup_logging()
+    report = _run(
+        _with_ingest_ctx(
+            get_settings(),
+            lambda ctx, s: seed_from_ladder(
+                ctx, s, tier, division, pages=pages, first_page=first_page
+            ),
+        ),
+        expected=(SeedError, *_riot_errors()),
+    )
+    console.print(
+        f"[green]+{report.added}[/] players added to the frontier from {report.tier} "
+        f"{report.division} ({report.listed} listed on {report.pages} page(s); "
+        f"{report.already_known} already there, {report.skipped_tracked} tracked"
+        + (
+            f", {report.skipped_frontier_full} over crawl_frontier_max"
+            if report.skipped_frontier_full
+            else ""
+        )
+        + ")"
+    )
 
 
 # --- tooling ---------------------------------------------------------------------------------

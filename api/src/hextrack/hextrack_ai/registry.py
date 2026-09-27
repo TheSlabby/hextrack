@@ -99,6 +99,16 @@ def scorable_match_clause() -> ColumnElement[bool]:
     )
 
 
+#: Games the website scores and shows: everything except the data crawler's (``matches.source
+#: = "crawl"``), which is training data only. Rescoring, population means and the role
+#: percentile table stay the size of the roster's history however much the crawler adds.
+SCORED_SOURCE = "roster"
+
+
+def scored_source_clause() -> ColumnElement[bool]:
+    return Match.source == SCORED_SOURCE
+
+
 def participant_feature_columns(feature_names: Collection[str]) -> list[Any]:
     """Selectable ``match_participants`` columns for ``feature_names``, plus labelled
     ``team_kills`` / ``team_deaths`` window sums when the participation features are used
@@ -370,7 +380,7 @@ def rescore(
         _warn_if_db_disagrees(factory, version)
         while True:
             stmt = select(Match.match_id, Match.game_duration).where(
-                scorable_match_clause(), Match.match_id > last_id
+                scorable_match_clause(), scored_source_clause(), Match.match_id > last_id
             )
             if not all_rows:
                 stale_participant = exists().where(
@@ -440,7 +450,9 @@ def _fingerprint_stmt(queue_key: tuple[int, ...]) -> Select[tuple[int, datetime 
     another process (``clear-demo``, ``import-legacy``, the poller) moves it, which is what
     makes cached means fall out of date.
     """
-    return select(func.count(), func.max(Match.game_start)).where(Match.queue_id.in_(queue_key))
+    return select(func.count(), func.max(Match.game_start)).where(
+        Match.queue_id.in_(queue_key), scored_source_clause()
+    )
 
 
 async def _fingerprint(
@@ -499,10 +511,19 @@ async def _population_feature_means(
     ):
         return dict(cached.values)
 
+    # The newest roster games first (an index scan on matches), then their participants: the
+    # team-total window runs over those games only, not the whole table.
+    recent = (
+        select(Match.match_id)
+        .where(scorable_match_clause(), scored_source_clause(), Match.queue_id.in_(queue_key))
+        .order_by(Match.game_start.desc(), Match.match_id.desc())
+        .limit(int(limit) // 10 + 50)
+        .subquery("recent")
+    )
     stmt = (
         select(Match.game_duration, *participant_feature_columns(scorer.feature_names))
         .join(Match, Match.match_id == MatchParticipant.match_id)
-        .where(scorable_match_clause(), Match.queue_id.in_(queue_key))
+        .where(MatchParticipant.match_id.in_(select(recent.c.match_id)))
         .order_by(MatchParticipant.game_start.desc(), MatchParticipant.match_id.desc())
         .limit(int(limit))
     )

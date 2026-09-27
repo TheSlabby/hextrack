@@ -416,10 +416,10 @@ async def test_run_worker_shuts_down_gracefully_on_sigterm(
     contexts = []
     real_poll_forever = poller.poll_forever
 
-    async def spy(ctx, stop):
+    async def spy(ctx, stop, **kwargs):
         contexts.append(ctx)
         started.set()
-        await real_poll_forever(ctx, stop)
+        await real_poll_forever(ctx, stop, **kwargs)
 
     monkeypatch.setattr(poller, "poll_forever", spy)
     worker = asyncio.create_task(poller.run_worker(fast))

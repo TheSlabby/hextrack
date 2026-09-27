@@ -38,7 +38,7 @@ import asyncio
 import logging
 import math
 import time
-from bisect import bisect_right, insort
+from bisect import bisect_left, bisect_right, insort
 from collections.abc import Awaitable, Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Final
@@ -300,6 +300,36 @@ class RateLimiter:
             else 1_000_000
         )
         return free - self._pending_total
+
+    def now(self) -> float:
+        """The limiter's clock (monotonic seconds)."""
+        return self._clock()
+
+    def _longest_app_limit(self) -> RateLimit | None:
+        limits = self._app.limits
+        return max(limits, key=lambda limit: limit.window_seconds) if limits else None
+
+    def long_window_headroom(self) -> int:
+        """Free slots in the *longest* application window right now (the per-2-minute one on
+        a Riot key), minus requests already queued. What a background job (the data crawler)
+        compares with the budget the poller needs per interval."""
+        longest = self._longest_app_limit()
+        if longest is None:
+            return 1_000_000
+        now = self._clock()
+        self._app.prune(now)
+        used = self._app.count_in_window(longest.window_seconds, now)
+        return longest.max_requests - used - self._pending_total
+
+    def long_window_sent_since(self, since: float) -> int:
+        """Requests recorded at or after ``since`` (limiter clock) still inside the longest
+        application window: how much a burst (a poll tick) used."""
+        longest = self._longest_app_limit()
+        window = longest.window_seconds if longest is not None else 0.0
+        now = self._clock()
+        lower = max(since, now - window - self._margin)
+        hits = self._app.hits
+        return max(bisect_right(hits, now) - bisect_left(hits, lower), 0)
 
     def wait_estimate(self, method: str | None = None) -> float:
         """Seconds a new request would wait if issued now, counting requests already queued.

@@ -3,6 +3,7 @@
 * ``matches.source``: "roster" for everything stored so far (poller, lookups, imports) and
   "crawl" for games the data crawler adds from players HexTrack doesn't track.
 * ``crawl_players``: the crawler's queue of players to fetch history for.
+* ``ix_matches_source_queue_start``: roster-only lookups skip crawled games.
 
 Revision ID: 0003
 Revises: 0002
@@ -24,6 +25,12 @@ def upgrade() -> None:
     op.add_column(
         "matches",
         sa.Column("source", sa.Text(), server_default=sa.text("'roster'"), nullable=False),
+    )
+    op.create_index(
+        "ix_matches_source_queue_start",
+        "matches",
+        ["source", "queue_id", sa.text("game_start DESC")],
+        unique=False,
     )
     op.create_table(
         "crawl_players",
@@ -50,4 +57,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_crawl_players_queue", table_name="crawl_players")
     op.drop_table("crawl_players")
+    op.drop_index("ix_matches_source_queue_start", table_name="matches")
     op.drop_column("matches", "source")

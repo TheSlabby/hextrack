@@ -61,7 +61,7 @@ api/src/hextrack/
   config.py        pydantic-settings Settings (env + repo-root .env + api/.env)
   main.py          create_app(): lifespan builds engine, RiotClient, DDragon, Scorer;
                    serves web/dist with SPA fallback; hot-reloads the AI model
-  cli.py           typer CLI `hextrack` (serve, worker, bot, train, backfill, model,
+  cli.py           typer CLI `hextrack` (serve, worker, bot, train, backfill, model, crawl,
                    roster, import-legacy, seed-demo, clear-demo, openapi, db)
   db/              models.py (SQLAlchemy 2 typed), engine.py, repo/ (write-side helpers)
   riot/            client.py (httpx, X-Riot-Token), ratelimit.py, routing.py,
@@ -160,6 +160,17 @@ cd web && npm run typecheck && npm run lint && npm run build
   (`stats/live.py`) serves it and hides it once it's stale. Riot has no live K/D/gold. Turn it
   off with `HEXTRACK_LIVE_GAMES=false`. UI: home and Squad "Live now", profile "In game" badge,
   `/live/<gameId>`.
+- **Data crawler** (`ingest/crawler.py`, runs in the worker): adds ranked games of players we
+  don't track, so training has far more than the roster's games. It only spends Riot budget
+  the roster poll, live games and the website leave over (it pauses while a poll tick runs),
+  and pauses while the DB disk has less than `HEXTRACK_CRAWL_MIN_FREE_GB` free. Its games are
+  stored like any other (raw JSON, participants, AI scores) with `matches.source = "crawl"`
+  (everything else is `"roster"`) and never make bot events. Frontier of players to crawl:
+  `crawl_players` (found on ladder pages or in crawled games). Settings `HEXTRACK_CRAWL`
+  (on/off), `..._CRAWL_MIN_FREE_GB`, `..._CRAWL_FRONTIER_MAX`, `..._CRAWL_MATCHES_PER_PLAYER`.
+  Heartbeat in `app_state["crawler"]`, summarized in `/api/v1/health` (`crawler`) and
+  `./deploy.sh --status`; details with `sudo hextrack-admin crawl status`. `hextrack train`
+  uses every scorable stored game, so crawled games are training data automatically.
 
 ## Frontend
 
@@ -222,6 +233,8 @@ Day to day:
 ./deploy.sh --rollback   # back to the previous release
 ssh rpi5 'sudo hextrack-admin train --activate'   # retrain on live data (runs as hextrack, sandboxed)
 ssh rpi5 'sudo systemctl stop hextrack-worker && sudo hextrack-admin backfill; sudo systemctl start hextrack-worker'
+ssh rpi5 'sudo hextrack-admin crawl status'       # crawler heartbeat, frontier, crawled games, DB size, free disk
+ssh rpi5 'sudo hextrack-admin crawl seed --tier GOLD --division II'   # add ladder players to the frontier (uses the key)
 ```
 
 Training is manual (suggested monthly or after a few hundred new games). Activation rescores

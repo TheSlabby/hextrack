@@ -1,4 +1,4 @@
-"""GET /health: database, model, Riot key and poller status."""
+"""GET /health: database, model, Riot key, poller, bot and crawler status."""
 
 from __future__ import annotations
 
@@ -12,11 +12,20 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from hextrack import __version__
-from hextrack.api.schemas import Health, HealthBot, HealthModel, HealthPoller, HealthRiot
+from hextrack.api.schemas import (
+    Health,
+    HealthBot,
+    HealthCrawler,
+    HealthModel,
+    HealthPoller,
+    HealthRiot,
+)
 from hextrack.bot.state import BOT_STATE_KEY
 from hextrack.config import Settings
 from hextrack.db.models import AppState
+from hextrack.ingest.crawler import STATE_KEY as CRAWLER_STATE_KEY
 from hextrack.ingest.poller import POLLER_STATE_KEY
+from hextrack.stats.crawl import CrawledMatchCount, interpret_heartbeat
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +122,35 @@ def worker_key_rejected(state: dict[str, Any] | None, last_ok_at: datetime | Non
     return str(detail) if detail else "the poller's Riot API key was rejected"
 
 
+def crawler_status(
+    state: dict[str, Any] | None,
+    settings: Settings,
+    total_crawled: int | None,
+    *,
+    now: datetime | None = None,
+) -> HealthCrawler:
+    """Interpret the ``app_state["crawler"]`` heartbeat (stale after 5 minutes)."""
+    hb = interpret_heartbeat(state, now=now)
+    return HealthCrawler(
+        enabled=settings.crawl,
+        running=hb.running,
+        paused_reason=hb.paused_reason,
+        heartbeat_at=hb.heartbeat_at,
+        matches_added_today=hb.matches_added_today,
+        matches_total_crawled=total_crawled,
+        frontier_uncrawled=hb.frontier_uncrawled,
+        frontier_total=hb.frontier_total,
+        last_error=hb.last_error,
+    )
+
+
+async def _crawled_count(state: Any) -> int | None:
+    cache = getattr(state, "crawled_match_count", None)
+    if cache is None:
+        cache = state.crawled_match_count = CrawledMatchCount()
+    return await cache.get(state.session_factory)
+
+
 async def _check_db(
     factory: async_sessionmaker[AsyncSession],
 ) -> tuple[bool, dict[str, dict[str, Any]]]:
@@ -120,7 +158,7 @@ async def _check_db(
         await session.execute(text("SELECT 1"))
         rows = await session.execute(
             select(AppState.key, AppState.value).where(
-                AppState.key.in_((POLLER_STATE_KEY, BOT_STATE_KEY))
+                AppState.key.in_((POLLER_STATE_KEY, BOT_STATE_KEY, CRAWLER_STATE_KEY))
             )
         )
         states = {key: value for key, value in rows.tuples() if isinstance(value, dict)}
@@ -140,6 +178,13 @@ async def get_health(request: Request) -> Health:
         )
     except Exception as exc:  # health must never raise
         logger.warning("health: database check failed: %s", exc)
+
+    total_crawled: int | None = None
+    if db_ok:
+        try:
+            total_crawled = await _crawled_count(state)
+        except Exception as exc:
+            logger.warning("health: crawled match count failed: %s", exc)
 
     scorer = getattr(state, "scorer", None)
     if scorer is not None:
@@ -180,4 +225,5 @@ async def get_health(request: Request) -> Health:
         riot=riot,
         poller=poller_status(states.get(POLLER_STATE_KEY), settings),
         bot=bot_status(states.get(BOT_STATE_KEY), settings),
+        crawler=crawler_status(states.get(CRAWLER_STATE_KEY), settings, total_crawled),
     )

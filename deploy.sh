@@ -68,6 +68,21 @@ d = json.load(sys.stdin)
 p = d.get("poller") or {}
 print("health:   {} | model {} | poller last ran {}".format(
     d["status"], d["model"]["version"], p.get("last_run_at") or "never"))
+c = d.get("crawler")
+if c:
+    n = lambda v: "?" if v is None else "{:,}".format(v)
+    if not c.get("enabled"):
+        state = "disabled"
+    elif c.get("running"):
+        state = "running" + (" (paused: {})".format(c["paused_reason"]) if c.get("paused_reason") else "")
+    else:
+        state = "not running"
+    line = "crawler:  {} | +{} today | {} crawled | frontier {} left of {}".format(
+        state, n(c.get("matches_added_today")), n(c.get("matches_total_crawled")),
+        n(c.get("frontier_uncrawled")), n(c.get("frontier_total")))
+    if c.get("last_error"):
+        line += " | last error: " + str(c["last_error"])[:80]
+    print(line)
 ' || echo "health:   API not answering"
 REMOTE
 }

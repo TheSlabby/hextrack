@@ -47,8 +47,10 @@ hardening drop-in `hextrack-.service.d/10-hardening.conf`, which also applies to
   (or pointing at `/opt/hextrack/python`), and nothing below a symlink. Tested against 13
   hostile and valid archives. It then makes everything root-owned 0755/0644 and swaps
   `current` atomically.
-- **Maintenance commands stay possible without root:** `sudo hextrack-admin train|model|backfill|roster ...`
-  runs the CLI as `hextrack`, inside the same sandbox.
+- **Maintenance commands stay possible without root:** `sudo hextrack-admin train|model|backfill|roster|crawl ...`
+  runs the CLI as `hextrack`, inside the same sandbox (only commands that call Riot get the
+  key: `backfill`, `roster`, `crawl seed`). The helper and the sudoers file are installed by
+  `root-setup.sh`, not by `deploy.sh`: after changing either, reinstall them as root (step 5).
 - **Logs need no sudo:** walker is in `adm`, which can read the system journal.
 - **Linger stays on for walker:** other user units (amity bot/tunnel, homelab, rpi-connect) need it.
 

@@ -261,9 +261,9 @@ def _since_literal(scope: Scope) -> ColumnElement[datetime]:
 
 
 def team_totals(scope: Scope) -> Select:
-    """One row per (match, team) of the counted games: the team's total kills (all five
-    players) and the game's duration. Doubles as the queue / period / remake filter, and is
-    one hash aggregate however the planner misjudges the roster's share of the table."""
+    """One row per (match, team) of the counted games (games a player in scope played): the
+    team's total kills (all five players) and the game's duration. Doubles as the queue /
+    period / remake filter."""
     team = aliased(MatchParticipant, name="team")
     stmt = (
         select(
@@ -278,11 +278,10 @@ def team_totals(scope: Scope) -> Select:
     )
     if scope.since is not None:
         stmt = stmt.where(team.game_start >= _since_literal(scope))
-    if scope.single_player:
-        mine = aliased(MatchParticipant, name="mine")
-        stmt = stmt.where(
-            team.match_id.in_(select(mine.match_id).where(_in_scope(mine.puuid, scope)))
-        )
+    # Only games someone in scope played: the table also holds the data crawler's games of
+    # players HexTrack doesn't track, and totalling every team of those would grow with it.
+    mine = aliased(MatchParticipant, name="mine")
+    stmt = stmt.where(team.match_id.in_(select(mine.match_id).where(_in_scope(mine.puuid, scope))))
     return stmt
 
 

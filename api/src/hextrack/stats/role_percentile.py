@@ -128,6 +128,9 @@ def population_query(model_version: str) -> Select:
             queries.not_remake(),
             mp.ai_score.is_not(None),
             mp.team_position.in_(KNOWN_POSITIONS),
+            # Crawled games are training data only (never scored), and scanning past them
+            # would make this query grow with the crawl.
+            Match.source == "roster",
         )
         .group_by(mp.team_position)
     )

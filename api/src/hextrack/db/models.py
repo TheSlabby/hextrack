@@ -397,6 +397,8 @@ Index(
 )
 Index("ix_matches_game_start", Match.game_start.desc())
 Index("ix_matches_queue_id_game_start", Match.queue_id, Match.game_start.desc())
+#: Roster-only lookups (rescore, population means) skip the crawler's games through this.
+Index("ix_matches_source_queue_start", Match.source, Match.queue_id, Match.game_start.desc())
 Index(
     "ix_match_participants_puuid_game_start",
     MatchParticipant.puuid,
@@ -423,4 +425,5 @@ ALL_TABLES: tuple[str, ...] = (
     "bot_events",
     "ai_models",
     "app_state",
+    "crawl_players",
 )
