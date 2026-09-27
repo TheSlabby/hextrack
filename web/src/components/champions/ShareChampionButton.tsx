@@ -1,14 +1,20 @@
-import type { ChampionPlayer, ChampionTier } from "@/api/types";
+import type { LeaderboardQueue } from "@/api/types";
 
 export interface ShareChampionButtonProps {
-  /** The player's games on the champion (from `useChampionPlayer`). */
-  player: ChampionPlayer;
-  /** The champion's tier in the player's main role for the page's patch window, if ranked. */
-  tier: ChampionTier | null;
+  /** Data Dragon key of the champion. */
+  champion: string;
+  /** Roster player whose games on the champion the card shows. */
+  puuid: string;
+  queue?: LeaderboardQueue;
+  /** "icon": a small icon button for list rows; "button": a labelled button. */
+  variant?: "icon" | "button";
   className?: string;
 }
 
-/** Copies a "My <Champion> this season" card (PNG) for the player. */
+/**
+ * Copies a "<Player>'s <Champion> this season" card (PNG) to the clipboard. The data (the
+ * player's games on it, and the champion's tier in their main role) is fetched on click.
+ */
 export function ShareChampionButton(_props: ShareChampionButtonProps) {
   return null;
 }
