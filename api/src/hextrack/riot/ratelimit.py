@@ -285,6 +285,22 @@ class RateLimiter:
             self._pending_total -= 1
             bucket.pending -= 1
 
+    def app_headroom(self) -> int:
+        """Requests the application limits still allow right now (the tightest window),
+        minus the ones already queued. Lets a low-priority caller (the data crawler) leave
+        room for everyone else instead of queuing in front of them."""
+        now = self._clock()
+        self._app.prune(now)
+        free = (
+            min(
+                (limit.max_requests - self._app.count_in_window(limit.window_seconds, now))
+                for limit in self._app.limits
+            )
+            if self._app.limits
+            else 1_000_000
+        )
+        return free - self._pending_total
+
     def wait_estimate(self, method: str | None = None) -> float:
         """Seconds a new request would wait if issued now, counting requests already queued.
 

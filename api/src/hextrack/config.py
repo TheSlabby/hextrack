@@ -115,6 +115,31 @@ class Settings(BaseSettings):
         default=datetime(2026, 1, 8, 20, 0, tzinfo=UTC),
         validation_alias=AliasChoices("HEXTRACK_SEASON_START", "season_start"),
     )
+    #: Data crawler: keep fetching ranked games of players HexTrack doesn't track (for AI
+    #: training), using only the Riot budget the roster poll and live games leave over.
+    crawl: bool = Field(default=True, validation_alias=AliasChoices("HEXTRACK_CRAWL", "crawl"))
+    #: Stop crawling while the database disk has less free space than this (GB).
+    crawl_min_free_gb: float = Field(
+        default=30.0,
+        ge=0.0,
+        validation_alias=AliasChoices("HEXTRACK_CRAWL_MIN_FREE_GB", "crawl_min_free_gb"),
+    )
+    #: Most players kept in the crawl frontier (players found in crawled games stop being
+    #: added beyond this).
+    crawl_frontier_max: int = Field(
+        default=200_000,
+        ge=100,
+        validation_alias=AliasChoices("HEXTRACK_CRAWL_FRONTIER_MAX", "crawl_frontier_max"),
+    )
+    #: Newest ranked games listed per crawled player.
+    crawl_matches_per_player: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        validation_alias=AliasChoices(
+            "HEXTRACK_CRAWL_MATCHES_PER_PLAYER", "crawl_matches_per_player"
+        ),
+    )
     #: Check the roster for live games (spectator-v5) after every poll.
     live_games: bool = Field(
         default=True,

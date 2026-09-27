@@ -685,6 +685,7 @@ async def ingest_match_json(
     raw: dict[str, Any],
     *,
     enqueue_events: bool = True,
+    source: str = "roster",
 ) -> IngestResult:
     """Store an already-fetched payload (also used by the legacy importer and demo seed).
 
@@ -697,7 +698,7 @@ async def ingest_match_json(
     within :data:`hextrack.ingest.events.GAME_EVENT_MAX_AGE`.
     """
     mapped = map_match(raw)
-    match = mapped.match
+    match = {**mapped.match, "source": source}
     match_id = mapped.match_id
     created = await matches_repo.insert_match(session, match)
     scores: dict[str, float] | None = None

@@ -114,6 +114,9 @@ class Match(Base):
     #: True when any participant has gameEndedInEarlySurrender (a remake).
     remake: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     raw: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    #: How the game got here: "roster" (poller / lookups / imports) or "crawl" (the data
+    #: crawler; games of players HexTrack doesn't track, kept for training).
+    source: Mapped[str] = mapped_column(Text, default="roster", server_default=text("'roster'"))
     ingested_at: Mapped[datetime] = mapped_column(TZDateTime, server_default=func.now())
     #: Set when every participant row was scored by ``model_version``.
     scored_at: Mapped[datetime | None] = mapped_column(TZDateTime)
@@ -338,6 +341,28 @@ class AiModel(Base):
             postgresql_where=text("is_active"),
         ),
     )
+
+
+class CrawlPlayer(Base):
+    """The data crawler's frontier: players whose ranked history it will fetch."""
+
+    __tablename__ = "crawl_players"
+
+    puuid: Mapped[str] = mapped_column(Text, primary_key=True)
+    #: Where the crawler found them: "ladder" (league-exp pages) or "match" (a crawled game).
+    found_via: Mapped[str] = mapped_column(Text)
+    #: Tier / division from the ladder page they came from (None when found in a game).
+    tier: Mapped[str | None] = mapped_column(Text)
+    division: Mapped[str | None] = mapped_column(Text)
+    discovered_at: Mapped[datetime] = mapped_column(TZDateTime, server_default=func.now())
+    #: Last time their match list was fetched; None = never crawled yet.
+    crawled_at: Mapped[datetime | None] = mapped_column(TZDateTime)
+    #: Games of theirs the crawler stored so far.
+    matches_added: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    #: Last error text, if their crawl failed (cleared on success).
+    last_error: Mapped[str | None] = mapped_column(Text)
+
+    __table_args__ = (Index("ix_crawl_players_queue", "crawled_at", "discovered_at"),)
 
 
 class AppState(Base):

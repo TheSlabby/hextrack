@@ -111,6 +111,7 @@ METHOD_ROUTING: Final[Mapping[str, Routing]] = {
     "summoner_by_puuid": "platform",
     "league_entries_by_puuid": "platform",
     "active_game_by_puuid": "platform",
+    "league_exp_entries": "platform",
     "match_ids_by_puuid": "regional",
     "match": "regional",
 }
@@ -328,6 +329,20 @@ class RiotClient:
             "league_entries_by_puuid", f"/lol/league/v4/entries/by-puuid/{_segment(puuid)}"
         )
         return self._validate_adapter(_LEAGUE_ENTRIES, data, "league_entries_by_puuid")
+
+    async def league_exp_entries(
+        self, queue: str, tier: str, division: str, *, page: int = 1
+    ) -> list[LeagueEntryDto]:
+        """GET /lol/league-exp/v4/entries/{queue}/{tier}/{division}?page= (a ladder page of
+        up to ~205 players; apex tiers use division "I"). Empty past the last page."""
+        path = f"/lol/league-exp/v4/entries/{_segment(queue)}/{_segment(tier)}/{_segment(division)}"
+        data = await self._get("league_exp_entries", path, params={"page": page})
+        return self._validate_adapter(_LEAGUE_ENTRIES, data, "league_exp_entries")
+
+    def app_headroom(self, method: str) -> int:
+        """Free application-limit slots right now on the routing value ``method`` uses
+        (see RateLimiter.app_headroom)."""
+        return self._limiters[METHOD_ROUTING[method]].app_headroom()
 
     # --- spectator-v5 (platform) ---------------------------------------------------------
     async def active_game_by_puuid(self, puuid: str) -> CurrentGameInfoDto | None:
