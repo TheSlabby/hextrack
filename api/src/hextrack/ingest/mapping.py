@@ -247,6 +247,67 @@ def _perks(participant: Mapping[str, Any]) -> tuple[int | None, int | None]:
     return primary, secondary
 
 
+def _int_list(values: object) -> list[int] | None:
+    if not isinstance(values, list) or not all(
+        isinstance(v, int) and not isinstance(v, bool) for v in values
+    ):
+        return None
+    return list(values)
+
+
+def rune_page(
+    participant: Mapping[str, Any],
+) -> tuple[int | None, list[int] | None, list[int] | None]:
+    """``(primary_style_id, rune_ids, stat_shards)`` of a participant's ``perks``.
+
+    ``rune_ids`` is the 4 primary selections (keystone first) then the 2 secondary ones, None
+    unless exactly that many are present; ``stat_shards`` is (offense, flex, defense) or None.
+    Also used by the champion rollup worker to fill older rows from ``matches.raw``."""
+    perks = participant.get("perks")
+    if not isinstance(perks, Mapping):
+        return None, None, None
+    shards: list[int] | None = None
+    stat = perks.get("statPerks")
+    if isinstance(stat, Mapping):
+        shards = _int_list([stat.get("offense"), stat.get("flex"), stat.get("defense")])
+    styles = perks.get("styles")
+    if not isinstance(styles, list) or not styles or not isinstance(styles[0], Mapping):
+        return None, None, shards
+    style = styles[0].get("style")
+    primary_style = style if isinstance(style, int) and not isinstance(style, bool) else None
+    runes: list[int] | None = None
+    if len(styles) > 1 and isinstance(styles[1], Mapping):
+        picked: list[object] = []
+        for entry, count in ((styles[0], 4), (styles[1], 2)):
+            selections = entry.get("selections")
+            if not isinstance(selections, list) or len(selections) != count:
+                picked = []
+                break
+            picked.extend(s.get("perk") if isinstance(s, Mapping) else None for s in selections)
+        runes = _int_list(picked) if picked else None
+    return primary_style, runes, shards
+
+
+def ban_ids(info: Mapping[str, Any]) -> list[int] | None:
+    """Champion ids banned by both teams (``info.teams[].bans``; "no ban" -1 dropped), or None
+    when the payload has no ban data."""
+    teams = info.get("teams")
+    if not isinstance(teams, list):
+        return None
+    bans: list[int] = []
+    seen = False
+    for team in teams:
+        team_bans = team.get("bans") if isinstance(team, Mapping) else None
+        if not isinstance(team_bans, list):
+            continue
+        seen = True
+        for ban in team_bans:
+            champ = ban.get("championId") if isinstance(ban, Mapping) else None
+            if isinstance(champ, int) and not isinstance(champ, bool) and champ > 0:
+                bans.append(champ)
+    return bans if seen else None
+
+
 # --- public API ----------------------------------------------------------------------------
 
 
@@ -276,6 +337,7 @@ def map_participant(
 
     items = [_int(p, key, where=where) for key in ITEM_FIELDS]
     primary_rune, secondary_style = _perks(p)
+    primary_style, rune_ids, stat_shards = rune_page(p)
 
     row: dict[str, Any] = {
         "match_id": match_id,
@@ -301,6 +363,9 @@ def map_participant(
         "items": items,
         "primary_rune_id": primary_rune,
         "secondary_style_id": secondary_style,
+        "primary_style_id": primary_style,
+        "rune_ids": rune_ids,
+        "stat_shards": stat_shards,
     }
     for column, key in INT_STATS.items():
         row[column] = _int(p, key, where=where)
@@ -367,6 +432,7 @@ def map_match(raw: Mapping[str, Any]) -> MappedMatch:
             any(p["game_ended_in_early_surrender"] for p in participants)
             or duration < REMAKE_MAX_SECONDS
         ),
+        "ban_ids": ban_ids(info),
         "raw": dict(root),
     }
     return MappedMatch(match=match_row, participants=participants)
