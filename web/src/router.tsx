@@ -126,11 +126,19 @@ export type ChampionTab = "build" | "matchups" | "squad";
 
 export interface ChampionPageSearch extends ChampionsSearch {
   tab?: Exclude<ChampionTab, "build">;
+  /**
+   * Roster player for the "Your games" card: Riot ID slug ("Name-TAG") or puuid, like match
+   * pages. Omitted = the browser's remembered player (`lib/me.ts`).
+   */
+  player?: string;
 }
 
 function validateChampionPageSearch(search: Record<string, unknown>): ChampionPageSearch {
   const result: ChampionPageSearch = validateChampionsSearch(search);
   if (search.tab === "matchups" || search.tab === "squad") result.tab = search.tab;
+  if (typeof search.player === "string" && search.player.length > 0 && search.player.length <= 100) {
+    result.player = search.player;
+  }
   return result;
 }
 

@@ -80,6 +80,10 @@ export type ChampionLaneMatchups = Schemas["ChampionLaneMatchups"];
 export type ChampionLaneMatchup = Schemas["ChampionLaneMatchup"];
 export type ChampionSquad = Schemas["ChampionSquad"];
 export type ChampionSquadRow = Schemas["ChampionSquadRow"];
+export type ChampionPlayer = Schemas["ChampionPlayer"];
+export type ChampionPlayerGame = Schemas["ChampionPlayerGame"];
+/** S strongest .. D weakest in a role for the patch window; null = too few games. */
+export type ChampionTier = NonNullable<ChampionListRole["tier"]>;
 /** A lane with champion data (never UNKNOWN). */
 export type ChampionRole = ChampionRoleSummary["position"];
 /** `patch` query value: "recent" (two newest patches), "season", or one patch like "16.18". */

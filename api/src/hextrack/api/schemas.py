@@ -1003,6 +1003,10 @@ class Records(ApiModel):
 
 #: A lane position with champion data (UNKNOWN is never counted).
 ChampionRole = Literal["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
+#: Champion strength in one role for the patch window and queue, relative to the other
+#: champions in that role (see ``hextrack.stats.champions.tiers``): S strongest .. D weakest.
+#: None when the champion has too few games in the role to rank.
+ChampionTier = Literal["S", "A", "B", "C", "D"]
 
 
 class ChampionPatchInfo(ApiModel):
@@ -1028,6 +1032,7 @@ class ChampionListRole(ApiModel):
     win_rate: Rate
     #: Share of the champion's games in this role.
     share: Rate
+    tier: ChampionTier | None = None
 
 
 class ChampionListRow(ApiModel):
@@ -1068,6 +1073,7 @@ class ChampionRoleSummary(ApiModel):
     #: Shown as a tab: at least 20 games and 10% of the champion's games (the most played
     #: role is always shown).
     shown: bool
+    tier: ChampionTier | None = None
 
 
 class ChampionRoleStats(ApiModel):
@@ -1251,6 +1257,75 @@ class ChampionDetail(ApiModel):
     #: games in the window.
     role: ChampionRole | None
     detail: ChampionRoleDetail | None
+
+
+class ChampionPlayerGame(ApiModel):
+    """One of a player's games on the champion."""
+
+    match_id: str
+    game_start: AwareDatetime
+    queue_id: int
+    position: Position
+    win: bool
+    kills: int
+    deaths: int
+    assists: int
+    cs: int
+    game_duration: int
+    #: item0..item6 as stored (item6 = trinket).
+    items: list[int]
+    ai_score: Rate | None
+    #: Patch of the game, for item icons ("16.18").
+    patch: str
+
+
+class ChampionPlayer(ApiModel):
+    """A roster player's ranked games on one champion this season (any patch), next to how
+    everyone plays it. The comparison ("field") numbers come from the champion rollups for the
+    player's main position over the whole season in the same queue; None without data."""
+
+    champion_id: int
+    champion_name: str
+    puuid: str
+    game_name: str | None
+    tag_line: str | None
+    profile_icon_id: int | None
+    queue: LeaderboardQueue
+    model_version: str | None
+    games: int
+    wins: int
+    win_rate: Rate | None
+    avg_kills: float
+    avg_deaths: float
+    avg_assists: float
+    kda: float
+    cs_per_min: float
+    avg_damage: float
+    avg_gold: float
+    #: Average AI Score (active model only); a plain number, not a grade.
+    avg_ai_score: Rate | None
+    #: Most played position on the champion (UNKNOWN with no games).
+    main_position: Position
+    field_win_rate: Rate | None
+    field_kda: float | None
+    field_cs_per_min: float | None
+    field_avg_damage: float | None
+    #: Rank by games on this champion among roster players (1 = most), None with no games;
+    #: out of ``squad_players`` roster players who played it this season.
+    squad_rank: int | None
+    squad_players: int
+    #: Their most common core build (first three completed items, from their games with a
+    #: timeline; same rules as the champion rollups), rune page and spell pair. None when
+    #: they have no such games. Pick rates here are over the player's own games.
+    core: BuildOption | None
+    timeline_games: int
+    rune_page: RunePageOption | None
+    spells: SpellOption | None
+    #: Newest first, at most 5.
+    recent: list[ChampionPlayerGame] = Field(max_length=5)
+    #: Their best game on it: the highest AI Score among wins (else among all games); None
+    #: when nothing is scored.
+    best_game: ChampionPlayerGame | None
 
 
 class ChampionSquadRow(ApiModel):

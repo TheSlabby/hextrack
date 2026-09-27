@@ -486,6 +486,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/champions/{champion}/players/{puuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A roster player's games on this champion this season, next to everyone's */
+        get: operations["get_champion_player"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -668,6 +685,8 @@ export interface components {
             win_rate: number;
             /** Share */
             share: number;
+            /** Tier */
+            tier: ("S" | "A" | "B" | "C" | "D") | null;
         };
         /** ChampionListRow */
         ChampionListRow: {
@@ -730,6 +749,118 @@ export interface components {
             /** Pending Matches */
             pending_matches: number;
         };
+        /**
+         * ChampionPlayer
+         * @description A roster player's ranked games on one champion this season (any patch), next to how
+         *     everyone plays it. The comparison ("field") numbers come from the champion rollups for the
+         *     player's main position over the whole season in the same queue; None without data.
+         */
+        ChampionPlayer: {
+            /** Champion Id */
+            champion_id: number;
+            /** Champion Name */
+            champion_name: string;
+            /** Puuid */
+            puuid: string;
+            /** Game Name */
+            game_name: string | null;
+            /** Tag Line */
+            tag_line: string | null;
+            /** Profile Icon Id */
+            profile_icon_id: number | null;
+            /**
+             * Queue
+             * @enum {string}
+             */
+            queue: "all" | "solo" | "flex";
+            /** Model Version */
+            model_version: string | null;
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Win Rate */
+            win_rate: number | null;
+            /** Avg Kills */
+            avg_kills: number;
+            /** Avg Deaths */
+            avg_deaths: number;
+            /** Avg Assists */
+            avg_assists: number;
+            /** Kda */
+            kda: number;
+            /** Cs Per Min */
+            cs_per_min: number;
+            /** Avg Damage */
+            avg_damage: number;
+            /** Avg Gold */
+            avg_gold: number;
+            /** Avg Ai Score */
+            avg_ai_score: number | null;
+            /**
+             * Main Position
+             * @enum {string}
+             */
+            main_position: "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY" | "UNKNOWN";
+            /** Field Win Rate */
+            field_win_rate: number | null;
+            /** Field Kda */
+            field_kda: number | null;
+            /** Field Cs Per Min */
+            field_cs_per_min: number | null;
+            /** Field Avg Damage */
+            field_avg_damage: number | null;
+            /** Squad Rank */
+            squad_rank: number | null;
+            /** Squad Players */
+            squad_players: number;
+            core: components["schemas"]["BuildOption"] | null;
+            /** Timeline Games */
+            timeline_games: number;
+            rune_page: components["schemas"]["RunePageOption"] | null;
+            spells: components["schemas"]["SpellOption"] | null;
+            /** Recent */
+            recent: components["schemas"]["ChampionPlayerGame"][];
+            best_game: components["schemas"]["ChampionPlayerGame"] | null;
+        };
+        /**
+         * ChampionPlayerGame
+         * @description One of a player's games on the champion.
+         */
+        ChampionPlayerGame: {
+            /** Match Id */
+            match_id: string;
+            /**
+             * Game Start
+             * Format: date-time
+             */
+            game_start: string;
+            /** Queue Id */
+            queue_id: number;
+            /**
+             * Position
+             * @enum {string}
+             */
+            position: "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY" | "UNKNOWN";
+            /** Win */
+            win: boolean;
+            /** Kills */
+            kills: number;
+            /** Deaths */
+            deaths: number;
+            /** Assists */
+            assists: number;
+            /** Cs */
+            cs: number;
+            /** Game Duration */
+            game_duration: number;
+            /** Items */
+            items: number[];
+            /** Ai Score */
+            ai_score: number | null;
+            /** Patch */
+            patch: string;
+        };
         /** ChampionRoleDetail */
         ChampionRoleDetail: {
             stats: components["schemas"]["ChampionRoleStats"];
@@ -790,6 +921,8 @@ export interface components {
             share: number;
             /** Shown */
             shown: boolean;
+            /** Tier */
+            tier: ("S" | "A" | "B" | "C" | "D") | null;
         };
         /** ChampionRunes */
         ChampionRunes: {
@@ -3649,6 +3782,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChampionSquad"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_champion_player: {
+        parameters: {
+            query?: {
+                queue?: "all" | "solo" | "flex";
+            };
+            header?: never;
+            path: {
+                champion: string;
+                puuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChampionPlayer"];
                 };
             };
             /** @description Not found */

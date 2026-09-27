@@ -99,6 +99,8 @@ export const queryKeys = {
   champion: (key: string, patch: ChampionPatchParam, queue: LeaderboardQueue, role: ChampionRole | null) =>
     ["champions", "detail", lower(key), patch, queue, role ?? "main"] as const,
   championSquad: (key: string, queue: LeaderboardQueue) => ["champions", "squad", lower(key), queue] as const,
+  championPlayer: (key: string, puuid: string, queue: LeaderboardQueue) =>
+    ["champions", "player", lower(key), puuid, queue] as const,
 };
 
 /** Period and queue filters shared by the squad, insights and records endpoints. */
@@ -653,6 +655,22 @@ export function useChampionSquad(key: string, queue: LeaderboardQueue = "all") {
           signal,
         }),
       ),
+    staleTime: 5 * MINUTE,
+  });
+}
+
+/** One roster player's games on a champion this season, next to everyone's (null puuid = off). */
+export function useChampionPlayer(key: string, puuid: string | null, queue: LeaderboardQueue = "all") {
+  return useQuery({
+    queryKey: queryKeys.championPlayer(key, puuid ?? "", queue),
+    queryFn: ({ signal }) =>
+      request(
+        api.GET("/api/v1/champions/{champion}/players/{puuid}", {
+          params: { path: { champion: key, puuid: puuid ?? "" }, query: { queue } },
+          signal,
+        }),
+      ),
+    enabled: Boolean(puuid),
     staleTime: 5 * MINUTE,
   });
 }

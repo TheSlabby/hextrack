@@ -2228,6 +2228,82 @@
           }
         }
       }
+    },
+    "/api/v1/champions/{champion}/players/{puuid}": {
+      "get": {
+        "tags": [
+          "champions"
+        ],
+        "summary": "A roster player's games on this champion this season, next to everyone's",
+        "operationId": "get_champion_player",
+        "parameters": [
+          {
+            "name": "champion",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Champion"
+            }
+          },
+          {
+            "name": "puuid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Puuid"
+            }
+          },
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "solo",
+                "flex"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Queue"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChampionPlayer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2792,6 +2868,24 @@
             "maximum": 1.0,
             "minimum": 0.0,
             "title": "Share"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "S",
+                  "A",
+                  "B",
+                  "C",
+                  "D"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
           }
         },
         "additionalProperties": false,
@@ -2801,7 +2895,8 @@
           "games",
           "wins",
           "win_rate",
-          "share"
+          "share",
+          "tier"
         ],
         "title": "ChampionListRole"
       },
@@ -2983,6 +3078,396 @@
         ],
         "title": "ChampionPatches"
       },
+      "ChampionPlayer": {
+        "properties": {
+          "champion_id": {
+            "type": "integer",
+            "title": "Champion Id"
+          },
+          "champion_name": {
+            "type": "string",
+            "title": "Champion Name"
+          },
+          "puuid": {
+            "type": "string",
+            "title": "Puuid"
+          },
+          "game_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Name"
+          },
+          "tag_line": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tag Line"
+          },
+          "profile_icon_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Icon Id"
+          },
+          "queue": {
+            "type": "string",
+            "enum": [
+              "all",
+              "solo",
+              "flex"
+            ],
+            "title": "Queue"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "win_rate": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Win Rate"
+          },
+          "avg_kills": {
+            "type": "number",
+            "title": "Avg Kills"
+          },
+          "avg_deaths": {
+            "type": "number",
+            "title": "Avg Deaths"
+          },
+          "avg_assists": {
+            "type": "number",
+            "title": "Avg Assists"
+          },
+          "kda": {
+            "type": "number",
+            "title": "Kda"
+          },
+          "cs_per_min": {
+            "type": "number",
+            "title": "Cs Per Min"
+          },
+          "avg_damage": {
+            "type": "number",
+            "title": "Avg Damage"
+          },
+          "avg_gold": {
+            "type": "number",
+            "title": "Avg Gold"
+          },
+          "avg_ai_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Ai Score"
+          },
+          "main_position": {
+            "type": "string",
+            "enum": [
+              "TOP",
+              "JUNGLE",
+              "MIDDLE",
+              "BOTTOM",
+              "UTILITY",
+              "UNKNOWN"
+            ],
+            "title": "Main Position"
+          },
+          "field_win_rate": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Win Rate"
+          },
+          "field_kda": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Kda"
+          },
+          "field_cs_per_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Cs Per Min"
+          },
+          "field_avg_damage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Avg Damage"
+          },
+          "squad_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Squad Rank"
+          },
+          "squad_players": {
+            "type": "integer",
+            "title": "Squad Players"
+          },
+          "core": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuildOption"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "timeline_games": {
+            "type": "integer",
+            "title": "Timeline Games"
+          },
+          "rune_page": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunePageOption"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spells": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SpellOption"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionPlayerGame"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Recent"
+          },
+          "best_game": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChampionPlayerGame"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "champion_id",
+          "champion_name",
+          "puuid",
+          "game_name",
+          "tag_line",
+          "profile_icon_id",
+          "queue",
+          "model_version",
+          "games",
+          "wins",
+          "win_rate",
+          "avg_kills",
+          "avg_deaths",
+          "avg_assists",
+          "kda",
+          "cs_per_min",
+          "avg_damage",
+          "avg_gold",
+          "avg_ai_score",
+          "main_position",
+          "field_win_rate",
+          "field_kda",
+          "field_cs_per_min",
+          "field_avg_damage",
+          "squad_rank",
+          "squad_players",
+          "core",
+          "timeline_games",
+          "rune_page",
+          "spells",
+          "recent",
+          "best_game"
+        ],
+        "title": "ChampionPlayer",
+        "description": "A roster player's ranked games on one champion this season (any patch), next to how\neveryone plays it. The comparison (\"field\") numbers come from the champion rollups for the\nplayer's main position over the whole season in the same queue; None without data."
+      },
+      "ChampionPlayerGame": {
+        "properties": {
+          "match_id": {
+            "type": "string",
+            "title": "Match Id"
+          },
+          "game_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Game Start"
+          },
+          "queue_id": {
+            "type": "integer",
+            "title": "Queue Id"
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "TOP",
+              "JUNGLE",
+              "MIDDLE",
+              "BOTTOM",
+              "UTILITY",
+              "UNKNOWN"
+            ],
+            "title": "Position"
+          },
+          "win": {
+            "type": "boolean",
+            "title": "Win"
+          },
+          "kills": {
+            "type": "integer",
+            "title": "Kills"
+          },
+          "deaths": {
+            "type": "integer",
+            "title": "Deaths"
+          },
+          "assists": {
+            "type": "integer",
+            "title": "Assists"
+          },
+          "cs": {
+            "type": "integer",
+            "title": "Cs"
+          },
+          "game_duration": {
+            "type": "integer",
+            "title": "Game Duration"
+          },
+          "items": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "ai_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Score"
+          },
+          "patch": {
+            "type": "string",
+            "title": "Patch"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "match_id",
+          "game_start",
+          "queue_id",
+          "position",
+          "win",
+          "kills",
+          "deaths",
+          "assists",
+          "cs",
+          "game_duration",
+          "items",
+          "ai_score",
+          "patch"
+        ],
+        "title": "ChampionPlayerGame",
+        "description": "One of a player's games on the champion."
+      },
       "ChampionRoleDetail": {
         "properties": {
           "stats": {
@@ -3144,6 +3629,24 @@
           "shown": {
             "type": "boolean",
             "title": "Shown"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "S",
+                  "A",
+                  "B",
+                  "C",
+                  "D"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
           }
         },
         "additionalProperties": false,
@@ -3154,7 +3657,8 @@
           "wins",
           "win_rate",
           "share",
-          "shown"
+          "shown",
+          "tier"
         ],
         "title": "ChampionRoleSummary"
       },

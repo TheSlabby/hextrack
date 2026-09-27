@@ -10,6 +10,7 @@ from hextrack.api.schemas import (
     ChampionDetail,
     ChampionList,
     ChampionPatches,
+    ChampionPlayer,
     ChampionRole,
     ChampionSquad,
     LeaderboardQueue,
@@ -110,3 +111,20 @@ async def get_champion_squad(
         )
     except read.ChampionNotFound as exc:
         raise _champion_not_found() from exc
+
+
+@router.get(
+    "/{champion}/players/{puuid}",
+    response_model=ChampionPlayer,
+    responses=error_responses(404),
+    summary="A roster player's games on this champion this season, next to everyone's",
+)
+async def get_champion_player(
+    session: SessionDep,
+    settings: SettingsDep,
+    scorer: OptionalScorerDep,
+    champion: str,
+    puuid: str,
+    queue: LeaderboardQueue = "all",
+) -> ChampionPlayer:
+    raise NotImplementedError
