@@ -172,13 +172,13 @@ function BanIcon({ ban }: { ban: LiveBan }) {
   }
   const name = championDisplayName(ban.champion_name);
   return (
-    <span className="relative block size-5" role="img" aria-label={`Banned ${name}`} title={`Banned ${name}`}>
+    <ChampionLink champion={ban.champion_name} aria-label={`Banned ${name}`} className="relative block size-5 rounded-md">
       <ChampionIcon champion={ban.champion_name} size="xs" className="opacity-70 grayscale-[0.85]" />
       <span
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-md bg-[linear-gradient(135deg,transparent_45%,var(--color-loss)_46%,var(--color-loss)_54%,transparent_55%)] opacity-75"
       />
-    </span>
+    </ChampionLink>
   );
 }
 
@@ -216,11 +216,18 @@ function ChampionLine({ p }: { p: LiveParticipant }) {
   if (p.season_games === 0) return null;
   const champ = championOf(p);
   if (p.champion_games === 0) {
-    return <span className="text-text-muted">First time on {champ} this season</span>;
+    return (
+      <span className="text-text-muted">
+        First time on {p.champion_name ? <ChampionLink champion={p.champion_name}>{champ}</ChampionLink> : champ} this
+        season
+      </span>
+    );
   }
   return (
     <span className="text-text-secondary tabular-nums">
-      <span className="text-text-muted">{champ}: </span>
+      <span className="text-text-muted">
+        {p.champion_name ? <ChampionLink champion={p.champion_name}>{champ}</ChampionLink> : champ}:{" "}
+      </span>
       {plural(p.champion_games, "game")} · {formatPercent(p.champion_wins / p.champion_games)}
     </span>
   );

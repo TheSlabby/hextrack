@@ -22,12 +22,15 @@ export function Footer() {
             <span className="font-display font-semibold text-text">HexTrack</span>
             <span className="text-text-muted">· League stats with an AI Score</span>
           </div>
-          <nav aria-label="Footer" className="flex items-center gap-4 text-sm text-text-secondary">
+          <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-text-secondary">
             <Link to="/" className="rounded-sm hover:text-text">
               Home
             </Link>
             <Link to="/leaderboard" className="rounded-sm hover:text-text">
               Leaderboard
+            </Link>
+            <Link to="/champions" className="rounded-sm hover:text-text">
+              Champions
             </Link>
             <Link to="/squad" className="rounded-sm hover:text-text">
               Squad

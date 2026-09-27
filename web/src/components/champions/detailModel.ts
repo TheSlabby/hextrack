@@ -20,10 +20,13 @@ export function buildTime(seconds: number | null | undefined): string | null {
   return seconds === null || seconds === undefined || seconds <= 0 ? null : formatDuration(seconds);
 }
 
-/** "Based on 1,234 games with full item order" (order-based sections only use games with a timeline). */
-export function timelineNote(timelineGames: number, what = "full item order"): string {
-  return `Based on ${formatInteger(timelineGames)} ${timelineGames === 1 ? "game" : "games"} with ${what}`;
+/** Short count for a card's corner: "1,234 games with item order". */
+export function timelineCount(timelineGames: number, what = "item order"): string {
+  return `${formatInteger(timelineGames)} ${timelineGames === 1 ? "game" : "games"} with ${what}`;
 }
+
+/** Empty-state text of order-based sections before any timeline is in. */
+export const NO_TIMELINE = "Item order comes from match timelines, and none are in for these games yet. Check back soon.";
 
 /** Skill slot number from the API (1 Q, 2 W, 3 E, 4 R) -> key letter. */
 export const SKILL_KEYS: Readonly<Record<number, "Q" | "W" | "E" | "R">> = { 1: "Q", 2: "W", 3: "E", 4: "R" };

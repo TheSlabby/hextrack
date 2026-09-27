@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import type { MatchSummary } from "@/api/types";
 import { AiScoreBadge } from "@/components/common/AiScoreBadge";
+import { ChampionLink } from "@/components/common/ChampionLink";
 import { ChampionIcon } from "@/components/common/ChampionIcon";
 import { GlowCard } from "@/components/common/GlowCard";
 import { WinRateBar } from "@/components/common/WinRateBar";
@@ -82,8 +83,10 @@ export function MatchHistorySummary({ matches, className }: { matches: readonly 
                 const kda = recordKda(record);
                 return (
                   <li key={record.champion} className="flex min-w-0 items-center gap-2 text-xs tabular-nums">
-                    <ChampionIcon champion={record.champion} size="xs" />
-                    <span className="min-w-0 flex-1 truncate font-medium text-text">{championDisplayName(record.champion)}</span>
+                    <ChampionLink champion={record.champion} tabIndex={-1} aria-label={championDisplayName(record.champion)} className="shrink-0 rounded-md">
+                      <ChampionIcon champion={record.champion} size="xs" />
+                    </ChampionLink>
+                    <ChampionLink champion={record.champion} className="min-w-0 flex-1 truncate font-medium text-text" />
                     <span className="text-text-secondary">
                       {formatPercent(record.wins / record.games)}{" "}
                       <span className="text-text-muted">({record.wins}W {record.games - record.wins}L)</span>

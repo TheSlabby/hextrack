@@ -5,6 +5,7 @@ import { ChevronDown, ExternalLink } from "lucide-react";
 
 import type { ParticipantSummary, StackGame } from "@/api/types";
 import { AiScoreBadge } from "@/components/common/AiScoreBadge";
+import { ChampionLink } from "@/components/common/ChampionLink";
 import { ChampionIcon } from "@/components/common/ChampionIcon";
 import { DdragonPatch } from "@/components/common/DdragonPatch";
 import { playerSearchValue } from "@/components/match/focus";
@@ -114,7 +115,9 @@ function MemberCell({ member, verdict }: { member: ParticipantSummary; verdict: 
       )}
     >
       <div className="flex min-w-0 items-center gap-2">
-        <ChampionIcon champion={member.champion_name} size="sm" level={member.champ_level} />
+        <ChampionLink champion={member.champion_name} tabIndex={-1} className="pointer-events-auto rounded-md">
+          <ChampionIcon champion={member.champion_name} size="sm" level={member.champ_level} />
+        </ChampionLink>
         <div className="flex min-w-0 flex-1 flex-col">
           <PlayerNameLink participant={member} tabIndex={-1} className="pointer-events-auto text-xs leading-4" />
           <KdaLine
@@ -145,15 +148,17 @@ function MemberChip({ member, verdict }: { member: ParticipantSummary; verdict: 
         {summary}
         {isTarget && verdict.badge ? `, ${verdict.badge.label.toLowerCase()}` : ""}
       </span>
-      <ChampionIcon
-        champion={member.champion_name}
-        size="sm"
-        level={member.champ_level}
-        className={cn(
-          "rounded-md",
-          isTarget && verdict && ["ring-2 ring-offset-1 ring-offset-surface-1", TARGET_RING[verdict.tone]],
-        )}
-      />
+      <ChampionLink champion={member.champion_name} tabIndex={-1} className="pointer-events-auto rounded-md">
+        <ChampionIcon
+          champion={member.champion_name}
+          size="sm"
+          level={member.champ_level}
+          className={cn(
+            "rounded-md",
+            isTarget && verdict && ["ring-2 ring-offset-1 ring-offset-surface-1", TARGET_RING[verdict.tone]],
+          )}
+        />
+      </ChampionLink>
       <span className="pointer-events-auto inline-flex">
         <AiScoreBadge score={member.ai_score} size="sm" />
       </span>

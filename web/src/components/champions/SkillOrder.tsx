@@ -6,11 +6,11 @@ import { GameImage } from "@/components/common/GameImage";
 import { cn } from "@/lib/cn";
 
 import { useChampionAbilities, type ChampionAbility } from "./abilities";
-import { OptionListHeader, OptionStats } from "./BuildPathRow";
+import { OptionStats } from "./BuildPathRow";
 import { DetailCard, EmptyNote } from "./DetailCard";
-import { skillKey, timelineNote } from "./detailModel";
+import { pct, skillKey, timelineCount, winRateTone } from "./detailModel";
 
-const OTHER_ORDERS = 3;
+const OTHER_ORDERS = 2;
 const LEVELS = Array.from({ length: 18 }, (_, i) => i + 1);
 const SLOTS = [1, 2, 3, 4] as const;
 
@@ -69,7 +69,7 @@ function MaxOrderLetters({ order }: { order: readonly number[] }) {
           {i > 0 ? <ChevronRight className="size-3 text-text-muted" aria-hidden="true" /> : null}
           <span
             aria-hidden="true"
-            className="flex size-6 items-center justify-center rounded-md border border-border-strong bg-surface-3 font-display text-xs font-bold text-text"
+            className="flex size-5 items-center justify-center rounded border border-border-strong bg-surface-3 font-display text-[11px] font-bold text-text"
           >
             {skillKey(slot)}
           </span>
@@ -87,7 +87,7 @@ function SkillPathGrid({ path, abilities }: { path: readonly number[]; abilities
       <div
         role="img"
         aria-label={`Usual skill path: ${summary}.`}
-        className="grid min-w-[33rem] grid-cols-[2.25rem_repeat(18,minmax(1.5rem,1fr))] gap-1"
+        className="grid min-w-[31rem] grid-cols-[2rem_repeat(18,minmax(1.375rem,1fr))] gap-[3px]"
       >
         <span aria-hidden="true" />
         {LEVELS.map((level) => (
@@ -98,7 +98,7 @@ function SkillPathGrid({ path, abilities }: { path: readonly number[]; abilities
         {SLOTS.map((slot) => (
           <Fragment key={slot}>
             <span aria-hidden="true" className="flex items-center">
-              <AbilityBadge slot={slot} abilities={abilities} size={26} />
+              <AbilityBadge slot={slot} abilities={abilities} size={22} />
             </span>
             {LEVELS.map((level) => {
               const on = path[level - 1] === slot;
@@ -107,7 +107,7 @@ function SkillPathGrid({ path, abilities }: { path: readonly number[]; abilities
                   key={level}
                   aria-hidden="true"
                   className={cn(
-                    "flex h-7 items-center justify-center rounded-md text-xs font-bold tabular-nums",
+                    "flex h-6 items-center justify-center rounded text-[11px] font-bold tabular-nums",
                     on
                       ? slot === 4
                         ? "bg-gold text-primary-foreground"
@@ -128,12 +128,12 @@ function SkillPathGrid({ path, abilities }: { path: readonly number[]; abilities
 
 function TopMaxOrder({ option, abilities }: { option: SkillMaxOption; abilities: readonly ChampionAbility[] | undefined }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-gold/20 bg-gold/[0.04] px-3 py-2.5">
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-gold/25 bg-gold/[0.05] px-2.5 py-2">
       <div role="group" className="flex items-center gap-1.5" aria-label={`Max ${option.order.map(skillKey).join(", then ")}`}>
         {option.order.map((slot, i) => (
           <Fragment key={slot}>
             {i > 0 ? <ChevronRight className="size-4 text-gold/70" aria-hidden="true" /> : null}
-            <AbilityBadge slot={slot} abilities={abilities} />
+            <AbilityBadge slot={slot} abilities={abilities} size={32} />
           </Fragment>
         ))}
       </div>
@@ -160,32 +160,22 @@ export function SkillOrder({
     <DetailCard
       title="Skill order"
       icon={ListOrdered}
-      description={
-        timelineGames > 0
-          ? `Which basic ability gets maxed first, and the usual path. ${timelineNote(timelineGames, "a full timeline")}.`
-          : "Which basic ability gets maxed first, and the usual path."
-      }
+      description="The basic ability maxed first, and the usual level-by-level path."
+      action={timelineGames > 0 ? timelineCount(timelineGames, "a timeline") : null}
     >
       {hasData ? (
-        <div className="flex flex-col gap-4">
-          {top ? (
-            <div className="flex flex-col gap-1.5">
-              <OptionListHeader label="Max order" />
-              <TopMaxOrder option={top} abilities={abilities} />
-            </div>
-          ) : null}
+        <div className="flex flex-col gap-3">
+          {top ? <TopMaxOrder option={top} abilities={abilities} /> : null}
           {skills.path.length > 0 ? <SkillPathGrid path={skills.path} abilities={abilities} /> : null}
           {others.length > 0 ? (
-            <div className="flex flex-col gap-1.5">
-              <OptionListHeader label="Other max orders" />
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <span className="label-caps">Also</span>
               {others.slice(0, OTHER_ORDERS).map((option) => (
-                <div
-                  key={option.order.join("-")}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-2/40 px-3 py-2"
-                >
+                <span key={option.order.join("-")} className="flex items-center gap-2 text-xs tabular-nums">
                   <MaxOrderLetters order={option.order} />
-                  <OptionStats option={option} />
-                </div>
+                  <span className={cn("font-semibold", winRateTone(option.win_rate))}>{pct(option.win_rate)}</span>
+                  <span className="text-text-muted">{pct(option.pick_rate)} pick</span>
+                </span>
               ))}
             </div>
           ) : null}

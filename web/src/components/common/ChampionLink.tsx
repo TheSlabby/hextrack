@@ -12,18 +12,21 @@ export interface ChampionLinkProps {
   className?: string;
   /** Accessible name when the children are only an icon. */
   "aria-label"?: string;
+  /** -1 inside rows whose own toggle takes keyboard focus (match / stack rows). */
+  tabIndex?: number;
 }
 
 /**
  * Link to a champion's page. Never nest it inside another link (a match row that is itself
  * a link): use it only where the champion sits in plain content.
  */
-export function ChampionLink({ champion, children, className, "aria-label": ariaLabel }: ChampionLinkProps) {
+export function ChampionLink({ champion, children, className, "aria-label": ariaLabel, tabIndex }: ChampionLinkProps) {
   return (
     <Link
       to="/champions/$champion"
       params={{ champion: championSlug(champion) }}
       aria-label={ariaLabel}
+      tabIndex={tabIndex}
       title={championDisplayName(champion)}
       className={cn(
         "rounded-sm transition-colors hover:text-gold-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold",

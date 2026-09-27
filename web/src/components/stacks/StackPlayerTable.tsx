@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, ChevronsUpDown, Users } from "lucide-react";
 
 import type { StackPlayer, StackSummary } from "@/api/types";
 import { AiScoreBadge } from "@/components/common/AiScoreBadge";
+import { ChampionLink } from "@/components/common/ChampionLink";
 import { ChampionIcon } from "@/components/common/ChampionIcon";
 import { GlowCard } from "@/components/common/GlowCard";
 import { ProfileIcon } from "@/components/common/ProfileIcon";
@@ -232,9 +233,13 @@ function TopChampion({ player, className }: { player: StackPlayer; className?: s
   const name = championDisplayName(player.top_champion_name);
   return (
     <span className={cn("flex min-w-0 items-center gap-2", className)}>
-      <ChampionIcon champion={player.top_champion_name} size="xs" />
+      <ChampionLink champion={player.top_champion_name} tabIndex={-1} aria-label={name} className="shrink-0 rounded-md">
+        <ChampionIcon champion={player.top_champion_name} size="xs" />
+      </ChampionLink>
       <span className="flex min-w-0 flex-col leading-tight">
-        <span className="truncate text-[13px] font-medium text-text">{name}</span>
+        <ChampionLink champion={player.top_champion_name} className="truncate text-[13px] font-medium text-text">
+          {name}
+        </ChampionLink>
         <span className="text-xs text-text-muted tabular-nums">{plural(player.top_champion_games, "game")}</span>
       </span>
     </span>

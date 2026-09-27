@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { ChevronDown, Ellipsis, Layers, Medal, Search, Swords, Trophy, UsersRound, type LucideIcon } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 
 import { Kbd } from "@/components/common/Kbd";
 import { MotionMemory } from "@/components/common/Motion";
@@ -12,6 +12,8 @@ import { cn } from "@/lib/cn";
 
 import { Background } from "./Background";
 import { Footer } from "./Footer";
+import { MobileTabBar } from "./MobileTabBar";
+import { isActivePath, NAV_MAIN, NAV_MORE } from "./nav";
 import { StatusPill } from "./StatusPill";
 
 const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
@@ -25,55 +27,20 @@ function isTypingTarget(target: EventTarget | null): boolean {
 const NAV_LINK =
   "inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-text-secondary transition-colors hover:bg-white/5 hover:text-text";
 
-interface NavItem {
-  to: "/leaderboard" | "/champions" | "/squad" | "/stacks" | "/records";
-  label: string;
-  icon: LucideIcon;
-}
-
-/**
- * Top-level pages in the nav: text links from `sm`, icon buttons on phones. The last ones
- * (`NAV_MORE`) sit in a "More" menu until xl, so the bar fits at 360 px and at tablet width.
- */
-const NAV_MAIN: readonly NavItem[] = [
-  { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
-  { to: "/champions", label: "Champions", icon: Swords },
-  { to: "/squad", label: "Squad", icon: UsersRound },
-];
-const NAV_MORE: readonly NavItem[] = [
-  { to: "/stacks", label: "Stacks", icon: Layers },
-  { to: "/records", label: "Records", icon: Medal },
-];
-
-function isActivePath(pathname: string, to: string): boolean {
-  return pathname === to || pathname.startsWith(`${to}/`);
-}
-
 /** The overflow pages as a dropdown; the trigger lights up while one of them is open. */
-function MoreMenu({ pathname, compact }: { pathname: string; compact: boolean }) {
+function MoreMenu({ pathname }: { pathname: string }) {
   const active = NAV_MORE.some((item) => isActivePath(pathname, item.to));
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        {compact ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn("sm:hidden", active && "bg-white/5 text-gold-bright")}
-            aria-label="More pages"
-          >
-            <Ellipsis />
-          </Button>
-        ) : (
-          <button
-            type="button"
-            className={cn(NAV_LINK, "xl:hidden", active && "bg-white/5 text-gold-bright")}
-            aria-label="More pages"
-          >
-            More
-            <ChevronDown className="size-3.5 opacity-70" aria-hidden="true" />
-          </button>
-        )}
+        <button
+          type="button"
+          className={cn(NAV_LINK, "xl:hidden", active && "bg-white/5 text-gold-bright")}
+          aria-label="More pages"
+        >
+          More
+          <ChevronDown className="size-3.5 opacity-70" aria-hidden="true" />
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-40">
         {NAV_MORE.map(({ to, label, icon: Icon }) => (
@@ -92,7 +59,7 @@ function MoreMenu({ pathname, compact }: { pathname: string; compact: boolean })
   );
 }
 
-/** App frame: sticky glass nav (logo, links, search, status), page content and footer. */
+/** App frame: sticky glass nav (logo, links, search, status), page content, footer and, on phones, a bottom tab bar. */
 export function AppShell({ children }: { children: ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   // Entrance motion plays once per page: sections that re-mount inside it (tab panels) render
@@ -117,7 +84,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="relative flex min-h-dvh flex-col">
+    <div className="relative flex min-h-dvh flex-col pb-[calc(3.75rem+env(safe-area-inset-bottom))] sm:pb-0">
       <Background />
       <a
         href="#main"
@@ -129,8 +96,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="glass sticky top-0 z-40 border-b border-border">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-4 sm:gap-4 sm:px-6 lg:px-8">
           <Link to="/" className="shrink-0 rounded-lg" aria-label="HexTrack home">
-            {/* Below 360px the five phone nav buttons need the wordmark's room; the mark stays. */}
-            <Logo className="max-[359px]:[&>span:not(.sr-only)]:hidden" />
+            <Logo />
           </Link>
 
           <nav aria-label="Main" className="hidden items-center gap-1 sm:flex">
@@ -148,7 +114,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
-            <MoreMenu pathname={pathname} compact={false} />
+            <MoreMenu pathname={pathname} />
           </nav>
 
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
@@ -169,20 +135,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Button variant="ghost" size="icon" className="md:hidden" onClick={openPalette} aria-label="Search players and champions">
               <Search className="text-gold" />
             </Button>
-            {NAV_MAIN.map(({ to, label, icon: Icon }) => (
-              <Button
-                key={to}
-                variant="ghost"
-                size="icon"
-                className="sm:hidden data-[status=active]:bg-white/5 data-[status=active]:text-gold-bright"
-                asChild
-              >
-                <Link to={to} aria-label={label}>
-                  <Icon />
-                </Link>
-              </Button>
-            ))}
-            <MoreMenu pathname={pathname} compact />
             <StatusPill className="hidden lg:inline-flex" />
           </div>
         </div>
@@ -193,6 +145,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
 
       <Footer />
+      <MobileTabBar pathname={pathname} />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
     </div>
   );

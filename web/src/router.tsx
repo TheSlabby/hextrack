@@ -121,6 +121,19 @@ function validateChampionsSearch(search: Record<string, unknown>): ChampionsSear
   return result;
 }
 
+/** Champion page tabs; "build" is the default and omitted from the URL. */
+export type ChampionTab = "build" | "matchups" | "squad";
+
+export interface ChampionPageSearch extends ChampionsSearch {
+  tab?: Exclude<ChampionTab, "build">;
+}
+
+function validateChampionPageSearch(search: Record<string, unknown>): ChampionPageSearch {
+  const result: ChampionPageSearch = validateChampionsSearch(search);
+  if (search.tab === "matchups" || search.tab === "squad") result.tab = search.tab;
+  return result;
+}
+
 function validateChampionListSearch(search: Record<string, unknown>): ChampionListSearch {
   const result: ChampionListSearch = validateChampionsSearch(search);
   if (typeof search.sort === "string" && (CHAMPION_LIST_SORTS as readonly string[]).includes(search.sort)) {
@@ -228,7 +241,7 @@ const championsRoute = createRoute({
 const championRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/champions/$champion",
-  validateSearch: validateChampionsSearch,
+  validateSearch: validateChampionPageSearch,
   component: ChampionPage,
 });
 

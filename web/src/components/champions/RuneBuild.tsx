@@ -30,7 +30,6 @@ function PageOption({
 }) {
   const runes = useRuneTrees(patch);
   const keystone = runes.info(page.rune_ids[0]);
-  const primary = runes.info(page.primary_style_id);
   const secondary = runes.info(page.secondary_style_id);
   const name = keystone ? `${keystone.name}${secondary ? ` + ${secondary.name}` : ""}` : `Rune page ${index + 1}`;
   return (
@@ -39,33 +38,34 @@ function PageOption({
       aria-pressed={selected}
       aria-label={`${name}: ${pct(page.win_rate)} win rate, ${pct(page.pick_rate)} pick rate, ${page.games} games`}
       onClick={onSelect}
+      title={name}
       className={cn(
-        "flex min-w-0 flex-col items-center gap-1.5 rounded-xl border px-2 py-2.5 text-center transition-colors duration-150",
+        "@container flex min-w-0 rounded-lg border px-2 py-1.5 transition-colors duration-150",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold",
         selected
           ? "border-gold/45 bg-gold/[0.07]"
-          : "border-border bg-surface-2/40 hover:border-border-strong hover:bg-surface-2",
+          : "border-border bg-white/[0.025] hover:border-border-strong hover:bg-surface-2",
       )}
     >
-      <span className="flex items-end gap-1" aria-hidden="true">
-        {keystone ? (
-          <GameImage src={keystone.icon} alt="" className="size-8 rounded-full bg-black/40 object-contain" />
-        ) : (
-          <span className="shimmer block size-8 rounded-full" />
-        )}
-        {secondary ? (
-          <GameImage src={secondary.icon} alt="" className="size-4 object-contain" />
-        ) : (
-          <span className="shimmer block size-4 rounded-full" />
-        )}
-      </span>
-      <span className="hidden max-w-full truncate text-xs font-medium text-text sm:block" aria-hidden="true">
-        {keystone?.name ?? primary?.name ?? " "}
-      </span>
-      <span className="flex flex-col text-[11px] leading-tight tabular-nums" aria-hidden="true">
-        <span className={cn("text-sm font-semibold", winRateTone(page.win_rate))}>{pct(page.win_rate)}</span>
-        <span className="text-text-secondary">{pct(page.pick_rate)} pick</span>
-        <span className="text-text-muted">{formatCompact(page.games)} games</span>
+      <span className="flex w-full flex-col items-center gap-1 @[9rem]:flex-row @[9rem]:gap-2" aria-hidden="true">
+        <span className="flex shrink-0 items-end gap-0.5">
+          {keystone ? (
+            <GameImage src={keystone.icon} alt="" className="size-7 rounded-full bg-black/40 object-contain" />
+          ) : (
+            <span className="shimmer block size-7 rounded-full" />
+          )}
+          {secondary ? (
+            <GameImage src={secondary.icon} alt="" className="size-3.5 object-contain" />
+          ) : (
+            <span className="shimmer block size-3.5 rounded-full" />
+          )}
+        </span>
+        <span className="flex min-w-0 flex-col items-center text-[11px] leading-tight tabular-nums @[9rem]:items-start">
+          <span className={cn("text-sm font-semibold", winRateTone(page.win_rate))}>{pct(page.win_rate)}</span>
+          <span className="text-text-muted">
+            {pct(page.pick_rate)} · {formatCompact(page.games)}
+          </span>
+        </span>
       </span>
     </button>
   );
@@ -81,13 +81,12 @@ export function RuneBuild({ runes, patch }: { runes: ChampionRunes; patch: strin
 
   return (
     <DetailCard
-      eyebrow="Build"
       title="Runes"
       icon={Gem}
-      description="The most common full pages. Small numbers: how often each rune is taken on any page."
+      description="Pick one of the most common pages (win rate, pick rate · games)."
     >
       {page ? (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {options.length > 1 ? (
             <div className="grid grid-cols-3 gap-2" role="group" aria-label="Rune pages">
               {options.map((option, i) => (
@@ -113,8 +112,9 @@ export function RuneBuild({ runes, patch }: { runes: ChampionRunes; patch: strin
           </p>
           <RunePage page={page} picks={runes.picks} shards={runes.shards} shardPicks={runes.shard_picks} patch={patch} />
           {topShards ? (
-            <p className="text-xs text-text-muted">
-              Lit shards are the most common set ({pct(topShards.pick_rate)} of games, {pct(topShards.win_rate)} win rate).
+            <p className="text-[11px] leading-relaxed text-text-muted">
+              Small numbers: how often each rune is taken on any page. Lit shards are the most common set (
+              {pct(topShards.pick_rate)} of games, {pct(topShards.win_rate)} win rate).
             </p>
           ) : null}
         </div>

@@ -1,145 +1,161 @@
-import { Flame, Footprints, Layers, PackageOpen } from "lucide-react";
+import type { ReactNode } from "react";
+import { Flame, Layers } from "lucide-react";
 
 import type { BuildOption, ChampionBuilds } from "@/api/types";
 import { cn } from "@/lib/cn";
+import { formatCompact } from "@/lib/format";
 
-import { BuildPathRow, OptionListHeader, OptionStats } from "./BuildPathRow";
+import { ItemPath, OptionListHeader, OptionRow } from "./BuildPathRow";
 import { DetailCard, EmptyNote } from "./DetailCard";
-import { pct, timelineNote } from "./detailModel";
+import { NO_TIMELINE, pct, timelineCount, winRateTone } from "./detailModel";
 import { ItemIcon, ItemName } from "./ItemIcon";
 
-const SLOT_ROWS = 4;
-const START_ROWS = 4;
-const BOOT_ROWS = 4;
-const POPULAR_ROWS = 10;
+const START_ROWS = 3;
+const BOOT_ROWS = 3;
+const SLOT_ROWS = 3;
+const POPULAR_ITEMS = 10;
 
-const NO_TIMELINE = "Item order comes from match timelines, and none are in for these games yet.";
-
-/** A single item: icon + name on the left, win and pick rate on the right. */
-function ItemOptionRow({
-  option,
-  compact,
-  className,
-}: {
-  option: BuildOption;
-  /** Name hidden between md and lg, where three lists share a row (still on hover). */
-  compact?: boolean;
-  className?: string;
-}) {
+/** A single item with its name (the name hides when the column is narrow; it's on hover too). */
+function ItemOptionRow({ option, highlight }: { option: BuildOption; highlight?: boolean }) {
   const id = option.items[0] ?? 0;
   return (
-    <div
-      className={cn(
-        "flex min-w-0 items-center justify-between gap-3 rounded-xl border border-border bg-surface-2/40 px-3 py-2",
-        className,
-      )}
-    >
-      <div className="flex min-w-0 items-center gap-2.5">
-        <ItemIcon id={id} size={28} />
-        <ItemName id={id} className={cn("text-sm font-medium text-text", compact && "md:max-lg:hidden")} />
-      </div>
-      <OptionStats option={option} />
-    </div>
+    <OptionRow option={option} highlight={highlight}>
+      <ItemIcon id={id} size={26} />
+      <ItemName id={id} className="hidden text-xs font-medium text-text @[15rem]:inline" />
+    </OptionRow>
   );
 }
 
-/** Items bought in the first 90 seconds. */
-export function BuildStarting({ builds, timelineGames }: { builds: ChampionBuilds; timelineGames: number }) {
+/** One column of the item build: a heading and up to `rows` options (the first highlighted). */
+function OptionColumn({
+  label,
+  options,
+  rows,
+  render,
+  empty,
+  footer,
+}: {
+  label: string;
+  options: readonly BuildOption[];
+  rows: number;
+  render: (option: BuildOption, first: boolean) => ReactNode;
+  empty: string;
+  footer?: ReactNode;
+}) {
   return (
-    <DetailCard
-      title="Starting items"
-      icon={PackageOpen}
-      description={timelineGames > 0 ? `Bought in the first 90 seconds. ${timelineNote(timelineGames)}.` : "Bought in the first 90 seconds."}
-    >
-      {builds.starting.length > 0 ? (
-        <div className="flex flex-col gap-1.5">
-          <OptionListHeader label="Items" />
-          {builds.starting.slice(0, START_ROWS).map((option) => (
-            <BuildPathRow key={option.items.join("-")} option={option} arrows={false} />
-          ))}
-        </div>
+    <section aria-label={label} className="@container flex min-w-0 flex-col gap-1">
+      <OptionListHeader label={label} />
+      {options.length > 0 ? (
+        options.slice(0, rows).map((option, i) => (
+          <div key={option.items.join("-")} className="min-w-0">
+            {render(option, i === 0)}
+          </div>
+        ))
       ) : (
-        <EmptyNote>{timelineGames > 0 ? "No starting set is common enough to show yet." : NO_TIMELINE}</EmptyNote>
+        <EmptyNote className="py-3">{empty}</EmptyNote>
       )}
-    </DetailCard>
+      {footer}
+    </section>
   );
 }
 
-/** Boots in the final inventory, plus how often games ended without any. */
-export function BuildBoots({ builds }: { builds: ChampionBuilds }) {
+/**
+ * The item build in one card: starting items and boots, then what comes 4th, 5th and 6th.
+ * Starting items and items 4-6 need a timeline; boots come from every game.
+ */
+export function ItemBuild({ builds, timelineGames }: { builds: ChampionBuilds; timelineGames: number }) {
+  const slots = [...builds.slots].sort((a, b) => a.slot - b.slot);
+  const noTimeline = timelineGames === 0;
   const noBoots = builds.no_boots_rate;
   return (
-    <DetailCard title="Boots" icon={Footprints} description="Boots in the final inventory, over every game.">
-      {builds.boots.length > 0 ? (
-        <div className="flex flex-col gap-1.5">
-          <OptionListHeader label="Boots" />
-          {builds.boots.slice(0, BOOT_ROWS).map((option) => (
-            <ItemOptionRow key={option.items.join("-")} option={option} />
-          ))}
-        </div>
-      ) : (
-        <EmptyNote>No boots are common enough to show.</EmptyNote>
-      )}
-      {noBoots >= 0.005 ? (
-        <p className="text-xs text-text-secondary">
-          <span className="font-semibold text-text tabular-nums">{pct(noBoots)}</span> of games ended without boots.
-        </p>
-      ) : null}
+    <DetailCard
+      title="Item build"
+      icon={Layers}
+      description="Starting items, boots, and what comes after the core."
+      action={timelineGames > 0 ? timelineCount(timelineGames) : null}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <OptionColumn
+          label="Starting items"
+          options={builds.starting}
+          rows={START_ROWS}
+          empty={noTimeline ? "Needs match timelines; none are in yet." : "No starting set is common enough yet."}
+          render={(option, first) => (
+            <OptionRow option={option} highlight={first}>
+              <ItemPath items={option.items} size={26} arrows={false} />
+            </OptionRow>
+          )}
+        />
+        <OptionColumn
+          label="Boots"
+          options={builds.boots}
+          rows={BOOT_ROWS}
+          empty="No boots are common enough to show."
+          render={(option, first) => <ItemOptionRow option={option} highlight={first} />}
+          footer={
+            noBoots >= 0.005 ? (
+              <p className="px-2.5 pt-0.5 text-[11px] text-text-muted">
+                <span className="font-semibold text-text-secondary tabular-nums">{pct(noBoots)}</span> of games ended
+                without boots.
+              </p>
+            ) : null
+          }
+        />
+      </div>
+      <div className="border-t border-border pt-3">
+        {noTimeline ? (
+          <EmptyNote>{NO_TIMELINE}</EmptyNote>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-3 sm:gap-3">
+            {slots.map((slot) => (
+              <OptionColumn
+                key={slot.slot}
+                label={`Item ${slot.slot}`}
+                options={slot.options}
+                rows={SLOT_ROWS}
+                empty="Not enough games."
+                render={(option, first) => <ItemOptionRow option={option} highlight={first} />}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </DetailCard>
   );
 }
 
-/** Items 4, 5 and 6: the options for each later slot, side by side. */
-export function BuildSlots({ builds, timelineGames }: { builds: ChampionBuilds; timelineGames: number }) {
-  const slots = [...builds.slots].sort((a, b) => a.slot - b.slot);
-  const any = slots.some((slot) => slot.options.length > 0);
+/** The finished items most often in the final inventory (any order, every game), as an icon grid. */
+export function BuildPopular({ builds, className }: { builds: ChampionBuilds; className?: string }) {
+  const items = builds.popular_items.slice(0, POPULAR_ITEMS);
   return (
     <DetailCard
-      eyebrow="Build"
-      title="Later items"
-      icon={Layers}
-      description={
-        timelineGames > 0
-          ? `What comes 4th, 5th and 6th once the core is done. ${timelineNote(timelineGames)}.`
-          : "What comes 4th, 5th and 6th once the core is done."
-      }
+      title="Popular items"
+      icon={Flame}
+      description="Finished items most often in the final inventory."
+      className={className}
     >
-      {any ? (
-        <div className="grid gap-4 md:grid-cols-3 md:gap-3">
-          {slots.map((slot) => (
-            <section key={slot.slot} aria-label={`Item ${slot.slot}`} className="flex min-w-0 flex-col gap-1.5">
-              <OptionListHeader label={`Item ${slot.slot}`} />
-              {slot.options.length > 0 ? (
-                slot.options
-                  .slice(0, SLOT_ROWS)
-                  .map((option) => <ItemOptionRow key={option.items.join("-")} option={option} compact />)
-              ) : (
-                <EmptyNote className="py-3">Not enough games.</EmptyNote>
-              )}
-            </section>
-          ))}
-        </div>
+      {items.length > 0 ? (
+        <ul className="grid grid-cols-5 gap-x-2 gap-y-3">
+          {items.map((option) => {
+            const id = option.items[0] ?? 0;
+            return (
+              <li key={id} className="flex min-w-0 flex-col items-center gap-1 text-center tabular-nums">
+                <ItemIcon id={id} size={36} />
+                <span className="text-xs leading-none font-semibold text-text">{pct(option.pick_rate)}</span>
+                <span className={cn("text-[10px] leading-none", winRateTone(option.win_rate))}>
+                  {pct(option.win_rate)} win
+                </span>
+                <span className="sr-only">
+                  <ItemName id={id} />, {formatCompact(option.games)} games
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       ) : (
-        <EmptyNote>{timelineGames > 0 ? "Not enough games reach a 4th item yet." : NO_TIMELINE}</EmptyNote>
+        <EmptyNote>No finished items yet.</EmptyNote>
       )}
     </DetailCard>
   );
 }
 
-/** The completed items most often in the final inventory (any order, every game). */
-export function BuildPopular({ builds }: { builds: ChampionBuilds }) {
-  return (
-    <DetailCard title="Popular items" icon={Flame} description="Completed items most often in the final inventory.">
-      {builds.popular_items.length > 0 ? (
-        <div className="flex flex-col gap-1.5">
-          <OptionListHeader label="Item" />
-          {builds.popular_items.slice(0, POPULAR_ROWS).map((option) => (
-            <ItemOptionRow key={option.items.join("-")} option={option} />
-          ))}
-        </div>
-      ) : (
-        <EmptyNote>No completed items yet.</EmptyNote>
-      )}
-    </DetailCard>
-  );
-}

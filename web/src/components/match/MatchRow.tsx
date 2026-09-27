@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ChevronDown, ExternalLink } from "lucide-react";
 
 import type { MatchSummary } from "@/api/types";
+import { ChampionLink } from "@/components/common/ChampionLink";
 import { ChampionIcon } from "@/components/common/ChampionIcon";
 import { DdragonPatch } from "@/components/common/DdragonPatch";
 import { RolePercentileLabel } from "@/components/common/RolePercentile";
@@ -130,7 +131,9 @@ export function MatchRow({ match, puuid, defaultExpanded = false, className }: M
           <div className="flex min-w-0 flex-col gap-2 @2xl:w-[256px] @2xl:shrink-0 @4xl:w-[276px]">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex shrink-0 items-center gap-1">
-                <ChampionIcon champion={me.champion_name} size="lg" level={me.champ_level} />
+                <ChampionLink champion={me.champion_name} tabIndex={-1} className="pointer-events-auto rounded-lg">
+                  <ChampionIcon champion={me.champion_name} size="lg" level={me.champ_level} />
+                </ChampionLink>
                 <SpellIcons spell1={me.summoner1_id} spell2={me.summoner2_id} size="md" />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -187,7 +190,9 @@ export function MatchRow({ match, puuid, defaultExpanded = false, className }: M
                   const focused = p.puuid === puuid;
                   return (
                     <li key={p.puuid} className="flex h-4 min-w-0 items-center gap-1.5">
-                      <TinyChampion champion={p.champion_name} className={cn(focused && "ring-gold")} />
+                      <ChampionLink champion={p.champion_name} tabIndex={-1} className="pointer-events-auto rounded-[4px]">
+                        <TinyChampion champion={p.champion_name} className={cn(focused && "ring-gold")} />
+                      </ChampionLink>
                       <PlayerNameLink
                         participant={p}
                         focused={focused}

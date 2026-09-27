@@ -28,7 +28,6 @@ export function ChampionMatchups({
 
   return (
     <DetailCard
-      eyebrow="Matchups"
       title="Lane opponents"
       icon={Swords}
       description={`${name} against the enemy champion in the same role.`}

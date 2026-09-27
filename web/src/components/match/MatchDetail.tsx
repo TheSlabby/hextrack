@@ -7,6 +7,7 @@ import { useMatch } from "@/api/queries";
 import type { MatchDetail, ParticipantSummary, TeamDetail } from "@/api/types";
 import { AiScoreBreakdownDialog } from "@/components/ai/AiScoreBreakdown";
 import { AiScoreRing } from "@/components/common/AiScoreRing";
+import { ChampionLink } from "@/components/common/ChampionLink";
 import { ChampionIcon } from "@/components/common/ChampionIcon";
 import { DdragonPatch } from "@/components/common/DdragonPatch";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -219,7 +220,10 @@ function MatchHero({ match, focus }: { match: MatchDetail; focus: ParticipantSum
           <h1 className="font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
             <span className={OUTCOME_STYLES[outcome].text}>{title}</span>
             {focus ? (
-              <span className="text-2xl font-medium text-text-secondary sm:text-3xl"> as {championDisplayName(focus.champion_name)}</span>
+              <span className="text-2xl font-medium text-text-secondary sm:text-3xl">
+                {" "}
+                as <ChampionLink champion={focus.champion_name} />
+              </span>
             ) : null}
           </h1>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-text-secondary">
@@ -325,7 +329,14 @@ function HeroPlayerLine({ match, player }: { match: MatchDetail; player: Partici
     <div className="mt-2 flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         <div className="flex items-center gap-2">
-          <ChampionIcon champion={player.champion_name} size="lg" level={player.champ_level} />
+          <ChampionLink
+            champion={player.champion_name}
+            tabIndex={-1}
+            aria-label={championDisplayName(player.champion_name)}
+            className="rounded-lg"
+          >
+            <ChampionIcon champion={player.champion_name} size="lg" level={player.champ_level} />
+          </ChampionLink>
           <SpellIcons spell1={player.summoner1_id} spell2={player.summoner2_id} patch={match.patch} />
         </div>
         <div className="flex flex-col">

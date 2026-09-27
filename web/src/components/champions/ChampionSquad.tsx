@@ -135,7 +135,6 @@ export function ChampionSquad({ champion, queue }: { champion: string; queue: Le
 
   return (
     <DetailCard
-      eyebrow="Squad"
       title={`The squad on ${name}`}
       icon={Users}
       description={`Roster players' ${QUEUE_PHRASE[queue]} games on ${name} this season, on any patch.`}

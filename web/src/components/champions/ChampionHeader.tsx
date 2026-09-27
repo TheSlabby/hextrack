@@ -3,7 +3,6 @@ import { TriangleAlert } from "lucide-react";
 import type { ChampionDetail, ChampionPatchParam, ChampionRole, ChampionRoleSummary, LeaderboardQueue } from "@/api/types";
 import { ChampionIcon } from "@/components/common/ChampionIcon";
 import { PositionIcon } from "@/components/common/PositionIcon";
-import { StatTile } from "@/components/common/StatTile";
 import { QueueToggle } from "@/components/leaderboard/QueueToggle";
 import { ProfileBanner } from "@/components/summoner/ProfileBanner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +12,7 @@ import { formatInteger, formatPercent, plural } from "@/lib/format";
 import { POSITION_LABELS, POSITION_LONG_LABELS } from "@/lib/positions";
 
 import { pct } from "./detailModel";
+import { ChampionStatStrip } from "./ChampionStatStrip";
 import { PatchSelect } from "./PatchSelect";
 
 const QUEUE_LABEL: Readonly<Record<LeaderboardQueue, string>> = {
@@ -73,11 +73,10 @@ export function ChampionHeader({
   // Tabs: the roles the API shows, plus the active one if it was asked for by URL.
   const roles = detail?.roles.filter((r) => r.shown || r.position === role) ?? [];
   const stats = detail?.detail?.stats;
-  const winRate = stats?.win_rate ?? detail?.win_rate ?? null;
   const windowLabel = detail ? patchWindowLabel(detail.patch, detail.patches) : null;
 
   return (
-    <header className="relative isolate flex flex-col gap-5 pt-2 sm:pt-8">
+    <header className="relative isolate flex flex-col gap-4 pt-2 sm:pt-6">
       <ProfileBanner champion={champion} />
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -126,45 +125,7 @@ export function ChampionHeader({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-4 rounded-2xl border border-border bg-surface-1/75 p-4 backdrop-blur-sm sm:grid-cols-4 sm:p-5">
-        {detail ? (
-          <>
-            <StatTile
-              bare
-              animate
-              label="Win rate"
-              value={winRate === null ? "–" : winRate * 100}
-              format={(v) => `${v.toFixed(1)}%`}
-              caption={role ? POSITION_LONG_LABELS[role] : "All roles"}
-            />
-            <StatTile
-              bare
-              label="Pick rate"
-              value={pct(stats?.pick_rate ?? detail.pick_rate)}
-              caption={role ? POSITION_LONG_LABELS[role] : "All roles"}
-            />
-            <StatTile bare label="Ban rate" value={pct(detail.ban_rate)} caption="All roles" />
-            <StatTile
-              bare
-              animate
-              label="Games"
-              value={stats?.games ?? detail.games}
-              format={(v) => formatInteger(Math.round(v))}
-              caption={
-                stats && detail.games > stats.games ? `of ${formatInteger(detail.games)} in all roles` : `of ${formatInteger(detail.total_matches)} matches`
-              }
-            />
-          </>
-        ) : (
-          Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="flex flex-col gap-1.5" aria-hidden="true">
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-8 w-20 sm:h-[35px]" />
-              <Skeleton className="h-4 w-24" />
-            </div>
-          ))
-        )}
-      </div>
+      <ChampionStatStrip detail={detail} />
 
       {stats?.small_sample ? (
         <p className="flex items-start gap-2 text-sm text-text-secondary">

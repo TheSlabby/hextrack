@@ -3,6 +3,7 @@ import { Bug, Castle, Crown, Droplet, Eye, Flame, Gem, Skull, type LucideIcon } 
 import type { ObjectiveStat, TeamObjectives as TeamObjectivesData } from "@/api/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ChampionLink } from "@/components/common/ChampionLink";
 import { ChampionIcon } from "@/components/common/ChampionIcon";
 import { cn } from "@/lib/cn";
 
@@ -129,13 +130,13 @@ function BanSlot({ championId, catalog, loading }: { championId: number; catalog
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className="relative block size-5" role="img" aria-label={`Banned ${champion.name}`}>
+        <ChampionLink champion={champion.key} aria-label={`Banned ${champion.name}`} className="relative block size-5 rounded-md">
           <ChampionIcon champion={champion.key} size="xs" className="opacity-70 grayscale-[0.85]" />
           <span
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 rounded-md bg-[linear-gradient(135deg,transparent_45%,var(--color-loss)_46%,var(--color-loss)_54%,transparent_55%)] opacity-75"
           />
-        </span>
+        </ChampionLink>
       </TooltipTrigger>
       <TooltipContent>Banned {champion.name}</TooltipContent>
     </Tooltip>

@@ -3,9 +3,11 @@ import { Link } from "@tanstack/react-router";
 import { Handshake } from "lucide-react";
 
 import type { BestAlly } from "@/api/types";
+import { ChampionLink } from "@/components/common/ChampionLink";
 import { ChampionIcon } from "@/components/common/ChampionIcon";
 import { RankEmblem } from "@/components/common/RankEmblem";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { championDisplayName } from "@/lib/champions";
 import { cn } from "@/lib/cn";
 import { formatPercent, formatSigned, plural } from "@/lib/format";
 import { summonerParams } from "@/lib/riotId";
@@ -159,15 +161,22 @@ export function RankCell({
 export function TopChampions({ champions, className }: { champions: readonly string[]; className?: string }) {
   if (champions.length === 0) return <span className={cn("text-xs text-text-muted", className)}>–</span>;
   return (
-    <span className={cn("flex items-center", className)} aria-label={`Most played: ${champions.join(", ")}`} role="img">
+    <span className={cn("flex items-center", className)}>
+      <span className="sr-only">Most played: </span>
       {champions.map((champion, index) => (
-        <span
+        <ChampionLink
           key={champion}
-          className={cn("rounded-[7px] ring-2 ring-surface-1", index > 0 && "-ml-1.5")}
-          style={{ zIndex: champions.length - index }}
+          champion={champion}
+          aria-label={championDisplayName(champion)}
+          className={cn(
+            "relative rounded-[7px] ring-2 ring-surface-1 transition-transform hover:z-10 hover:scale-110",
+            // First (most played) on top, as before.
+            ["z-[3]", "z-[2]", "z-[1]"][index],
+            index > 0 && "-ml-1.5",
+          )}
         >
           <ChampionIcon champion={champion} size="sm" />
-        </span>
+        </ChampionLink>
       ))}
     </span>
   );
