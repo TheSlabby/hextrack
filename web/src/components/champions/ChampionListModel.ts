@@ -2,8 +2,9 @@
  * The /champions list: role filter, text search and sorting, all client-side over the rows of
  * `useChampionList` (the API returns every champion in the patch window, most games first).
  */
-import type { ChampionListRow, ChampionRole } from "@/api/types";
+import type { ChampionListRow, ChampionRole, ChampionTier } from "@/api/types";
 import type { ChampionListSort } from "@/router";
+import { championTierValue } from "@/lib/championTiers";
 import { championDisplayName } from "@/lib/champions";
 
 export type { ChampionListSort };
@@ -14,9 +15,16 @@ export interface ChampionListSortState {
   direction: ChampionListDirection;
 }
 
-export const DEFAULT_CHAMPION_SORT: ChampionListSortState = { key: "games", direction: "desc" };
+/**
+ * The sort when the URL names none: a role reads as a tier list (S first, like u.gg); every role
+ * mixes lanes, so it starts with the most played champions.
+ */
+export function defaultChampionSortKey(role: ChampionRole | null | undefined): ChampionListSort {
+  return role ? "tier" : "games";
+}
 
 export const CHAMPION_SORT_LABELS: Readonly<Record<ChampionListSort, string>> = {
+  tier: "Tier",
   games: "Games",
   win_rate: "Win rate",
   pick_rate: "Pick rate",
@@ -26,7 +34,15 @@ export const CHAMPION_SORT_LABELS: Readonly<Record<ChampionListSort, string>> = 
 };
 
 /** Keys offered in the mobile "Sort by" menu, in display order. */
-export const CHAMPION_SORT_MENU: readonly ChampionListSort[] = ["games", "win_rate", "pick_rate", "ban_rate", "kda", "name"];
+export const CHAMPION_SORT_MENU: readonly ChampionListSort[] = [
+  "tier",
+  "games",
+  "win_rate",
+  "pick_rate",
+  "ban_rate",
+  "kda",
+  "name",
+];
 
 /** Fewer games than this in the shown row: dimmed and flagged as a small sample. */
 export const SMALL_SAMPLE_GAMES = 100;
@@ -54,10 +70,14 @@ export interface ChampionListItem {
   /** Champion-wide (the list has no per-role KDA). */
   kda: number;
   mainRoles: ChampionRole[];
+  /** Tier in the filtered role, or (every role) in the champion's most played role. */
+  tier: ChampionTier | null;
+  /** The role `tier` is for. */
+  tierRole: ChampionRole | null;
   smallSample: boolean;
 }
 
-/** Names read naturally A to Z; every numeric column starts with the highest value. */
+/** Names read naturally A to Z; tiers start at S; every numeric column starts with the highest value. */
 export function defaultChampionDirection(key: ChampionListSort): ChampionListDirection {
   return key === "name" ? "asc" : "desc";
 }
@@ -75,6 +95,14 @@ export function mainRoles(row: ChampionListRow): ChampionRole[] {
   return roles.map((role) => role.position);
 }
 
+/** The role with the most games (the API lists them most played first, but don't rely on it). */
+function mostPlayedRole(row: ChampionListRow): ChampionListRow["roles"][number] | null {
+  return row.roles.reduce<ChampionListRow["roles"][number] | null>(
+    (best, role) => (!best || role.games > best.games ? role : best),
+    null,
+  );
+}
+
 function toItem(row: ChampionListRow, role: ChampionRole | null, totalMatches: number): ChampionListItem | null {
   const base = {
     row,
@@ -85,8 +113,11 @@ function toItem(row: ChampionListRow, role: ChampionRole | null, totalMatches: n
     mainRoles: mainRoles(row),
   };
   if (!role) {
+    const main = mostPlayedRole(row);
     return {
       ...base,
+      tier: main?.tier ?? null,
+      tierRole: main?.position ?? null,
       games: row.games,
       wins: row.wins,
       winRate: row.win_rate,
@@ -102,12 +133,16 @@ function toItem(row: ChampionListRow, role: ChampionRole | null, totalMatches: n
     wins: stats.wins,
     winRate: stats.win_rate,
     pickRate: totalMatches > 0 ? stats.games / totalMatches : 0,
+    tier: stats.tier,
+    tierRole: role,
     smallSample: stats.games < SMALL_SAMPLE_GAMES,
   };
 }
 
 function sortValue(item: ChampionListItem, key: ChampionListSort): number {
   switch (key) {
+    case "tier":
+      return championTierValue(item.tier);
     case "games":
       return item.games;
     case "win_rate":
@@ -136,6 +171,8 @@ export function buildChampionItems(
   const sign = sort.direction === "asc" ? 1 : -1;
   items.sort((a, b) => {
     if (sort.key === "name") return sign * byName(a, b);
+    // Unranked rows stay at the bottom in either direction.
+    if (sort.key === "tier" && !a.tier !== !b.tier) return a.tier ? -1 : 1;
     // Ties (and equal rates) fall back to games, then name, so the order is stable.
     return sign * (sortValue(a, sort.key) - sortValue(b, sort.key)) || b.games - a.games || byName(a, b);
   });
@@ -180,6 +217,16 @@ export function championListColumns(role: ChampionRole | null): readonly Champio
   return [
     { id: "rank", label: "#", align: "center", className: "w-12 pl-4" },
     { id: "champion", label: "Champion", sortKey: "name", className: "min-w-40" },
+    {
+      id: "tier",
+      label: "Tier",
+      sortKey: "tier",
+      align: "center",
+      className: "w-18",
+      hint: role
+        ? "Strength against the other champions in this role, from win, pick and ban rates. Not the AI Score."
+        : "Strength in the champion's most played role (icon), from win, pick and ban rates. Not the AI Score.",
+    },
     { id: "roles", label: "Roles", className: "w-24", hint: "Main roles: at least 10% of the champion's games" },
     {
       id: "win_rate",

@@ -626,11 +626,16 @@ export function useChampionList({ patch = "recent", queue = "all" }: ChampionFil
  * One champion (`key`: Data Dragon key, any case) in one role: stats, builds, runes, spells,
  * skills and lane matchups. `role` null = the champion's most played role.
  */
-export function useChampion(
+export function useChampion(key: string, filters: ChampionFilters & { role?: ChampionRole | null } = {}) {
+  return useQuery({ ...championQuery(key, filters), placeholderData: keepPreviousData });
+}
+
+/** Query options for one champion, shared by `useChampion` and imperative `fetchQuery` callers. */
+export function championQuery(
   key: string,
   { patch = "recent", queue = "all", role = null }: ChampionFilters & { role?: ChampionRole | null } = {},
 ) {
-  return useQuery({
+  return queryOptions({
     queryKey: queryKeys.champion(key, patch, queue, role),
     queryFn: ({ signal }) =>
       request(
@@ -640,7 +645,6 @@ export function useChampion(
         }),
       ),
     staleTime: 5 * MINUTE,
-    placeholderData: keepPreviousData,
   });
 }
 
@@ -661,16 +665,20 @@ export function useChampionSquad(key: string, queue: LeaderboardQueue = "all") {
 
 /** One roster player's games on a champion this season, next to everyone's (null puuid = off). */
 export function useChampionPlayer(key: string, puuid: string | null, queue: LeaderboardQueue = "all") {
-  return useQuery({
-    queryKey: queryKeys.championPlayer(key, puuid ?? "", queue),
+  return useQuery({ ...championPlayerQuery(key, puuid ?? "", queue), enabled: Boolean(puuid) });
+}
+
+/** Query options for `useChampionPlayer`, for imperative `fetchQuery` callers (the share card). */
+export function championPlayerQuery(key: string, puuid: string, queue: LeaderboardQueue = "all") {
+  return queryOptions({
+    queryKey: queryKeys.championPlayer(key, puuid, queue),
     queryFn: ({ signal }) =>
       request(
         api.GET("/api/v1/champions/{champion}/players/{puuid}", {
-          params: { path: { champion: key, puuid: puuid ?? "" }, query: { queue } },
+          params: { path: { champion: key, puuid }, query: { queue } },
           signal,
         }),
       ),
-    enabled: Boolean(puuid),
     staleTime: 5 * MINUTE,
   });
 }

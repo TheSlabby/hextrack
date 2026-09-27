@@ -90,7 +90,7 @@ function validateStacksSearch(search: Record<string, unknown>): StacksSearch {
 
 /**
  * Champion filters in the URL; defaults (recent patches, all queues, most played role,
- * most games first) are omitted: `/champions?patch=16.18&queue=solo&role=MIDDLE`.
+ * the role's default sort) are omitted: `/champions?patch=16.18&queue=solo&role=MIDDLE`.
  */
 export interface ChampionsSearch {
   /** "season" or one patch ("16.18"); omitted = the two newest patches. */
@@ -99,14 +99,25 @@ export interface ChampionsSearch {
   role?: ChampionRole;
 }
 
-/** The list page also keeps its sort in the URL (omitted = most games first). */
+/**
+ * The list page also keeps its sort in the URL. Omitted = the default for the role filter:
+ * tier (S first) with a role, most games first without one (`defaultChampionSortKey`).
+ */
 export interface ChampionListSearch extends ChampionsSearch {
   sort?: ChampionListSort;
   dir?: SortDirection;
 }
 
-export type ChampionListSort = "games" | "win_rate" | "pick_rate" | "ban_rate" | "kda" | "name";
-const CHAMPION_LIST_SORTS: readonly ChampionListSort[] = ["games", "win_rate", "pick_rate", "ban_rate", "kda", "name"];
+export type ChampionListSort = "tier" | "games" | "win_rate" | "pick_rate" | "ban_rate" | "kda" | "name";
+const CHAMPION_LIST_SORTS: readonly ChampionListSort[] = [
+  "tier",
+  "games",
+  "win_rate",
+  "pick_rate",
+  "ban_rate",
+  "kda",
+  "name",
+];
 const CHAMPION_ROLES: readonly ChampionRole[] = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"];
 
 function validateChampionsSearch(search: Record<string, unknown>): ChampionsSearch {
@@ -137,7 +148,8 @@ function validateChampionPageSearch(search: Record<string, unknown>): ChampionPa
 function validateChampionListSearch(search: Record<string, unknown>): ChampionListSearch {
   const result: ChampionListSearch = validateChampionsSearch(search);
   if (typeof search.sort === "string" && (CHAMPION_LIST_SORTS as readonly string[]).includes(search.sort)) {
-    if (search.sort !== "games") result.sort = search.sort as ChampionListSort;
+    // Same rule as `defaultChampionSortKey` (not imported: this module stays out of the champion chunk).
+    if (search.sort !== (result.role ? "tier" : "games")) result.sort = search.sort as ChampionListSort;
   }
   if (search.dir === "asc" || search.dir === "desc") result.dir = search.dir;
   return result;

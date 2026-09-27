@@ -20,6 +20,7 @@ import { positionLabel } from "@/lib/positions";
 import { summonerParams } from "@/lib/riotId";
 
 import { DetailCard } from "./DetailCard";
+import { ShareChampionButton } from "./ShareChampionButton";
 
 const QUEUE_PHRASE: Readonly<Record<LeaderboardQueue, string>> = {
   all: "ranked",
@@ -44,7 +45,7 @@ function LastPlayed({ row, className }: { row: ChampionSquadRow; className?: str
   );
 }
 
-function SquadRow({ row, champion }: { row: ChampionSquadRow; champion: string }) {
+function SquadRow({ row, champion, queue }: { row: ChampionSquadRow; champion: string; queue: LeaderboardQueue }) {
   const losses = row.games - row.wins;
   const name =
     row.game_name && row.tag_line ? (
@@ -71,6 +72,7 @@ function SquadRow({ row, champion }: { row: ChampionSquadRow; champion: string }
           </span>
         </div>
         <LastPlayed row={row} className="shrink-0 md:hidden" />
+        <ShareChampionButton champion={champion} puuid={row.puuid} queue={queue} className="-my-1 -mr-1 md:hidden" />
       </div>
       <div className="flex min-w-0 items-center gap-4 md:flex-1">
         <WinRateBar wins={row.wins} losses={losses} size="sm" className="min-w-0 flex-1 md:max-w-56" />
@@ -88,6 +90,7 @@ function SquadRow({ row, champion }: { row: ChampionSquadRow; champion: string }
         </div>
       </div>
       <LastPlayed row={row} className="hidden w-24 shrink-0 text-right md:block" />
+      <ShareChampionButton champion={champion} puuid={row.puuid} queue={queue} className="-my-1 -ml-2 hidden md:inline-flex" />
     </li>
   );
 }
@@ -123,10 +126,11 @@ export function ChampionSquad({ champion, queue }: { champion: string; queue: Le
             <span className="label-caps w-14 text-right">AI avg</span>
           </span>
           <span className="label-caps w-24 text-right">Last game</span>
+          <span className="-ml-2 w-7" />
         </div>
         <ul className="flex flex-col gap-1.5">
           {rows.map((row) => (
-            <SquadRow key={row.puuid} row={row} champion={query.data?.champion_name ?? champion} />
+            <SquadRow key={row.puuid} row={row} champion={query.data?.champion_name ?? champion} queue={queue} />
           ))}
         </ul>
       </div>

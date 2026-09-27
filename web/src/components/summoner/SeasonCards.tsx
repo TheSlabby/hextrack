@@ -47,7 +47,11 @@ export function SeasonCards({ profile, className }: SeasonCardsProps) {
         <SeasonStatsCard stats={profile.stats} seasonStart={meta.data?.season_start} className="h-full" />
       </StaggerItem>
       <StaggerItem className="min-w-0">
-        <ChampionsCard champions={profile.top_champions} className="h-full" />
+        <ChampionsCard
+          champions={profile.top_champions}
+          puuid={profile.is_tracked ? profile.puuid : null}
+          className="h-full"
+        />
       </StaggerItem>
       <StaggerItem className="min-w-0 md:col-span-2 lg:col-span-1">
         <RolesCard roles={profile.roles} className="h-full" />

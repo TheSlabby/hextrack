@@ -1,5 +1,5 @@
 /** Cells shared by the champion list table (desktop) and cards (phones). */
-import type { ChampionRole } from "@/api/types";
+import type { ChampionRole, ChampionTier } from "@/api/types";
 import { PositionIcon } from "@/components/common/PositionIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
@@ -7,6 +7,7 @@ import { formatInteger, formatPercent } from "@/lib/format";
 import { POSITION_LONG_LABELS } from "@/lib/positions";
 
 import { SMALL_SAMPLE_GAMES, winRateClass } from "./ChampionListModel";
+import { ChampionTierBadge } from "./ChampionTierBadge";
 
 /** Win rate points either side of 50% that fill half the meter. */
 const METER_SPAN = 0.08;
@@ -50,6 +51,30 @@ export function ChampionRoleIcons({
           className={role === active ? "text-gold-bright" : "text-text-secondary"}
         />
       ))}
+    </span>
+  );
+}
+
+/** The row's tier badge; with every role shown, the role it's for follows as a small icon. */
+export function ChampionTierCell({
+  tier,
+  role,
+  showRole,
+  tooltip = true,
+  className,
+}: {
+  tier: ChampionTier | null;
+  role: ChampionRole | null;
+  showRole: boolean;
+  tooltip?: boolean;
+  className?: string;
+}) {
+  return (
+    <span className={cn("inline-flex items-center gap-1", className)}>
+      <ChampionTierBadge tier={tier} role={role} tooltip={tooltip} />
+      {showRole && role ? (
+        <PositionIcon position={role} size={14} title="" className="text-text-muted" />
+      ) : null}
     </span>
   );
 }

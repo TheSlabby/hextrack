@@ -20,6 +20,7 @@ Use the Tailwind utilities generated from the tokens. Never hard-code hex values
 | Outcomes | `text-win` / `bg-win-tint`, `text-loss` / `bg-loss-tint`, `text-remake` | Blue = win, red = loss, grey = remake. |
 | AI grades | `text-score-{s,a,b,c,d}` | Pick them through `lib/score.ts`; never choose a grade colour by hand. |
 | Tiers | `text-tier-{iron..challenger}` | Pick them through `lib/tiers.ts` (`TIER_TEXT_CLASS`, `TIER_COLORS`). |
+| Champion tiers | `text-champ-tier-{s,a,b,c,d}`, `shadow-glow-champ-tier-s` | S..D strength in a role (not ranks, not AI grades). Render with `ChampionTierBadge`; classes in `lib/championTiers.ts`. |
 
 Other utilities: `surface-raised`, `glass` (the nav), `label-caps` (section labels), `shimmer`, `text-gold-gradient`,
 `scrollbar-thin`. Radii: `rounded-2xl` (16px) for cards, `rounded-xl` (14px) for inner panels and popovers, `rounded-lg` for

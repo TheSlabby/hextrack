@@ -19,7 +19,7 @@ import {
   type ChampionListSort,
   type ChampionListSortState,
 } from "./ChampionListModel";
-import { ChampionGames, ChampionRoleIcons, ChampionWinRate } from "./ChampionListParts";
+import { ChampionGames, ChampionRoleIcons, ChampionTierCell, ChampionWinRate } from "./ChampionListParts";
 
 const ALIGN = { left: "text-left", right: "text-right", center: "text-center" } as const;
 const JUSTIFY = { left: "justify-start", right: "justify-end", center: "justify-center" } as const;
@@ -62,7 +62,7 @@ export function ChampionListTable({ items, role, sort, onSort, linkSearch, class
   };
 
   return (
-    <Table containerClassName={cn("lg:overflow-visible", className)} className="min-w-[680px] lg:min-w-0 lg:table-fixed">
+    <Table containerClassName={cn("lg:overflow-visible", className)} className="min-w-[720px] lg:min-w-0 lg:table-fixed">
       <caption className="sr-only">Champions sorted by {sortedBy}.</caption>
       <TableHeader className={HEADER_CLASS}>
         <TableRow>
@@ -85,11 +85,15 @@ export function ChampionListTable({ items, role, sort, onSort, linkSearch, class
         </TableRow>
       </TableHeader>
       <TableBody>
-        {items.map((item) => (
+        {items.map((item, index) => (
           <TableRow
             key={item.row.champion_id}
             onClick={(event) => openChampion(event, item)}
-            className="group/row cursor-pointer"
+            className={cn(
+              "group/row cursor-pointer",
+              // Sorted by tier: a slightly stronger rule under the last row of each tier.
+              sort.key === "tier" && index < items.length - 1 && items[index + 1]?.tier !== item.tier && "border-b-border-strong",
+            )}
           >
             <TableCell className="px-2 pl-4 text-center text-xs font-semibold text-text-muted tabular-nums">
               {item.rank}
@@ -104,6 +108,9 @@ export function ChampionListTable({ items, role, sort, onSort, linkSearch, class
                 <ChampionIcon champion={item.row.champion_name} size="sm" />
                 <span className="truncate">{item.name}</span>
               </Link>
+            </TableCell>
+            <TableCell className={cn("px-2 text-center", item.smallSample && "opacity-60")}>
+              <ChampionTierCell tier={item.tier} role={item.tierRole} showRole={!role} />
             </TableCell>
             <TableCell className={cn("px-2", item.smallSample && "opacity-60")}>
               <ChampionRoleIcons roles={item.mainRoles} active={role} />

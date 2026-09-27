@@ -69,7 +69,7 @@ function patchNumbers(value: string | null | undefined): [number, number] | null
  * Data Dragon version for a match patch ("16.16" -> "16.16.1"), or `latest` when the patch is
  * unknown, unparseable, or at least as new as the newest published version.
  */
-function ddragonVersionForPatch(patch: string | null | undefined, latest: string): string {
+export function ddragonVersionForPatch(patch: string | null | undefined, latest: string): string {
   const wanted = patchNumbers(patch);
   if (!wanted) return latest;
   const newest = patchNumbers(latest);

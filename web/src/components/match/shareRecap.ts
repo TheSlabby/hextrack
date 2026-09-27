@@ -256,7 +256,7 @@ export function buildGroupRecap(match: MatchDetail, members: readonly Participan
 // --- rendering ------------------------------------------------------------------------------
 
 /** Mirrors the tokens in src/index.css (canvas can't read Tailwind classes). */
-const C = {
+export const C = {
   bg: "#07090f",
   surface: "#0d111a",
   border: "rgba(255,255,255,0.12)",
@@ -265,13 +265,14 @@ const C = {
   muted: "#76829b",
   gold: "#c8aa6e",
   goldBright: "#f0e6d2",
+  cyan: "#0ac8b9",
   track: "rgba(255,255,255,0.08)",
 } as const;
-const OUTCOME_COLOR: Record<Outcome, string> = { win: "#4f8cff", loss: "#ff5d6c", remake: "#7a8499" };
-const DISPLAY = '"Space Grotesk Variable", "Inter Variable", system-ui, sans-serif';
-const SANS = '"Inter Variable", system-ui, sans-serif';
+export const OUTCOME_COLOR: Record<Outcome, string> = { win: "#4f8cff", loss: "#ff5d6c", remake: "#7a8499" };
+export const DISPLAY = '"Space Grotesk Variable", "Inter Variable", system-ui, sans-serif';
+export const SANS = '"Inter Variable", system-ui, sans-serif';
 
-function loadImage(url: string, timeoutMs = 4000): Promise<HTMLImageElement | null> {
+export function loadImage(url: string, timeoutMs = 4000): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const image = new Image();
     image.crossOrigin = "anonymous";
@@ -284,7 +285,7 @@ function loadImage(url: string, timeoutMs = 4000): Promise<HTMLImageElement | nu
 }
 
 /** Trims `text` with an ellipsis until it fits in `maxWidth` at the current font. */
-function fit(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+export function fit(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
   if (ctx.measureText(text).width <= maxWidth) return text;
   let end = text.length;
   while (end > 1 && ctx.measureText(`${text.slice(0, end)}…`).width > maxWidth) end -= 1;
@@ -292,7 +293,7 @@ function fit(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): str
 }
 
 /** Greedy word wrap into at most `maxLines` lines; the last line is ellipsised if needed. */
-function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
+export function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
   const lines: string[] = [];
   let line = "";
   for (const word of text.split(" ")) {
@@ -311,13 +312,13 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, max
   return kept;
 }
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+export function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
 }
 
 /** Largest font size (stepping down to `min`) at which `text` fits in `maxWidth`. */
-function fitSize(ctx: CanvasRenderingContext2D, text: string, font: (px: number) => string, max: number, min: number, maxWidth: number): number {
+export function fitSize(ctx: CanvasRenderingContext2D, text: string, font: (px: number) => string, max: number, min: number, maxWidth: number): number {
   let px = max;
   ctx.font = font(px);
   while (px > min && ctx.measureText(text).width > maxWidth) {
@@ -328,7 +329,7 @@ function fitSize(ctx: CanvasRenderingContext2D, text: string, font: (px: number)
 }
 
 /** Draws runs of differently coloured text on one baseline; returns the x after the last run. */
-function runs(ctx: CanvasRenderingContext2D, x: number, y: number, parts: Array<[string, string]>): number {
+export function runs(ctx: CanvasRenderingContext2D, x: number, y: number, parts: Array<[string, string]>): number {
   for (const [text, color] of parts) {
     ctx.fillStyle = color;
     ctx.fillText(text, x, y);
@@ -337,7 +338,7 @@ function runs(ctx: CanvasRenderingContext2D, x: number, y: number, parts: Array<
   return x;
 }
 
-function drawBackdrop(ctx: CanvasRenderingContext2D, splash: HTMLImageElement | null, accent: string) {
+export function drawBackdrop(ctx: CanvasRenderingContext2D, splash: HTMLImageElement | null, accent: string) {
   const W = RECAP_WIDTH;
   const H = RECAP_HEIGHT;
   ctx.fillStyle = C.bg;
@@ -374,7 +375,7 @@ function drawBackdrop(ctx: CanvasRenderingContext2D, splash: HTMLImageElement | 
   ctx.textBaseline = "alphabetic";
 }
 
-function drawEyebrow(ctx: CanvasRenderingContext2D, meta: string, left: number) {
+export function drawEyebrow(ctx: CanvasRenderingContext2D, meta: string, left: number) {
   ctx.font = `700 19px ${SANS}`;
   ctx.fillStyle = C.gold;
   ctx.letterSpacing = "4px";
@@ -386,8 +387,8 @@ function drawEyebrow(ctx: CanvasRenderingContext2D, meta: string, left: number) 
   ctx.fillText(fit(ctx, meta, RECAP_WIDTH - left * 2 - brandW - 24), left + brandW + 24, 72);
 }
 
-/** Divider, the AI Score note (when any score is shown) and the site host. */
-function drawFooter(ctx: CanvasRenderingContext2D, host: string, showNote: boolean, left: number) {
+/** Divider, the AI Score note (when any score is shown; `note` overrides the single-game one) and the site host. */
+export function drawFooter(ctx: CanvasRenderingContext2D, host: string, showNote: boolean, left: number, note = AI_SCORE_RESULT_NOTE) {
   const W = RECAP_WIDTH;
   ctx.strokeStyle = C.border;
   ctx.lineWidth = 1;
@@ -404,13 +405,13 @@ function drawFooter(ctx: CanvasRenderingContext2D, host: string, showNote: boole
   if (showNote) {
     ctx.font = `400 17px ${SANS}`;
     ctx.fillStyle = C.muted;
-    const lines = wrap(ctx, AI_SCORE_RESULT_NOTE, W - left * 2 - hostW - 48, 2);
+    const lines = wrap(ctx, note, W - left * 2 - hostW - 48, 2);
     lines.forEach((text, i) => ctx.fillText(text, left, 624 + i * 23 - (lines.length - 1) * 6));
   }
 }
 
 /** Score ring like AiScoreRing: track, grade-coloured arc (with a soft glow), number centred. */
-function drawRing(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, stroke: number, score: number, color: string) {
+export function drawRing(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, stroke: number, score: number, color: string) {
   ctx.lineCap = "round";
   ctx.lineWidth = stroke;
   ctx.strokeStyle = C.track;
@@ -429,7 +430,7 @@ function drawRing(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: numb
 }
 
 /** KDA with deaths tinted (like KdaLine); returns the x where it ends. */
-function drawKda(ctx: CanvasRenderingContext2D, x: number, y: number, recap: Pick<Recap, "kills" | "deaths" | "assists">): number {
+export function drawKda(ctx: CanvasRenderingContext2D, x: number, y: number, recap: Pick<Recap, "kills" | "deaths" | "assists">): number {
   const slash = " / ";
   return runs(ctx, x, y, [
     [String(recap.kills), C.text],
@@ -441,7 +442,7 @@ function drawKda(ctx: CanvasRenderingContext2D, x: number, y: number, recap: Pic
 }
 
 /** One badge chip at (x, y); returns its width. MVP / ACE solid gold, highlights outlined. */
-function drawBadge(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, badge: RecapBadge, label: string): number {
+export function drawBadge(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, badge: RecapBadge, label: string): number {
   const pad = Math.round(h * 0.4);
   const w = ctx.measureText(label).width + pad * 2;
   roundRect(ctx, x, y, w, h, h / 2);
@@ -704,7 +705,7 @@ function toPng(canvas: HTMLCanvasElement): Promise<Blob> {
   );
 }
 
-async function loadFonts(sample: string) {
+export async function loadFonts(sample: string) {
   await Promise.all([
     document.fonts.load(`700 104px ${DISPLAY}`, sample).catch(() => []),
     document.fonts.load(`500 34px ${SANS}`, sample).catch(() => []),
@@ -712,7 +713,7 @@ async function loadFonts(sample: string) {
 }
 
 /** Draws onto a fresh canvas and encodes it; retries without images if they taint the canvas. */
-async function toImage(paint: (ctx: CanvasRenderingContext2D, withImages: boolean) => void): Promise<Blob> {
+export async function toImage(paint: (ctx: CanvasRenderingContext2D, withImages: boolean) => void): Promise<Blob> {
   const render = (withImages: boolean) => {
     const canvas = document.createElement("canvas");
     canvas.width = RECAP_WIDTH;

@@ -19,6 +19,8 @@ function CellSkeleton({ column }: { column: string }) {
           <Skeleton className="h-3.5 w-24" />
         </div>
       );
+    case "tier":
+      return <Skeleton className="mx-auto size-5 rounded-[5px]" />;
     case "roles":
       return <Skeleton className="h-4 w-10" />;
     case "win_rate":
@@ -38,7 +40,7 @@ export function ChampionListTableSkeleton() {
   const columns = championListColumns(null);
   return (
     <GlowCard className="overflow-clip" role="status" aria-label="Loading champions">
-      <Table className="min-w-[680px] lg:min-w-0 lg:table-fixed" containerClassName="lg:overflow-visible">
+      <Table className="min-w-[720px] lg:min-w-0 lg:table-fixed" containerClassName="lg:overflow-visible">
         <TableHeader>
           <TableRow>
             {columns.map((column) => (

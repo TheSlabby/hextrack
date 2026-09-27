@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Copy, Download, Share2, User } from "lucide-react";
-import { toast } from "sonner";
-
 import type { MatchDetail, ParticipantSummary } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,13 +17,12 @@ import {
   buildGroupRecap,
   buildRecap,
   canCopyImage,
-  copyImage,
-  downloadBlob,
   groupMembers,
   renderGroupRecapPng,
   renderRecapPng,
   type PairRecord,
 } from "./shareRecap";
+import { canShareFiles, copyWithToast, downloadWithToast, shareWithToast } from "./shareActions";
 
 export interface ShareRecapButtonProps {
   match: MatchDetail;
@@ -38,23 +35,6 @@ type Action = "copy" | "copySolo" | "share" | "download";
 type Variant = "solo" | "group";
 
 const ICONS = { copy: Copy, copySolo: User, share: Share2, download: Download } as const;
-
-function canShareFiles(): boolean {
-  return (
-    typeof navigator.canShare === "function" &&
-    window.matchMedia("(pointer: coarse)").matches &&
-    navigator.canShare({ files: [new File([], "recap.png", { type: "image/png" })] })
-  );
-}
-
-function toDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error("Couldn't read the image"));
-    reader.readAsDataURL(blob);
-  });
-}
 
 /**
  * "Copy recap": one click puts the 1200x675 recap PNG on the clipboard, ready to paste into
@@ -116,36 +96,16 @@ export function ShareRecapButton({ match, player, className }: ShareRecapButtonP
 
   const onCopy = (variant: Variant) => {
     // Synchronous with the click: Safari drops clipboard writes made after an await.
-    const blob = image(variant);
-    copyImage(blob).then(
-      async () => {
-        setCopied(true);
-        // A small preview in the toast, so it's clear what will be pasted.
-        const src = await blob.then(toDataUrl).catch(() => null);
-        toast.success(`${variant === "group" && groupWord ? `${groupWord === "duo" ? "Duo" : "Squad"} recap` : "Recap"} copied. Paste it into Discord.`, {
-          description: src ? (
-            <img src={src} alt={describe(variant).alt} className="mt-2 aspect-[16/9] w-full rounded-md border border-border-strong" />
-          ) : undefined,
-        });
-      },
-      () => toast.error("Couldn't copy the image", { description: "Your browser blocked it. Use Download instead." }),
-    );
+    void copyWithToast(image(variant), {
+      message: `${variant === "group" && groupWord ? `${groupWord === "duo" ? "Duo" : "Squad"} recap` : "Recap"} copied. Paste it into Discord.`,
+      alt: () => describe(variant).alt,
+    }).then((ok) => ok && setCopied(true));
   };
   const onDownload = (variant: Variant) => {
-    image(variant).then(
-      (blob) => downloadBlob(blob, filename(variant)),
-      () => toast.error("Couldn't create the recap image"),
-    );
+    void downloadWithToast(image(variant), filename(variant), "Couldn't create the recap image");
   };
   const onShare = (variant: Variant) => {
-    image(variant)
-      .then((blob) =>
-        navigator.share({ files: [new File([blob], filename(variant), { type: "image/png" })], title: describe(variant).title }),
-      )
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        toast.error("Couldn't share the image", { description: "Use Download instead." });
-      });
+    void shareWithToast(image(variant), filename(variant), describe(variant).title);
   };
 
   const warm = () => void image(defaultVariant).catch(() => undefined);

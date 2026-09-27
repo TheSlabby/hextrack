@@ -8,7 +8,7 @@
  * `lib/statShards.ts`). Static CDN data, cached for the session and keyed by version.
  */
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 
 import { useDdragon } from "./ddragon";
 
@@ -29,7 +29,7 @@ export interface RuneTree extends RuneInfo {
   slots: readonly (readonly RuneInfo[])[];
 }
 
-interface RuneData {
+export interface RuneData {
   catalog: RuneCatalog;
   trees: readonly RuneTree[];
 }
@@ -90,7 +90,12 @@ export function parseRuneCatalog(payload: unknown, cdn: string): RuneCatalog {
 }
 
 function useRuneData(version: string, cdn: string, enabled: boolean) {
-  return useQuery({
+  return useQuery({ ...runeDataQuery(version, cdn), enabled });
+}
+
+/** Query options for `runesReforged.json` at one version (also for imperative `fetchQuery` callers). */
+export function runeDataQuery(version: string, cdn: string) {
+  return queryOptions({
     queryKey: ["ddragon", "runes", cdn, version] as const,
     queryFn: async ({ signal }): Promise<RuneData> => {
       const response = await fetch(`${cdn}/${version}/data/en_US/runesReforged.json`, { signal });
@@ -98,7 +103,6 @@ function useRuneData(version: string, cdn: string, enabled: boolean) {
       const trees = parseRuneTrees(await response.json(), cdn);
       return { trees, catalog: catalogOf(trees) };
     },
-    enabled,
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: DAY_MS,
   });

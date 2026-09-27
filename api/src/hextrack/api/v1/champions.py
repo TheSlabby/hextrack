@@ -16,7 +16,7 @@ from hextrack.api.schemas import (
     LeaderboardQueue,
 )
 from hextrack.stats import queries
-from hextrack.stats.champions import read
+from hextrack.stats.champions import player, read
 
 router = APIRouter(prefix="/champions", tags=["champions"])
 
@@ -120,6 +120,7 @@ async def get_champion_squad(
     summary="A roster player's games on this champion this season, next to everyone's",
 )
 async def get_champion_player(
+    request: Request,
     session: SessionDep,
     settings: SettingsDep,
     scorer: OptionalScorerDep,
@@ -127,4 +128,18 @@ async def get_champion_player(
     puuid: str,
     queue: LeaderboardQueue = "all",
 ) -> ChampionPlayer:
-    raise NotImplementedError
+    version = await queries.resolve_model_version(session, scorer)
+    try:
+        return await player.champion_player(
+            session,
+            settings,
+            champion=champion,
+            puuid=puuid,
+            queue=queue,
+            model_version=version,
+            ddragon=getattr(request.app.state, "ddragon", None),
+        )
+    except read.ChampionNotFound as exc:
+        raise _champion_not_found() from exc
+    except player.PlayerNotFound as exc:
+        raise ApiError(404, "Not a roster player", code="player_not_found") from exc

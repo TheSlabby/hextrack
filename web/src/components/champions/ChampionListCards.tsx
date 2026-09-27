@@ -20,6 +20,7 @@ import {
   type ChampionListSortState,
 } from "./ChampionListModel";
 import { ChampionRoleIcons, ChampionWinRate } from "./ChampionListParts";
+import { ChampionTierBadge } from "./ChampionTierBadge";
 
 export interface ChampionListCardsProps {
   items: readonly ChampionListItem[];
@@ -49,6 +50,7 @@ export function ChampionListCards({ items, role, linkSearch, className }: Champi
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span className="truncate text-sm font-semibold text-text">{item.name}</span>
+                    <ChampionTierBadge tier={item.tier} role={item.tierRole} tooltip={false} />
                     <ChampionRoleIcons roles={item.mainRoles} active={role} className="shrink-0 [&_svg]:size-3.5" />
                   </span>
                   <span className="flex flex-wrap gap-x-2 text-[11px] text-text-muted tabular-nums">

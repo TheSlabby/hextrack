@@ -25,7 +25,11 @@ Display rules (see the ``Champion*`` models in :mod:`hextrack.api.schemas`):
 * the highest win rate core build needs max(20, 3% of timeline games) and is compared on
   its win rate shrunk toward the role's win rate with 30 games of prior;
 * lane matchups need 10 games; their adjusted win rate uses 20 games of prior;
-* the skill path is the most common legal choice at each level (:func:`skill_path`).
+* the skill path is the most common legal choice at each level (:func:`skill_path`);
+* role tiers (list and detail) come from :mod:`hextrack.stats.champions.tiers`, computed once
+  per (patches, queues) from the list's per champion / role sums (:func:`window_tiers`).
+
+A roster player's games on one champion are in :mod:`hextrack.stats.champions.player`.
 """
 
 from __future__ import annotations
@@ -101,6 +105,7 @@ from hextrack.stats.champions import (
     split_key,
 )
 from hextrack.stats.champions.cache import CHAMPION_CACHE
+from hextrack.stats.champions.tiers import RoleLine, Tier, role_tiers
 from hextrack.stats.metrics import (
     clamp_rate,
     per_minute,
@@ -348,11 +353,25 @@ async def champion_list(
     return await CHAMPION_CACHE.get_or_load(_engine(session), key, load)
 
 
-async def _build_list(session: AsyncSession, window: Window) -> ChampionList:
-    per_role: dict[int, dict[str, _Totals]] = defaultdict(dict)
-    names: dict[int, str] = {}
-    bans: dict[int, int] = {}
-    if window.patches:
+@dataclass(frozen=True, slots=True)
+class _ListSums:
+    """Per champion / role sums and bans of a window (what the list and the tiers use)."""
+
+    per_role: Mapping[int, Mapping[str, _Totals]]
+    names: Mapping[int, str]
+    bans: Mapping[int, int]
+
+
+async def _list_sums(session: AsyncSession, window: Window) -> _ListSums:
+    """One ``GROUP BY champion_id, position`` over ``champion_stats`` plus the bans, cached
+    per (patches, queues): shared by the list and by the tiers every detail shows."""
+
+    async def load() -> _ListSums:
+        per_role: dict[int, dict[str, _Totals]] = defaultdict(dict)
+        names: dict[int, str] = {}
+        bans: dict[int, int] = {}
+        if not window.patches:
+            return _ListSums(per_role={}, names={}, bans={})
         cs = ChampionStat
         stmt = (
             select(
@@ -391,10 +410,35 @@ async def _build_list(session: AsyncSession, window: Window) -> ChampionList:
             .group_by(cb.champion_id)
         )
         bans = {int(cid): to_int(n) for cid, n in (await session.execute(ban_stmt)).all()}
+        return _ListSums(per_role=dict(per_role), names=names, bans=bans)
 
+    key = ("list_sums", window.patches, window.queue_ids)
+    return await CHAMPION_CACHE.get_or_load(_engine(session), key, load)
+
+
+async def window_tiers(session: AsyncSession, window: Window) -> Mapping[tuple[int, str], Tier]:
+    """(champion id, position) -> tier for the window (:mod:`hextrack.stats.champions.tiers`),
+    cached per (patches, queues) so the list and every detail agree."""
+
+    async def load() -> Mapping[tuple[int, str], Tier]:
+        sums = await _list_sums(session, window)
+        lines = [
+            RoleLine(cid, position, t.games, t.wins)
+            for cid, roles in sums.per_role.items()
+            for position, t in roles.items()
+        ]
+        return role_tiers(lines, sums.bans, window.total_matches)
+
+    key = ("tiers", window.patches, window.queue_ids, window.total_matches)
+    return await CHAMPION_CACHE.get_or_load(_engine(session), key, load)
+
+
+async def _build_list(session: AsyncSession, window: Window) -> ChampionList:
+    sums = await _list_sums(session, window)
+    tiers = await window_tiers(session, window)
     total = window.total_matches
     rows: list[ChampionListRow] = []
-    for cid, roles in per_role.items():
+    for cid, roles in sums.per_role.items():
         overall = _Totals()
         for totals in roles.values():
             overall.add(totals)
@@ -402,12 +446,12 @@ async def _build_list(session: AsyncSession, window: Window) -> ChampionList:
         rows.append(
             ChampionListRow(
                 champion_id=cid,
-                champion_name=names[cid],
+                champion_name=sums.names[cid],
                 games=overall.games,
                 wins=overall.wins,
                 win_rate=winrate(overall.wins, overall.games),
                 pick_rate=_rate(overall.games, total),
-                ban_rate=_rate(bans.get(cid, 0), total),
+                ban_rate=_rate(sums.bans.get(cid, 0), total),
                 kda=total_kda(overall.kills, overall.deaths, overall.assists),
                 roles=[
                     ChampionListRole(
@@ -416,6 +460,7 @@ async def _build_list(session: AsyncSession, window: Window) -> ChampionList:
                         wins=t.wins,
                         win_rate=winrate(t.wins, t.games),
                         share=_rate(t.games, overall.games),
+                        tier=tiers.get((cid, position)),
                     )
                     for position, t in ordered
                 ],
@@ -924,9 +969,11 @@ async def _build_detail(
     total = window.total_matches
     role_rows: list[_RoleRow] = []
     bans = 0
+    tiers: Mapping[tuple[int, str], Tier] = {}
     if window.patches:
         role_rows = await _role_rows(session, champion_id, window)
         bans = await _champion_bans(session, champion_id, window)
+        tiers = await window_tiers(session, window)
     games = sum(r.games for r in role_rows)
     wins = sum(r.wins for r in role_rows)
     summaries = [
@@ -940,6 +987,7 @@ async def _build_detail(
             or (
                 r.games >= ROLE_SHOWN_MIN_GAMES and safe_div(r.games, games) >= ROLE_SHOWN_MIN_SHARE
             ),
+            tier=tiers.get((champion_id, r.position)),
         )
         for i, r in enumerate(role_rows)
     ]

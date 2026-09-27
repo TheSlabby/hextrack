@@ -13,6 +13,7 @@ import { POSITION_LABELS, POSITION_LONG_LABELS } from "@/lib/positions";
 
 import { pct } from "./detailModel";
 import { ChampionStatStrip } from "./ChampionStatStrip";
+import { ChampionTierBadge } from "./ChampionTierBadge";
 import { PatchSelect } from "./PatchSelect";
 
 const QUEUE_LABEL: Readonly<Record<LeaderboardQueue, string>> = {
@@ -38,7 +39,7 @@ function RoleTab({ role, active, onSelect }: { role: ChampionRoleSummary; active
       type="button"
       aria-pressed={active}
       onClick={onSelect}
-      aria-label={`${POSITION_LONG_LABELS[role.position]}: ${plural(role.games, "game")}, ${formatPercent(role.share)} of games, ${pct(role.win_rate)} win rate`}
+      aria-label={`${POSITION_LONG_LABELS[role.position]}: ${role.tier ? `${role.tier} tier, ` : ""}${plural(role.games, "game")}, ${formatPercent(role.share)} of games, ${pct(role.win_rate)} win rate`}
       className={cn(
         "flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors duration-150",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold",
@@ -54,6 +55,7 @@ function RoleTab({ role, active, onSelect }: { role: ChampionRoleSummary; active
           {formatInteger(role.games)} · {formatPercent(role.share)}
         </span>
       </span>
+      {role.tier ? <ChampionTierBadge tier={role.tier} tooltip={false} className="ml-1" /> : null}
     </button>
   );
 }
@@ -72,6 +74,7 @@ export function ChampionHeader({
   const role = detail?.role ?? null;
   // Tabs: the roles the API shows, plus the active one if it was asked for by URL.
   const roles = detail?.roles.filter((r) => r.shown || r.position === role) ?? [];
+  const roleSummary = detail?.roles.find((r) => r.position === role) ?? null;
   const stats = detail?.detail?.stats;
   const windowLabel = detail ? patchWindowLabel(detail.patch, detail.patches) : null;
 
@@ -91,9 +94,14 @@ export function ChampionHeader({
               Champion{role ? ` · ${POSITION_LONG_LABELS[role]}` : ""}
             </span>
             {name ? (
-              <h1 className="font-display text-[28px] leading-[1.1] font-bold tracking-tight [overflow-wrap:anywhere] text-text sm:text-4xl">
-                {name}
-              </h1>
+              <div className="flex min-w-0 items-center gap-3">
+                <h1 className="min-w-0 font-display text-[28px] leading-[1.1] font-bold tracking-tight [overflow-wrap:anywhere] text-text sm:text-4xl">
+                  {name}
+                </h1>
+                {role && roleSummary ? (
+                  <ChampionTierBadge tier={roleSummary.tier} role={role} size="md" focusable />
+                ) : null}
+              </div>
             ) : (
               <Skeleton className="h-8 w-44 sm:h-10" />
             )}

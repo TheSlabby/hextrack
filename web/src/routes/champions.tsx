@@ -16,8 +16,8 @@ import { SectionHeader } from "@/components/common/SectionHeader";
 import { ChampionListCards, ChampionListSortMenu } from "@/components/champions/ChampionListCards";
 import {
   buildChampionItems,
-  DEFAULT_CHAMPION_SORT,
   defaultChampionDirection,
+  defaultChampionSortKey,
   filterChampionItems,
   nextChampionSort,
   SMALL_SAMPLE_GAMES,
@@ -141,13 +141,10 @@ export function ChampionsPage() {
   const patch: ChampionPatchParam = search.patch ?? "recent";
   const queue: LeaderboardQueue = search.queue ?? "all";
   const role: ChampionRole | null = search.role ?? null;
-  const sort: ChampionListSortState = useMemo(
-    () => ({
-      key: search.sort ?? DEFAULT_CHAMPION_SORT.key,
-      direction: search.dir ?? (search.sort ? defaultChampionDirection(search.sort) : DEFAULT_CHAMPION_SORT.direction),
-    }),
-    [search.sort, search.dir],
-  );
+  const sort: ChampionListSortState = useMemo(() => {
+    const key = search.sort ?? defaultChampionSortKey(search.role);
+    return { key, direction: search.dir ?? defaultChampionDirection(key) };
+  }, [search.sort, search.dir, search.role]);
   const [text, setText] = useState("");
 
   const setFilters = useCallback(
@@ -157,7 +154,14 @@ export function ChampionsPage() {
           const result = { ...prev };
           if (next.patch !== undefined) result.patch = next.patch === "recent" ? undefined : next.patch;
           if (next.queue !== undefined) result.queue = next.queue === "all" ? undefined : next.queue;
-          if (next.role !== undefined) result.role = next.role ?? undefined;
+          if (next.role !== undefined) {
+            const before = prev.sort ?? defaultChampionSortKey(prev.role);
+            result.role = next.role ?? undefined;
+            // A sort that is the new role's default drops out of the URL; a direction only
+            // survives while it still applies to the same column.
+            if (result.sort === defaultChampionSortKey(result.role)) result.sort = undefined;
+            if ((result.sort ?? defaultChampionSortKey(result.role)) !== before) result.dir = undefined;
+          }
           return result;
         },
         replace: true,
@@ -169,7 +173,7 @@ export function ChampionsPage() {
       void navigate({
         search: (prev) => ({
           ...prev,
-          sort: next.key === DEFAULT_CHAMPION_SORT.key ? undefined : next.key,
+          sort: next.key === defaultChampionSortKey(prev.role) ? undefined : next.key,
           dir: next.direction === defaultChampionDirection(next.key) ? undefined : next.direction,
         }),
         replace: true,
@@ -303,7 +307,10 @@ export function ChampionsPage() {
             ? " With a role selected, games, win rate and pick rate count that role only; ban rate and KDA cover every role."
             : ""}{" "}
           Rows under {SMALL_SAMPLE_GAMES} games are dimmed: their rates can swing a lot. Win rates are coloured against
-          50%.
+          50%. Tiers (S to D) compare champions in the same role from win rate (adjusted for sample size), pick rate and
+          ban rate
+          {role ? "" : "; with every role shown, the tier is for the champion's most played role"}. A dash means too few
+          games to rank.
         </p>
       </div>
     );
