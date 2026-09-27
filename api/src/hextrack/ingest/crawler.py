@@ -95,6 +95,10 @@ DEFAULT_RESERVE: Final = 60
 RESERVE_MARGIN: Final = 10
 #: Ticks whose usage the reserve covers (the largest of them counts).
 RESERVE_TICKS: Final = 5
+#: The reserve never exceeds this share of the long window, so a mismeasured tick (e.g. one
+#: that included a restarted process's calls, which Riot reports back) can't starve the
+#: crawler for good.
+RESERVE_MAX_SHARE: Final = 0.75
 #: How often the gate re-checks the budget while it waits.
 GATE_POLL_SECONDS: Final = 1.0
 #: Waiting this long for budget outside poll ticks reports ``paused_reason="budget_starved"``.
@@ -188,6 +192,11 @@ class _AppWindow:
         """Free slots in the longest window right now, minus requests already queued."""
         return self._limiter.long_window_headroom()
 
+    def limit(self) -> int | None:
+        """The longest window's request limit (None without application limits)."""
+        limits = self._limiter.app_limits
+        return max(limits, key=lambda lim: lim.window_seconds).max_requests if limits else None
+
     def sent_since(self, since: float) -> int:
         """Requests recorded after ``since`` that are still inside the longest window."""
         return self._limiter.long_window_sent_since(since)
@@ -226,6 +235,9 @@ class CrawlBudget:
                 self._windows[routing] = _AppWindow(limiter)
         self._tick_start: dict[Routing, float] = {}
         self._tick_peak: dict[Routing, int] = {}
+        #: The first tick after start-up also counts the previous process's recent calls
+        #: (Riot's usage headers resync them), so it isn't recorded.
+        self._skip_next_tick = True
 
     # --- measuring (poller side) -------------------------------------------------------------
     def tick_started(self) -> None:
@@ -245,8 +257,11 @@ class CrawlBudget:
         if not self._tick_start:
             return
         self.observe()
-        for routing, peak in self._tick_peak.items():
-            self._samples[routing].append(peak)
+        if self._skip_next_tick:
+            self._skip_next_tick = False
+        else:
+            for routing, peak in self._tick_peak.items():
+                self._samples[routing].append(peak)
         self._tick_start = {}
         self._tick_peak = {}
 
@@ -257,9 +272,12 @@ class CrawlBudget:
     # --- gate (crawler side) -----------------------------------------------------------------
     def reserve(self, routing: Routing) -> int:
         samples = self._samples[routing]
-        if not samples:
-            return self.default_reserve
-        return max(samples) + self.margin
+        wanted = max(samples) + self.margin if samples else self.default_reserve
+        window = self._windows.get(routing)
+        limit = window.limit() if window is not None else None
+        if limit is None:
+            return wanted
+        return min(wanted, int(limit * RESERVE_MAX_SHARE))
 
     def headroom(self, method: str) -> int:
         """Free app-limit slots on ``method``'s routing value over the longest window."""

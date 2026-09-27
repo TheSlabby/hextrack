@@ -395,6 +395,11 @@ async def test_budget_measures_a_tick_on_the_real_limiter(settings):
         keyed, transport=httpx.MockTransport(handler), app_limits=[(15, 1), (80, 120)]
     ) as client:
         budget = CrawlBudget(client)
+        # The first tick after start-up isn't recorded (it can include the previous
+        # process's calls, resynced from Riot's headers): the default reserve still applies.
+        budget.tick_started()
+        budget.tick_finished()
+        assert budget.reserve("platform") == 60
         await client.summoner_by_puuid("before-the-tick")
         budget.tick_started()
         for _ in range(5):
@@ -410,8 +415,9 @@ async def test_budget_measures_a_tick_on_the_real_limiter(settings):
         assert budget.headroom("match") == 80 - 3
         assert client.app_headroom("match") == 15 - 3  # the tightest (1 s) window
         assert budget.available("match") is True  # 77 free > 3 + margin
+        # A mismeasured tick can't push the reserve past 75% of the long window.
         budget.record("regional", 80)
-        assert budget.available("match") is False
+        assert budget.reserve("regional") == int(80 * 0.75)
 
 
 # --- pauses ------------------------------------------------------------------------------------
