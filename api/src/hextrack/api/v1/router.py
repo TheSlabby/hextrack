@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from hextrack.api.v1 import (
     ai,
+    champions,
     health,
     insights,
     leaderboard,
@@ -37,6 +38,7 @@ def build_router() -> APIRouter:
         squad,
         live,
         records,
+        champions,
     ):
         router.include_router(module.router)
     return router

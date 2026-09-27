@@ -992,6 +992,295 @@ class Records(ApiModel):
 # --- meta / health ---------------------------------------------------------------------------
 
 
+# --- Champions -------------------------------------------------------------------------
+#
+# Champion pages read the worker-maintained rollups (hextrack.stats.champions), which cover
+# ranked solo / flex games (roster and crawled) from the season start. ``patch`` query values:
+# "recent" (the two newest patches with games), "season" (every patch this season) or one
+# patch such as "16.18". Pick rates of order-based choices (starting items, core build, item
+# 4-6, skill order) are over ``timeline_games`` (games with a timeline); everything else is
+# over ``games``.
+
+#: A lane position with champion data (UNKNOWN is never counted).
+ChampionRole = Literal["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
+
+
+class ChampionPatchInfo(ApiModel):
+    patch: str
+    #: Counted games on this patch (all queues).
+    matches: int
+    timeline_matches: int
+
+
+class ChampionPatches(ApiModel):
+    #: Patches with counted games this season, newest first.
+    patches: list[ChampionPatchInfo]
+    #: What ``patch=recent`` covers (at most two, newest first).
+    recent: list[str]
+    #: Games still waiting to be counted by the worker (0 when caught up).
+    pending_matches: int
+
+
+class ChampionListRole(ApiModel):
+    position: ChampionRole
+    games: int
+    wins: int
+    win_rate: Rate
+    #: Share of the champion's games in this role.
+    share: Rate
+
+
+class ChampionListRow(ApiModel):
+    champion_id: int
+    #: Data Dragon key, e.g. "MonkeyKing".
+    champion_name: str
+    games: int
+    wins: int
+    win_rate: Rate
+    #: Share of matches the champion was picked in.
+    pick_rate: Rate
+    #: Share of matches the champion was banned in.
+    ban_rate: Rate
+    #: (kills + assists) / max(1, deaths) over all games.
+    kda: float
+    #: Every role with games, most played first. The list's role filter uses these rows.
+    roles: list[ChampionListRole]
+
+
+class ChampionList(ApiModel):
+    #: The requested window ("recent", "season" or a patch) and the patches it covered.
+    patch: str
+    patches: list[str]
+    queue: LeaderboardQueue
+    #: Counted matches in the window (pick / ban rate denominator).
+    total_matches: int
+    #: Every champion with games in the window, most games first.
+    rows: list[ChampionListRow]
+
+
+class ChampionRoleSummary(ApiModel):
+    position: ChampionRole
+    games: int
+    wins: int
+    win_rate: Rate
+    #: Share of the champion's games in this role.
+    share: Rate
+    #: Shown as a tab: at least 20 games and 10% of the champion's games (the most played
+    #: role is always shown).
+    shown: bool
+
+
+class ChampionRoleStats(ApiModel):
+    games: int
+    wins: int
+    win_rate: Rate
+    #: Share of matches in the window with the champion in this role.
+    pick_rate: Rate
+    avg_kills: float
+    avg_deaths: float
+    avg_assists: float
+    kda: float
+    #: Per game: champion damage, CS, gold; per minute: CS.
+    avg_damage: float
+    avg_cs: float
+    cs_per_min: float
+    avg_gold: float
+    avg_duration_s: float
+    #: Games with a timeline (the denominator of order-based builds and skills).
+    timeline_games: int
+    #: Under 100 games: numbers are shaky.
+    small_sample: bool
+
+
+class BuildOption(ApiModel):
+    """One choice (an item set in order, a single item, a spell pair) and how it did."""
+
+    #: Item ids in order (starting items: sorted, repeats kept, e.g. two potions).
+    items: list[int]
+    games: int
+    wins: int
+    win_rate: Rate
+    pick_rate: Rate
+    #: Core build: average seconds into the game the last of its items was bought.
+    avg_time_s: float | None
+
+
+class ItemSlotOptions(ApiModel):
+    #: 4, 5 or 6: the Nth completed item bought.
+    slot: int
+    options: list[BuildOption]
+
+
+class ChampionBuilds(ApiModel):
+    #: Items bought in the first 90 seconds (timeline games).
+    starting: list[BuildOption]
+    #: First three completed items, in order (timeline games), most common first.
+    core: list[BuildOption]
+    #: The core build with the best win rate (shrunk toward the role's win rate, at least
+    #: max(20 games, 3%)); None when no build qualifies or it is already core[0].
+    core_best: BuildOption | None
+    #: Boots in the final inventory (one item each), over all games.
+    boots: list[BuildOption]
+    #: Share of games that ended without boots.
+    no_boots_rate: Rate
+    #: Items 4, 5 and 6 (timeline games).
+    slots: list[ItemSlotOptions]
+    #: Completed items most often in the final inventory (single items, all games, top 10).
+    popular_items: list[BuildOption]
+
+
+class RunePageOption(ApiModel):
+    primary_style_id: int
+    secondary_style_id: int
+    #: 4 primary (keystone first) then 2 secondary rune ids.
+    rune_ids: list[int] = Field(min_length=6, max_length=6)
+    games: int
+    wins: int
+    win_rate: Rate
+    pick_rate: Rate
+
+
+class RunePick(ApiModel):
+    """How often one rune is taken (any page)."""
+
+    rune_id: int
+    games: int
+    wins: int
+    win_rate: Rate
+    pick_rate: Rate
+
+
+class ShardSetOption(ApiModel):
+    #: Offense, flex, defense stat shard ids.
+    shard_ids: list[int] = Field(min_length=3, max_length=3)
+    games: int
+    wins: int
+    win_rate: Rate
+    pick_rate: Rate
+
+
+class ShardPick(ApiModel):
+    #: 0 offense, 1 flex, 2 defense.
+    row: int = Field(ge=0, le=2)
+    shard_id: int
+    games: int
+    win_rate: Rate
+    pick_rate: Rate
+
+
+class ChampionRunes(ApiModel):
+    #: Full pages (styles + 6 runes), most common first.
+    pages: list[RunePageOption]
+    #: Every rune taken in at least 1% of games (for pick rates on the rune trees).
+    picks: list[RunePick]
+    #: Full shard sets, most common first.
+    shards: list[ShardSetOption]
+    shard_picks: list[ShardPick]
+
+
+class SpellOption(ApiModel):
+    #: Two summoner spell ids, ascending.
+    spell_ids: list[int] = Field(min_length=2, max_length=2)
+    games: int
+    wins: int
+    win_rate: Rate
+    pick_rate: Rate
+
+
+class SkillMaxOption(ApiModel):
+    #: Basic abilities in the order they were maxed: 1 Q, 2 W, 3 E, e.g. [1, 3, 2].
+    order: list[int] = Field(min_length=3, max_length=3)
+    games: int
+    wins: int
+    win_rate: Rate
+    pick_rate: Rate
+
+
+class SkillOrder(ApiModel):
+    #: Most common max orders (timeline games).
+    max_orders: list[SkillMaxOption]
+    #: The usual ability for levels 1..N (1 Q, 2 W, 3 E, 4 R), up to 18 entries, always a
+    #: legal path; empty without timeline games.
+    path: list[int] = Field(max_length=18)
+
+
+class ChampionLaneMatchup(ApiModel):
+    """The champion in this role against one champion in the same lane."""
+
+    champion_id: int
+    champion_name: str
+    games: int
+    wins: int
+    win_rate: Rate
+    #: Win rate shrunk toward the role's win rate (20 games of prior): sort by this.
+    adjusted_win_rate: Rate
+    #: Mean of (own gold - opponent gold) at the end of the game.
+    avg_gold_diff: float
+
+
+class ChampionLaneMatchups(ApiModel):
+    min_games: int
+    #: Opponents faced at least ``min_games`` times, most games first (at most 60).
+    rows: list[ChampionLaneMatchup] = Field(max_length=60)
+
+
+class ChampionRoleDetail(ApiModel):
+    stats: ChampionRoleStats
+    builds: ChampionBuilds
+    runes: ChampionRunes
+    spells: list[SpellOption]
+    skills: SkillOrder
+    matchups: ChampionLaneMatchups
+
+
+class ChampionDetail(ApiModel):
+    champion_id: int
+    champion_name: str
+    patch: str
+    patches: list[str]
+    queue: LeaderboardQueue
+    total_matches: int
+    #: Champion-wide (all roles).
+    games: int
+    win_rate: Rate | None
+    pick_rate: Rate
+    ban_rate: Rate
+    #: Every role with games, most played first.
+    roles: list[ChampionRoleSummary]
+    #: The role ``detail`` is for (the requested one, else the most played); None with no
+    #: games in the window.
+    role: ChampionRole | None
+    detail: ChampionRoleDetail | None
+
+
+class ChampionSquadRow(ApiModel):
+    puuid: str
+    game_name: str | None
+    tag_line: str | None
+    profile_icon_id: int | None
+    games: int
+    wins: int
+    win_rate: Rate
+    kda: float
+    #: Average AI Score (active model only); a plain number, not a grade.
+    avg_ai_score: Rate | None
+    main_position: Position
+    last_played: AwareDatetime
+    #: Their most recent game on the champion.
+    last_match_id: str
+
+
+class ChampionSquad(ApiModel):
+    """Roster players on this champion: ranked games this season, any patch."""
+
+    champion_id: int
+    champion_name: str
+    queue: LeaderboardQueue
+    model_version: str | None
+    #: Most games first.
+    rows: list[ChampionSquadRow]
+
+
 class Meta(ApiModel):
     ddragon_version: str
     ddragon_cdn: str

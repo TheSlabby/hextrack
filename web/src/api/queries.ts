@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import { api, errorMessage, isApiError, request, type ApiError } from "./client";
 import type {
   AiExplain,
+  ChampionPatchParam,
+  ChampionRole,
   LeaderboardQueue,
   MatchPage,
   QueueType,
@@ -92,6 +94,11 @@ export const queryKeys = {
   records: (since: StatsSince, queue: LeaderboardQueue, puuid: string | null, limit: number) =>
     ["records", since, queue, puuid ?? "roster", limit] as const,
   recordsAll: () => ["records"] as const,
+  championPatches: () => ["champions", "patches"] as const,
+  championList: (patch: ChampionPatchParam, queue: LeaderboardQueue) => ["champions", "list", patch, queue] as const,
+  champion: (key: string, patch: ChampionPatchParam, queue: LeaderboardQueue, role: ChampionRole | null) =>
+    ["champions", "detail", lower(key), patch, queue, role ?? "main"] as const,
+  championSquad: (key: string, queue: LeaderboardQueue) => ["champions", "squad", lower(key), queue] as const,
 };
 
 /** Period and queue filters shared by the squad, insights and records endpoints. */
@@ -580,5 +587,72 @@ export function useRecords(opts: RecordsOptions = {}) {
       ),
     staleTime: 5 * MINUTE,
     placeholderData: keepPreviousData,
+  });
+}
+
+// --- champions --------------------------------------------------------------------------------
+
+/** Champion filters shared by the list and detail pages. */
+export interface ChampionFilters {
+  /** Default "recent" (the two newest patches). */
+  patch?: ChampionPatchParam;
+  /** Default "all" (Solo/Duo and Flex). */
+  queue?: LeaderboardQueue;
+}
+
+/** Patches with champion data (the patch picker). */
+export function useChampionPatches() {
+  return useQuery({
+    queryKey: queryKeys.championPatches(),
+    queryFn: ({ signal }) => request(api.GET("/api/v1/champions/patches", { signal })),
+    staleTime: 10 * MINUTE,
+  });
+}
+
+/** Every champion in the patch window (search, role filter and sorting are client-side). */
+export function useChampionList({ patch = "recent", queue = "all" }: ChampionFilters = {}) {
+  return useQuery({
+    queryKey: queryKeys.championList(patch, queue),
+    queryFn: ({ signal }) =>
+      request(api.GET("/api/v1/champions", { params: { query: { patch, queue } }, signal })),
+    staleTime: 5 * MINUTE,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * One champion (`key`: Data Dragon key, any case) in one role: stats, builds, runes, spells,
+ * skills and lane matchups. `role` null = the champion's most played role.
+ */
+export function useChampion(
+  key: string,
+  { patch = "recent", queue = "all", role = null }: ChampionFilters & { role?: ChampionRole | null } = {},
+) {
+  return useQuery({
+    queryKey: queryKeys.champion(key, patch, queue, role),
+    queryFn: ({ signal }) =>
+      request(
+        api.GET("/api/v1/champions/{champion}", {
+          params: { path: { champion: key }, query: { patch, queue, role: role ?? undefined } },
+          signal,
+        }),
+      ),
+    staleTime: 5 * MINUTE,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Roster players on a champion this season (any patch). */
+export function useChampionSquad(key: string, queue: LeaderboardQueue = "all") {
+  return useQuery({
+    queryKey: queryKeys.championSquad(key, queue),
+    queryFn: ({ signal }) =>
+      request(
+        api.GET("/api/v1/champions/{champion}/squad", {
+          params: { path: { champion: key }, query: { queue } },
+          signal,
+        }),
+      ),
+    staleTime: 5 * MINUTE,
   });
 }

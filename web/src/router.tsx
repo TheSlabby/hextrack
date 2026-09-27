@@ -7,7 +7,7 @@
  */
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from "@tanstack/react-router";
 
-import type { LeaderboardQueue, StackQueue, StackSize, StatsSince } from "@/api/types";
+import type { ChampionRole, LeaderboardQueue, StackQueue, StackSize, StatsSince } from "@/api/types";
 import { AppShell } from "@/components/layout/AppShell";
 import { DEFAULT_SORT, SORT_LABELS, type SortDirection, type SortKey } from "@/components/leaderboard/sorting";
 import { NotFoundPage, RouteErrorPage, RoutePending } from "@/components/layout/RouteStates";
@@ -23,6 +23,8 @@ const SquadPage = lazyRouteComponent(() => import("@/routes/squad"), "SquadPage"
 const RecordsPage = lazyRouteComponent(() => import("@/routes/records"), "RecordsPage");
 const StacksPage = lazyRouteComponent(() => import("@/routes/stacks"), "StacksPage");
 const LiveGamePage = lazyRouteComponent(() => import("@/routes/live"), "LiveGamePage");
+const ChampionsPage = lazyRouteComponent(() => import("@/routes/champions"), "ChampionsPage");
+const ChampionPage = lazyRouteComponent(() => import("@/routes/champion"), "ChampionPage");
 
 export interface SummonerSearch {
   tab?: SummonerTabValue;
@@ -83,6 +85,48 @@ function validateStacksSearch(search: Record<string, unknown>): StacksSearch {
   // Accept `size=4` whether the router parsed it as a number or left it a string.
   const size = typeof search.size === "string" ? Number(search.size) : search.size;
   if (size === 3 || size === 4) result.size = size;
+  return result;
+}
+
+/**
+ * Champion filters in the URL; defaults (recent patches, all queues, most played role,
+ * most games first) are omitted: `/champions?patch=16.18&queue=solo&role=MIDDLE`.
+ */
+export interface ChampionsSearch {
+  /** "season" or one patch ("16.18"); omitted = the two newest patches. */
+  patch?: string;
+  queue?: Exclude<LeaderboardQueue, "all">;
+  role?: ChampionRole;
+}
+
+/** The list page also keeps its sort in the URL (omitted = most games first). */
+export interface ChampionListSearch extends ChampionsSearch {
+  sort?: ChampionListSort;
+  dir?: SortDirection;
+}
+
+export type ChampionListSort = "games" | "win_rate" | "pick_rate" | "ban_rate" | "kda" | "name";
+const CHAMPION_LIST_SORTS: readonly ChampionListSort[] = ["games", "win_rate", "pick_rate", "ban_rate", "kda", "name"];
+const CHAMPION_ROLES: readonly ChampionRole[] = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"];
+
+function validateChampionsSearch(search: Record<string, unknown>): ChampionsSearch {
+  const result: ChampionsSearch = {};
+  // Router search parsing turns "16.18" into a number; read it back as the patch string.
+  const patch = typeof search.patch === "number" ? String(search.patch) : search.patch;
+  if (patch === "season" || (typeof patch === "string" && /^\d{1,2}\.\d{1,2}$/.test(patch))) result.patch = patch;
+  if (search.queue === "solo" || search.queue === "flex") result.queue = search.queue;
+  if (typeof search.role === "string" && (CHAMPION_ROLES as readonly string[]).includes(search.role)) {
+    result.role = search.role as ChampionRole;
+  }
+  return result;
+}
+
+function validateChampionListSearch(search: Record<string, unknown>): ChampionListSearch {
+  const result: ChampionListSearch = validateChampionsSearch(search);
+  if (typeof search.sort === "string" && (CHAMPION_LIST_SORTS as readonly string[]).includes(search.sort)) {
+    if (search.sort !== "games") result.sort = search.sort as ChampionListSort;
+  }
+  if (search.dir === "asc" || search.dir === "desc") result.dir = search.dir;
   return result;
 }
 
@@ -174,12 +218,28 @@ const recordsRoute = createRoute({
   component: RecordsPage,
 });
 
+const championsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/champions",
+  validateSearch: validateChampionListSearch,
+  component: ChampionsPage,
+});
+
+const championRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/champions/$champion",
+  validateSearch: validateChampionsSearch,
+  component: ChampionPage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   leaderboardRoute,
   squadRoute,
   stacksRoute,
   recordsRoute,
+  championsRoute,
+  championRoute,
   summonerRoute,
   matchRoute,
   liveRoute,

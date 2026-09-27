@@ -418,6 +418,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/champions/patches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Patches with champion data this season (for the patch picker) */
+        get: operations["get_champion_patches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/champions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every champion's games, win / pick / ban rate and roles in a patch window */
+        get: operations["get_champions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/champions/{champion}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One champion: stats by role, builds, runes, spells, skills, lane matchups */
+        get: operations["get_champion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/champions/{champion}/squad": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Roster players on this champion this season */
+        get: operations["get_champion_squad"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -478,6 +546,151 @@ export interface components {
             winrate: number;
         };
         /**
+         * BuildOption
+         * @description One choice (an item set in order, a single item, a spell pair) and how it did.
+         */
+        BuildOption: {
+            /** Items */
+            items: number[];
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Win Rate */
+            win_rate: number;
+            /** Pick Rate */
+            pick_rate: number;
+            /** Avg Time S */
+            avg_time_s: number | null;
+        };
+        /** ChampionBuilds */
+        ChampionBuilds: {
+            /** Starting */
+            starting: components["schemas"]["BuildOption"][];
+            /** Core */
+            core: components["schemas"]["BuildOption"][];
+            core_best: components["schemas"]["BuildOption"] | null;
+            /** Boots */
+            boots: components["schemas"]["BuildOption"][];
+            /** No Boots Rate */
+            no_boots_rate: number;
+            /** Slots */
+            slots: components["schemas"]["ItemSlotOptions"][];
+            /** Popular Items */
+            popular_items: components["schemas"]["BuildOption"][];
+        };
+        /** ChampionDetail */
+        ChampionDetail: {
+            /** Champion Id */
+            champion_id: number;
+            /** Champion Name */
+            champion_name: string;
+            /** Patch */
+            patch: string;
+            /** Patches */
+            patches: string[];
+            /**
+             * Queue
+             * @enum {string}
+             */
+            queue: "all" | "solo" | "flex";
+            /** Total Matches */
+            total_matches: number;
+            /** Games */
+            games: number;
+            /** Win Rate */
+            win_rate: number | null;
+            /** Pick Rate */
+            pick_rate: number;
+            /** Ban Rate */
+            ban_rate: number;
+            /** Roles */
+            roles: components["schemas"]["ChampionRoleSummary"][];
+            /** Role */
+            role: ("TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY") | null;
+            detail: components["schemas"]["ChampionRoleDetail"] | null;
+        };
+        /**
+         * ChampionLaneMatchup
+         * @description The champion in this role against one champion in the same lane.
+         */
+        ChampionLaneMatchup: {
+            /** Champion Id */
+            champion_id: number;
+            /** Champion Name */
+            champion_name: string;
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Win Rate */
+            win_rate: number;
+            /** Adjusted Win Rate */
+            adjusted_win_rate: number;
+            /** Avg Gold Diff */
+            avg_gold_diff: number;
+        };
+        /** ChampionLaneMatchups */
+        ChampionLaneMatchups: {
+            /** Min Games */
+            min_games: number;
+            /** Rows */
+            rows: components["schemas"]["ChampionLaneMatchup"][];
+        };
+        /** ChampionList */
+        ChampionList: {
+            /** Patch */
+            patch: string;
+            /** Patches */
+            patches: string[];
+            /**
+             * Queue
+             * @enum {string}
+             */
+            queue: "all" | "solo" | "flex";
+            /** Total Matches */
+            total_matches: number;
+            /** Rows */
+            rows: components["schemas"]["ChampionListRow"][];
+        };
+        /** ChampionListRole */
+        ChampionListRole: {
+            /**
+             * Position
+             * @enum {string}
+             */
+            position: "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY";
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Win Rate */
+            win_rate: number;
+            /** Share */
+            share: number;
+        };
+        /** ChampionListRow */
+        ChampionListRow: {
+            /** Champion Id */
+            champion_id: number;
+            /** Champion Name */
+            champion_name: string;
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Win Rate */
+            win_rate: number;
+            /** Pick Rate */
+            pick_rate: number;
+            /** Ban Rate */
+            ban_rate: number;
+            /** Kda */
+            kda: number;
+            /** Roles */
+            roles: components["schemas"]["ChampionListRole"][];
+        };
+        /**
          * ChampionMatchup
          * @description The player's record against one enemy champion in their lane.
          */
@@ -498,6 +711,148 @@ export interface components {
             avg_ai_score: number | null;
             /** Avg Gold Diff */
             avg_gold_diff: number;
+        };
+        /** ChampionPatchInfo */
+        ChampionPatchInfo: {
+            /** Patch */
+            patch: string;
+            /** Matches */
+            matches: number;
+            /** Timeline Matches */
+            timeline_matches: number;
+        };
+        /** ChampionPatches */
+        ChampionPatches: {
+            /** Patches */
+            patches: components["schemas"]["ChampionPatchInfo"][];
+            /** Recent */
+            recent: string[];
+            /** Pending Matches */
+            pending_matches: number;
+        };
+        /** ChampionRoleDetail */
+        ChampionRoleDetail: {
+            stats: components["schemas"]["ChampionRoleStats"];
+            builds: components["schemas"]["ChampionBuilds"];
+            runes: components["schemas"]["ChampionRunes"];
+            /** Spells */
+            spells: components["schemas"]["SpellOption"][];
+            skills: components["schemas"]["SkillOrder"];
+            matchups: components["schemas"]["ChampionLaneMatchups"];
+        };
+        /** ChampionRoleStats */
+        ChampionRoleStats: {
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Win Rate */
+            win_rate: number;
+            /** Pick Rate */
+            pick_rate: number;
+            /** Avg Kills */
+            avg_kills: number;
+            /** Avg Deaths */
+            avg_deaths: number;
+            /** Avg Assists */
+            avg_assists: number;
+            /** Kda */
+            kda: number;
+            /** Avg Damage */
+            avg_damage: number;
+            /** Avg Cs */
+            avg_cs: number;
+            /** Cs Per Min */
+            cs_per_min: number;
+            /** Avg Gold */
+            avg_gold: number;
+            /** Avg Duration S */
+            avg_duration_s: number;
+            /** Timeline Games */
+            timeline_games: number;
+            /** Small Sample */
+            small_sample: boolean;
+        };
+        /** ChampionRoleSummary */
+        ChampionRoleSummary: {
+            /**
+             * Position
+             * @enum {string}
+             */
+            position: "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY";
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Win Rate */
+            win_rate: number;
+            /** Share */
+            share: number;
+            /** Shown */
+            shown: boolean;
+        };
+        /** ChampionRunes */
+        ChampionRunes: {
+            /** Pages */
+            pages: components["schemas"]["RunePageOption"][];
+            /** Picks */
+            picks: components["schemas"]["RunePick"][];
+            /** Shards */
+            shards: components["schemas"]["ShardSetOption"][];
+            /** Shard Picks */
+            shard_picks: components["schemas"]["ShardPick"][];
+        };
+        /**
+         * ChampionSquad
+         * @description Roster players on this champion: ranked games this season, any patch.
+         */
+        ChampionSquad: {
+            /** Champion Id */
+            champion_id: number;
+            /** Champion Name */
+            champion_name: string;
+            /**
+             * Queue
+             * @enum {string}
+             */
+            queue: "all" | "solo" | "flex";
+            /** Model Version */
+            model_version: string | null;
+            /** Rows */
+            rows: components["schemas"]["ChampionSquadRow"][];
+        };
+        /** ChampionSquadRow */
+        ChampionSquadRow: {
+            /** Puuid */
+            puuid: string;
+            /** Game Name */
+            game_name: string | null;
+            /** Tag Line */
+            tag_line: string | null;
+            /** Profile Icon Id */
+            profile_icon_id: number | null;
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Win Rate */
+            win_rate: number;
+            /** Kda */
+            kda: number;
+            /** Avg Ai Score */
+            avg_ai_score: number | null;
+            /**
+             * Main Position
+             * @enum {string}
+             */
+            main_position: "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY" | "UNKNOWN";
+            /**
+             * Last Played
+             * Format: date-time
+             */
+            last_played: string;
+            /** Last Match Id */
+            last_match_id: string;
         };
         /** ChampionStat */
         ChampionStat: {
@@ -630,6 +985,13 @@ export interface components {
             key_ok: boolean | null;
             /** Last Error */
             last_error: string | null;
+        };
+        /** ItemSlotOptions */
+        ItemSlotOptions: {
+            /** Slot */
+            slot: number;
+            /** Options */
+            options: components["schemas"]["BuildOption"][];
         };
         /** Leaderboard */
         Leaderboard: {
@@ -1333,6 +1695,39 @@ export interface components {
             /** Profile Icon Id */
             profile_icon_id: number | null;
         };
+        /** RunePageOption */
+        RunePageOption: {
+            /** Primary Style Id */
+            primary_style_id: number;
+            /** Secondary Style Id */
+            secondary_style_id: number;
+            /** Rune Ids */
+            rune_ids: number[];
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Win Rate */
+            win_rate: number;
+            /** Pick Rate */
+            pick_rate: number;
+        };
+        /**
+         * RunePick
+         * @description How often one rune is taken (any page).
+         */
+        RunePick: {
+            /** Rune Id */
+            rune_id: number;
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Win Rate */
+            win_rate: number;
+            /** Pick Rate */
+            pick_rate: number;
+        };
         /** ScheduleCell */
         ScheduleCell: {
             /** Dow */
@@ -1485,6 +1880,65 @@ export interface components {
             winrate: number;
             /** Avg Ai Score */
             avg_ai_score: number | null;
+        };
+        /** ShardPick */
+        ShardPick: {
+            /** Row */
+            row: number;
+            /** Shard Id */
+            shard_id: number;
+            /** Games */
+            games: number;
+            /** Win Rate */
+            win_rate: number;
+            /** Pick Rate */
+            pick_rate: number;
+        };
+        /** ShardSetOption */
+        ShardSetOption: {
+            /** Shard Ids */
+            shard_ids: number[];
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Win Rate */
+            win_rate: number;
+            /** Pick Rate */
+            pick_rate: number;
+        };
+        /** SkillMaxOption */
+        SkillMaxOption: {
+            /** Order */
+            order: number[];
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Win Rate */
+            win_rate: number;
+            /** Pick Rate */
+            pick_rate: number;
+        };
+        /** SkillOrder */
+        SkillOrder: {
+            /** Max Orders */
+            max_orders: components["schemas"]["SkillMaxOption"][];
+            /** Path */
+            path: number[];
+        };
+        /** SpellOption */
+        SpellOption: {
+            /** Spell Ids */
+            spell_ids: number[];
+            /** Games */
+            games: number;
+            /** Wins */
+            wins: number;
+            /** Win Rate */
+            win_rate: number;
+            /** Pick Rate */
+            pick_rate: number;
         };
         /**
          * SquadPair
@@ -3048,6 +3502,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_champion_patches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChampionPatches"];
+                };
+            };
+        };
+    };
+    get_champions: {
+        parameters: {
+            query?: {
+                patch?: string;
+                queue?: "all" | "solo" | "flex";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChampionList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_champion: {
+        parameters: {
+            query?: {
+                patch?: string;
+                queue?: "all" | "solo" | "flex";
+                role?: ("TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY") | null;
+            };
+            header?: never;
+            path: {
+                champion: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChampionDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_champion_squad: {
+        parameters: {
+            query?: {
+                queue?: "all" | "solo" | "flex";
+            };
+            header?: never;
+            path: {
+                champion: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChampionSquad"];
                 };
             };
             /** @description Validation Error */

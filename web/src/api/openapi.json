@@ -1962,6 +1962,232 @@
           }
         }
       }
+    },
+    "/api/v1/champions/patches": {
+      "get": {
+        "tags": [
+          "champions"
+        ],
+        "summary": "Patches with champion data this season (for the patch picker)",
+        "operationId": "get_champion_patches",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChampionPatches"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/champions": {
+      "get": {
+        "tags": [
+          "champions"
+        ],
+        "summary": "Every champion's games, win / pick / ban rate and roles in a patch window",
+        "operationId": "get_champions",
+        "parameters": [
+          {
+            "name": "patch",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "recent",
+              "title": "Patch"
+            }
+          },
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "solo",
+                "flex"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Queue"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChampionList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/champions/{champion}": {
+      "get": {
+        "tags": [
+          "champions"
+        ],
+        "summary": "One champion: stats by role, builds, runes, spells, skills, lane matchups",
+        "operationId": "get_champion",
+        "parameters": [
+          {
+            "name": "champion",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Champion"
+            }
+          },
+          {
+            "name": "patch",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "recent",
+              "title": "Patch"
+            }
+          },
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "solo",
+                "flex"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Queue"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "TOP",
+                    "JUNGLE",
+                    "MIDDLE",
+                    "BOTTOM",
+                    "UTILITY"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChampionDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/champions/{champion}/squad": {
+      "get": {
+        "tags": [
+          "champions"
+        ],
+        "summary": "Roster players on this champion this season",
+        "operationId": "get_champion_squad",
+        "parameters": [
+          {
+            "name": "champion",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Champion"
+            }
+          },
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "solo",
+                "flex"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Queue"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChampionSquad"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2138,6 +2364,470 @@
         ],
         "title": "BestAlly"
       },
+      "BuildOption": {
+        "properties": {
+          "items": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "win_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Win Rate"
+          },
+          "pick_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Pick Rate"
+          },
+          "avg_time_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Time S"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items",
+          "games",
+          "wins",
+          "win_rate",
+          "pick_rate",
+          "avg_time_s"
+        ],
+        "title": "BuildOption",
+        "description": "One choice (an item set in order, a single item, a spell pair) and how it did."
+      },
+      "ChampionBuilds": {
+        "properties": {
+          "starting": {
+            "items": {
+              "$ref": "#/components/schemas/BuildOption"
+            },
+            "type": "array",
+            "title": "Starting"
+          },
+          "core": {
+            "items": {
+              "$ref": "#/components/schemas/BuildOption"
+            },
+            "type": "array",
+            "title": "Core"
+          },
+          "core_best": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuildOption"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "boots": {
+            "items": {
+              "$ref": "#/components/schemas/BuildOption"
+            },
+            "type": "array",
+            "title": "Boots"
+          },
+          "no_boots_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "No Boots Rate"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/ItemSlotOptions"
+            },
+            "type": "array",
+            "title": "Slots"
+          },
+          "popular_items": {
+            "items": {
+              "$ref": "#/components/schemas/BuildOption"
+            },
+            "type": "array",
+            "title": "Popular Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "starting",
+          "core",
+          "core_best",
+          "boots",
+          "no_boots_rate",
+          "slots",
+          "popular_items"
+        ],
+        "title": "ChampionBuilds"
+      },
+      "ChampionDetail": {
+        "properties": {
+          "champion_id": {
+            "type": "integer",
+            "title": "Champion Id"
+          },
+          "champion_name": {
+            "type": "string",
+            "title": "Champion Name"
+          },
+          "patch": {
+            "type": "string",
+            "title": "Patch"
+          },
+          "patches": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Patches"
+          },
+          "queue": {
+            "type": "string",
+            "enum": [
+              "all",
+              "solo",
+              "flex"
+            ],
+            "title": "Queue"
+          },
+          "total_matches": {
+            "type": "integer",
+            "title": "Total Matches"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "win_rate": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Win Rate"
+          },
+          "pick_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Pick Rate"
+          },
+          "ban_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Ban Rate"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionRoleSummary"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "TOP",
+                  "JUNGLE",
+                  "MIDDLE",
+                  "BOTTOM",
+                  "UTILITY"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChampionRoleDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "champion_id",
+          "champion_name",
+          "patch",
+          "patches",
+          "queue",
+          "total_matches",
+          "games",
+          "win_rate",
+          "pick_rate",
+          "ban_rate",
+          "roles",
+          "role",
+          "detail"
+        ],
+        "title": "ChampionDetail"
+      },
+      "ChampionLaneMatchup": {
+        "properties": {
+          "champion_id": {
+            "type": "integer",
+            "title": "Champion Id"
+          },
+          "champion_name": {
+            "type": "string",
+            "title": "Champion Name"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "win_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Win Rate"
+          },
+          "adjusted_win_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Adjusted Win Rate"
+          },
+          "avg_gold_diff": {
+            "type": "number",
+            "title": "Avg Gold Diff"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "champion_id",
+          "champion_name",
+          "games",
+          "wins",
+          "win_rate",
+          "adjusted_win_rate",
+          "avg_gold_diff"
+        ],
+        "title": "ChampionLaneMatchup",
+        "description": "The champion in this role against one champion in the same lane."
+      },
+      "ChampionLaneMatchups": {
+        "properties": {
+          "min_games": {
+            "type": "integer",
+            "title": "Min Games"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionLaneMatchup"
+            },
+            "type": "array",
+            "maxItems": 60,
+            "title": "Rows"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "min_games",
+          "rows"
+        ],
+        "title": "ChampionLaneMatchups"
+      },
+      "ChampionList": {
+        "properties": {
+          "patch": {
+            "type": "string",
+            "title": "Patch"
+          },
+          "patches": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Patches"
+          },
+          "queue": {
+            "type": "string",
+            "enum": [
+              "all",
+              "solo",
+              "flex"
+            ],
+            "title": "Queue"
+          },
+          "total_matches": {
+            "type": "integer",
+            "title": "Total Matches"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionListRow"
+            },
+            "type": "array",
+            "title": "Rows"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "patch",
+          "patches",
+          "queue",
+          "total_matches",
+          "rows"
+        ],
+        "title": "ChampionList"
+      },
+      "ChampionListRole": {
+        "properties": {
+          "position": {
+            "type": "string",
+            "enum": [
+              "TOP",
+              "JUNGLE",
+              "MIDDLE",
+              "BOTTOM",
+              "UTILITY"
+            ],
+            "title": "Position"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "win_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Win Rate"
+          },
+          "share": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Share"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "position",
+          "games",
+          "wins",
+          "win_rate",
+          "share"
+        ],
+        "title": "ChampionListRole"
+      },
+      "ChampionListRow": {
+        "properties": {
+          "champion_id": {
+            "type": "integer",
+            "title": "Champion Id"
+          },
+          "champion_name": {
+            "type": "string",
+            "title": "Champion Name"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "win_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Win Rate"
+          },
+          "pick_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Pick Rate"
+          },
+          "ban_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Ban Rate"
+          },
+          "kda": {
+            "type": "number",
+            "title": "Kda"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionListRole"
+            },
+            "type": "array",
+            "title": "Roles"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "champion_id",
+          "champion_name",
+          "games",
+          "wins",
+          "win_rate",
+          "pick_rate",
+          "ban_rate",
+          "kda",
+          "roles"
+        ],
+        "title": "ChampionListRow"
+      },
       "ChampionMatchup": {
         "properties": {
           "champion_id": {
@@ -2198,6 +2888,436 @@
         ],
         "title": "ChampionMatchup",
         "description": "The player's record against one enemy champion in their lane."
+      },
+      "ChampionPatchInfo": {
+        "properties": {
+          "patch": {
+            "type": "string",
+            "title": "Patch"
+          },
+          "matches": {
+            "type": "integer",
+            "title": "Matches"
+          },
+          "timeline_matches": {
+            "type": "integer",
+            "title": "Timeline Matches"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "patch",
+          "matches",
+          "timeline_matches"
+        ],
+        "title": "ChampionPatchInfo"
+      },
+      "ChampionPatches": {
+        "properties": {
+          "patches": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionPatchInfo"
+            },
+            "type": "array",
+            "title": "Patches"
+          },
+          "recent": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recent"
+          },
+          "pending_matches": {
+            "type": "integer",
+            "title": "Pending Matches"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "patches",
+          "recent",
+          "pending_matches"
+        ],
+        "title": "ChampionPatches"
+      },
+      "ChampionRoleDetail": {
+        "properties": {
+          "stats": {
+            "$ref": "#/components/schemas/ChampionRoleStats"
+          },
+          "builds": {
+            "$ref": "#/components/schemas/ChampionBuilds"
+          },
+          "runes": {
+            "$ref": "#/components/schemas/ChampionRunes"
+          },
+          "spells": {
+            "items": {
+              "$ref": "#/components/schemas/SpellOption"
+            },
+            "type": "array",
+            "title": "Spells"
+          },
+          "skills": {
+            "$ref": "#/components/schemas/SkillOrder"
+          },
+          "matchups": {
+            "$ref": "#/components/schemas/ChampionLaneMatchups"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "stats",
+          "builds",
+          "runes",
+          "spells",
+          "skills",
+          "matchups"
+        ],
+        "title": "ChampionRoleDetail"
+      },
+      "ChampionRoleStats": {
+        "properties": {
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "win_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Win Rate"
+          },
+          "pick_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Pick Rate"
+          },
+          "avg_kills": {
+            "type": "number",
+            "title": "Avg Kills"
+          },
+          "avg_deaths": {
+            "type": "number",
+            "title": "Avg Deaths"
+          },
+          "avg_assists": {
+            "type": "number",
+            "title": "Avg Assists"
+          },
+          "kda": {
+            "type": "number",
+            "title": "Kda"
+          },
+          "avg_damage": {
+            "type": "number",
+            "title": "Avg Damage"
+          },
+          "avg_cs": {
+            "type": "number",
+            "title": "Avg Cs"
+          },
+          "cs_per_min": {
+            "type": "number",
+            "title": "Cs Per Min"
+          },
+          "avg_gold": {
+            "type": "number",
+            "title": "Avg Gold"
+          },
+          "avg_duration_s": {
+            "type": "number",
+            "title": "Avg Duration S"
+          },
+          "timeline_games": {
+            "type": "integer",
+            "title": "Timeline Games"
+          },
+          "small_sample": {
+            "type": "boolean",
+            "title": "Small Sample"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "games",
+          "wins",
+          "win_rate",
+          "pick_rate",
+          "avg_kills",
+          "avg_deaths",
+          "avg_assists",
+          "kda",
+          "avg_damage",
+          "avg_cs",
+          "cs_per_min",
+          "avg_gold",
+          "avg_duration_s",
+          "timeline_games",
+          "small_sample"
+        ],
+        "title": "ChampionRoleStats"
+      },
+      "ChampionRoleSummary": {
+        "properties": {
+          "position": {
+            "type": "string",
+            "enum": [
+              "TOP",
+              "JUNGLE",
+              "MIDDLE",
+              "BOTTOM",
+              "UTILITY"
+            ],
+            "title": "Position"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "win_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Win Rate"
+          },
+          "share": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Share"
+          },
+          "shown": {
+            "type": "boolean",
+            "title": "Shown"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "position",
+          "games",
+          "wins",
+          "win_rate",
+          "share",
+          "shown"
+        ],
+        "title": "ChampionRoleSummary"
+      },
+      "ChampionRunes": {
+        "properties": {
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/RunePageOption"
+            },
+            "type": "array",
+            "title": "Pages"
+          },
+          "picks": {
+            "items": {
+              "$ref": "#/components/schemas/RunePick"
+            },
+            "type": "array",
+            "title": "Picks"
+          },
+          "shards": {
+            "items": {
+              "$ref": "#/components/schemas/ShardSetOption"
+            },
+            "type": "array",
+            "title": "Shards"
+          },
+          "shard_picks": {
+            "items": {
+              "$ref": "#/components/schemas/ShardPick"
+            },
+            "type": "array",
+            "title": "Shard Picks"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "pages",
+          "picks",
+          "shards",
+          "shard_picks"
+        ],
+        "title": "ChampionRunes"
+      },
+      "ChampionSquad": {
+        "properties": {
+          "champion_id": {
+            "type": "integer",
+            "title": "Champion Id"
+          },
+          "champion_name": {
+            "type": "string",
+            "title": "Champion Name"
+          },
+          "queue": {
+            "type": "string",
+            "enum": [
+              "all",
+              "solo",
+              "flex"
+            ],
+            "title": "Queue"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ChampionSquadRow"
+            },
+            "type": "array",
+            "title": "Rows"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "champion_id",
+          "champion_name",
+          "queue",
+          "model_version",
+          "rows"
+        ],
+        "title": "ChampionSquad",
+        "description": "Roster players on this champion: ranked games this season, any patch."
+      },
+      "ChampionSquadRow": {
+        "properties": {
+          "puuid": {
+            "type": "string",
+            "title": "Puuid"
+          },
+          "game_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Name"
+          },
+          "tag_line": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tag Line"
+          },
+          "profile_icon_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Icon Id"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "win_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Win Rate"
+          },
+          "kda": {
+            "type": "number",
+            "title": "Kda"
+          },
+          "avg_ai_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Ai Score"
+          },
+          "main_position": {
+            "type": "string",
+            "enum": [
+              "TOP",
+              "JUNGLE",
+              "MIDDLE",
+              "BOTTOM",
+              "UTILITY",
+              "UNKNOWN"
+            ],
+            "title": "Main Position"
+          },
+          "last_played": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Played"
+          },
+          "last_match_id": {
+            "type": "string",
+            "title": "Last Match Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "puuid",
+          "game_name",
+          "tag_line",
+          "profile_icon_id",
+          "games",
+          "wins",
+          "win_rate",
+          "kda",
+          "avg_ai_score",
+          "main_position",
+          "last_played",
+          "last_match_id"
+        ],
+        "title": "ChampionSquadRow"
       },
       "ChampionStat": {
         "properties": {
@@ -2689,6 +3809,28 @@
           "last_error"
         ],
         "title": "HealthRiot"
+      },
+      "ItemSlotOptions": {
+        "properties": {
+          "slot": {
+            "type": "integer",
+            "title": "Slot"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/BuildOption"
+            },
+            "type": "array",
+            "title": "Options"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "slot",
+          "options"
+        ],
+        "title": "ItemSlotOptions"
       },
       "Leaderboard": {
         "properties": {
@@ -4802,6 +5944,98 @@
         ],
         "title": "RosterEntry"
       },
+      "RunePageOption": {
+        "properties": {
+          "primary_style_id": {
+            "type": "integer",
+            "title": "Primary Style Id"
+          },
+          "secondary_style_id": {
+            "type": "integer",
+            "title": "Secondary Style Id"
+          },
+          "rune_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "minItems": 6,
+            "title": "Rune Ids"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "win_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Win Rate"
+          },
+          "pick_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Pick Rate"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "primary_style_id",
+          "secondary_style_id",
+          "rune_ids",
+          "games",
+          "wins",
+          "win_rate",
+          "pick_rate"
+        ],
+        "title": "RunePageOption"
+      },
+      "RunePick": {
+        "properties": {
+          "rune_id": {
+            "type": "integer",
+            "title": "Rune Id"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "win_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Win Rate"
+          },
+          "pick_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Pick Rate"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "rune_id",
+          "games",
+          "wins",
+          "win_rate",
+          "pick_rate"
+        ],
+        "title": "RunePick",
+        "description": "How often one rune is taken (any page)."
+      },
       "ScheduleCell": {
         "properties": {
           "dow": {
@@ -5281,6 +6515,201 @@
           "avg_ai_score"
         ],
         "title": "SessionStateBucket"
+      },
+      "ShardPick": {
+        "properties": {
+          "row": {
+            "type": "integer",
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Row"
+          },
+          "shard_id": {
+            "type": "integer",
+            "title": "Shard Id"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "win_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Win Rate"
+          },
+          "pick_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Pick Rate"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "row",
+          "shard_id",
+          "games",
+          "win_rate",
+          "pick_rate"
+        ],
+        "title": "ShardPick"
+      },
+      "ShardSetOption": {
+        "properties": {
+          "shard_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Shard Ids"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "win_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Win Rate"
+          },
+          "pick_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Pick Rate"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "shard_ids",
+          "games",
+          "wins",
+          "win_rate",
+          "pick_rate"
+        ],
+        "title": "ShardSetOption"
+      },
+      "SkillMaxOption": {
+        "properties": {
+          "order": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Order"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "win_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Win Rate"
+          },
+          "pick_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Pick Rate"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "order",
+          "games",
+          "wins",
+          "win_rate",
+          "pick_rate"
+        ],
+        "title": "SkillMaxOption"
+      },
+      "SkillOrder": {
+        "properties": {
+          "max_orders": {
+            "items": {
+              "$ref": "#/components/schemas/SkillMaxOption"
+            },
+            "type": "array",
+            "title": "Max Orders"
+          },
+          "path": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 18,
+            "title": "Path"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "max_orders",
+          "path"
+        ],
+        "title": "SkillOrder"
+      },
+      "SpellOption": {
+        "properties": {
+          "spell_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Spell Ids"
+          },
+          "games": {
+            "type": "integer",
+            "title": "Games"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "win_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Win Rate"
+          },
+          "pick_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Pick Rate"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "spell_ids",
+          "games",
+          "wins",
+          "win_rate",
+          "pick_rate"
+        ],
+        "title": "SpellOption"
       },
       "SquadPair": {
         "properties": {

@@ -55,6 +55,35 @@ export type StackAward = Schemas["StackAward"];
 export type StackHighlight = Schemas["StackHighlight"];
 export type StackVerdict = Schemas["StackVerdict"];
 export type VerdictTier = StackVerdict["tier"];
+// --- champions ---
+export type ChampionPatches = Schemas["ChampionPatches"];
+export type ChampionPatchInfo = Schemas["ChampionPatchInfo"];
+export type ChampionList = Schemas["ChampionList"];
+export type ChampionListRow = Schemas["ChampionListRow"];
+export type ChampionListRole = Schemas["ChampionListRole"];
+export type ChampionDetail = Schemas["ChampionDetail"];
+export type ChampionRoleSummary = Schemas["ChampionRoleSummary"];
+export type ChampionRoleDetail = Schemas["ChampionRoleDetail"];
+export type ChampionRoleStats = Schemas["ChampionRoleStats"];
+export type ChampionBuilds = Schemas["ChampionBuilds"];
+export type BuildOption = Schemas["BuildOption"];
+export type ItemSlotOptions = Schemas["ItemSlotOptions"];
+export type ChampionRunes = Schemas["ChampionRunes"];
+export type RunePageOption = Schemas["RunePageOption"];
+export type RunePick = Schemas["RunePick"];
+export type ShardSetOption = Schemas["ShardSetOption"];
+export type ShardPick = Schemas["ShardPick"];
+export type SpellOption = Schemas["SpellOption"];
+export type SkillOrder = Schemas["SkillOrder"];
+export type SkillMaxOption = Schemas["SkillMaxOption"];
+export type ChampionLaneMatchups = Schemas["ChampionLaneMatchups"];
+export type ChampionLaneMatchup = Schemas["ChampionLaneMatchup"];
+export type ChampionSquad = Schemas["ChampionSquad"];
+export type ChampionSquadRow = Schemas["ChampionSquadRow"];
+/** A lane with champion data (never UNKNOWN). */
+export type ChampionRole = ChampionRoleSummary["position"];
+/** `patch` query value: "recent" (two newest patches), "season", or one patch like "16.18". */
+export type ChampionPatchParam = string;
 export type StackQueue = StackSummary["queue"];
 export type StackSize = 3 | 4 | 5;
 // live games (spectator)

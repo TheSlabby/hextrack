@@ -140,6 +140,16 @@ class Settings(BaseSettings):
             "HEXTRACK_CRAWL_MATCHES_PER_PLAYER", "crawl_matches_per_player"
         ),
     )
+    #: Champion pages: fetch match timelines (item purchase and skill order) for every roster
+    #: game and 1 in ``timeline_sample`` crawled games, from the crawler's spare budget.
+    timelines: bool = Field(
+        default=True, validation_alias=AliasChoices("HEXTRACK_TIMELINES", "timelines")
+    )
+    timeline_sample: int = Field(
+        default=3,
+        ge=1,
+        validation_alias=AliasChoices("HEXTRACK_TIMELINE_SAMPLE", "timeline_sample"),
+    )
     #: Check the roster for live games (spectator-v5) after every poll.
     live_games: bool = Field(
         default=True,

@@ -117,6 +117,18 @@ class Match(Base):
     #: How the game got here: "roster" (poller / lookups / imports) or "crawl" (the data
     #: crawler; games of players HexTrack doesn't track, kept for training).
     source: Mapped[str] = mapped_column(Text, default="roster", server_default=text("'roster'"))
+    #: Champion ids banned in the game (both teams, no "no ban" -1). NULL until filled from
+    #: ``raw`` (new games at ingestion, older ones by the champion rollup worker).
+    ban_ids: Mapped[list[int] | None] = mapped_column(ARRAY(SmallInteger))
+    #: Match timeline (item purchases, skill order): NULL = not sampled, "pending", "ok",
+    #: "missing" (Riot 404) or "failed" (gave up after TIMELINE_MAX_ATTEMPTS).
+    timeline_state: Mapped[str | None] = mapped_column(Text)
+    timeline_attempts: Mapped[int] = mapped_column(
+        SmallInteger, default=0, server_default=text("0")
+    )
+    #: Champion rollups: 0 to count, 1 counted, 2 counted with its timeline, 3 timeline
+    #: arrived after the game was counted, -1 not eligible (see stats/champions).
+    champ_rollup: Mapped[int] = mapped_column(SmallInteger, default=0, server_default=text("0"))
     ingested_at: Mapped[datetime] = mapped_column(TZDateTime, server_default=func.now())
     #: Set when every participant row was scored by ``model_version``.
     scored_at: Mapped[datetime | None] = mapped_column(TZDateTime)
@@ -242,6 +254,11 @@ class MatchParticipant(Base):
     #: perks.styles[0].selections[0].perk (keystone) and perks.styles[1].style.
     primary_rune_id: Mapped[int | None] = mapped_column(Integer)
     secondary_style_id: Mapped[int | None] = mapped_column(Integer)
+    #: Full rune page: perks.styles[0].style, the 4 primary + 2 secondary selections in
+    #: order, and statPerks (offense, flex, defense). NULL until filled from ``raw``.
+    primary_style_id: Mapped[int | None] = mapped_column(SmallInteger)
+    rune_ids: Mapped[list[int] | None] = mapped_column(ARRAY(SmallInteger))
+    stat_shards: Mapped[list[int] | None] = mapped_column(ARRAY(SmallInteger))
 
     # AI Score
     #: P(win | stat line) in [0, 1] from ``model_version``; None until scored.
@@ -365,6 +382,101 @@ class CrawlPlayer(Base):
     __table_args__ = (Index("ix_crawl_players_queue", "crawled_at", "discovered_at"),)
 
 
+class MatchTimelinePlayer(Base):
+    """What one player bought and levelled, in order, from the match timeline (only the
+    extracted sequences are kept, not the timeline itself)."""
+
+    __tablename__ = "match_timeline_players"
+
+    match_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("matches.match_id", ondelete="CASCADE"), primary_key=True
+    )
+    participant_id: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    #: Item ids in purchase order (undone purchases removed) and the second each was bought.
+    purchases: Mapped[list[int]] = mapped_column(ARRAY(Integer))
+    purchase_s: Mapped[list[int]] = mapped_column(ARRAY(SmallInteger))
+    #: Skill slot (1 Q, 2 W, 3 E, 4 R) per normal level-up, in order.
+    skill_order: Mapped[list[int]] = mapped_column(ARRAY(SmallInteger))
+
+
+class ChampionStat(Base):
+    """Per champion / position / patch / queue totals (champion rollup worker)."""
+
+    __tablename__ = "champion_stats"
+
+    champion_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    position: Mapped[str] = mapped_column(Text, primary_key=True)
+    patch: Mapped[str] = mapped_column(Text, primary_key=True)
+    queue_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    champion_key: Mapped[str] = mapped_column(Text)
+    games: Mapped[int] = _int_stat()
+    wins: Mapped[int] = _int_stat()
+    kills: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
+    deaths: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
+    assists: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
+    damage: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
+    cs: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
+    gold: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
+    duration_s: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
+    #: Games (and wins) of these that had a timeline (the build-order denominators).
+    timeline_games: Mapped[int] = _int_stat()
+    timeline_wins: Mapped[int] = _int_stat()
+
+
+class ChampionBan(Base):
+    __tablename__ = "champion_bans"
+
+    patch: Mapped[str] = mapped_column(Text, primary_key=True)
+    queue_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    champion_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    bans: Mapped[int] = _int_stat()
+
+
+class ChampionPatchTotal(Base):
+    """Counted games per patch and queue: pick / ban rate denominators and the patch picker."""
+
+    __tablename__ = "champion_patch_totals"
+
+    patch: Mapped[str] = mapped_column(Text, primary_key=True)
+    queue_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    matches: Mapped[int] = _int_stat()
+    timeline_matches: Mapped[int] = _int_stat()
+
+
+class ChampionRollup(Base):
+    """Counted choices per champion / position / patch / queue: ``kind`` is what was chosen
+    (see hextrack.stats.champions.KINDS), ``key`` the choice (e.g. item ids "3078-3071-6333").
+    ``extra_sum`` carries a per-kind extra total (e.g. seconds to finish the core build)."""
+
+    __tablename__ = "champion_rollups"
+
+    champion_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    position: Mapped[str] = mapped_column(Text, primary_key=True)
+    patch: Mapped[str] = mapped_column(Text, primary_key=True)
+    queue_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kind: Mapped[str] = mapped_column(Text, primary_key=True)
+    key: Mapped[str] = mapped_column(Text, primary_key=True)
+    games: Mapped[int] = _int_stat()
+    wins: Mapped[int] = _int_stat()
+    extra_sum: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
+
+
+class ChampionMatchup(Base):
+    """Lane matchups: the champion in ``position`` against ``opponent_id`` in the same lane."""
+
+    __tablename__ = "champion_matchups"
+
+    champion_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    position: Mapped[str] = mapped_column(Text, primary_key=True)
+    patch: Mapped[str] = mapped_column(Text, primary_key=True)
+    queue_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    opponent_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    games: Mapped[int] = _int_stat()
+    wins: Mapped[int] = _int_stat()
+    #: Sum of (own gold - opponent gold) at the end of the game.
+    gold_diff_sum: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
+
+
 class AppState(Base):
     """Small key/value store for heartbeats, e.g. key "poller" or "bot"."""
 
@@ -399,6 +511,20 @@ Index("ix_matches_game_start", Match.game_start.desc())
 Index("ix_matches_queue_id_game_start", Match.queue_id, Match.game_start.desc())
 #: Roster-only lookups (rescore, population means) skip the crawler's games through this.
 Index("ix_matches_source_queue_start", Match.source, Match.queue_id, Match.game_start.desc())
+#: The timeline backlog (crawler) and the champion rollup queue (worker).
+Index(
+    "ix_matches_timeline_pending",
+    Match.source,
+    Match.game_start.desc(),
+    postgresql_where=text("timeline_state = 'pending'"),
+)
+Index(
+    "ix_matches_rollup_todo",
+    Match.ingested_at,
+    postgresql_where=text("champ_rollup IN (0, 3)"),
+)
+#: The list page reads every champion of a few patches.
+Index("ix_champion_stats_patch_queue", ChampionStat.patch, ChampionStat.queue_id)
 Index(
     "ix_match_participants_puuid_game_start",
     MatchParticipant.puuid,
@@ -426,4 +552,10 @@ ALL_TABLES: tuple[str, ...] = (
     "ai_models",
     "app_state",
     "crawl_players",
+    "match_timeline_players",
+    "champion_stats",
+    "champion_bans",
+    "champion_patch_totals",
+    "champion_rollups",
+    "champion_matchups",
 )

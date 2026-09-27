@@ -31,3 +31,8 @@ const CHAMPION_NAMES: Readonly<Record<string, string>> = {
 export function championDisplayName(key: string): string {
   return CHAMPION_NAMES[key] ?? key.replace(/([a-z])([A-Z])/g, "$1 $2");
 }
+
+/** URL segment of a champion page: the Data Dragon key in lower case ("monkeyking"). */
+export function championSlug(key: string): string {
+  return key.toLowerCase();
+}
