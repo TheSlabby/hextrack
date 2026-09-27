@@ -20,7 +20,10 @@ CLI) never does.
 The standalone worker (:func:`run_worker`) also runs the data crawler
 (:mod:`hextrack.ingest.crawler`) while it holds the poller lock, when ``settings.crawl`` is
 on. The crawler is paused while a tick and the live refresh run, and each tick reports what
-it spent on Riot's limits so the crawler leaves that much free for the next one.
+it spent on Riot's limits so the crawler leaves that much free for the next one. After each
+tick it also folds newly stored games into the champion rollups for up to
+:data:`hextrack.stats.champions.worker.WORKER_BUDGET_SECONDS` (no Riot calls; the crawler
+keeps running meanwhile), and prunes them once a day.
 
 Per-summoner / per-match failures are logged, recorded and skipped. A missing or
 rejected Riot key (:class:`RiotKeyMissing` / :class:`RiotForbidden`) aborts the tick and
@@ -65,6 +68,7 @@ from hextrack.ingest.service import (
     refresh_summoner,
 )
 from hextrack.riot.errors import RiotError, RiotForbidden, RiotKeyMissing, RiotRateLimited
+from hextrack.stats.champions.worker import RollupRunner
 
 if TYPE_CHECKING:
     from hextrack.hextrack_ai.inference import Scorer
@@ -517,7 +521,11 @@ def _log_crawler_exit(task: asyncio.Task[None]) -> None:
 
 
 async def poll_forever(
-    ctx: IngestContext, stop: asyncio.Event | None = None, *, crawler: bool = False
+    ctx: IngestContext,
+    stop: asyncio.Event | None = None,
+    *,
+    crawler: bool = False,
+    rollups: bool = False,
 ) -> None:
     """Run :func:`poll_once` every ``poll_interval_seconds`` until ``stop`` is set or the
     task is cancelled. Errors are logged and recorded in the heartbeat, never raised; a
@@ -528,12 +536,15 @@ async def poll_forever(
 
     ``crawler=True`` (the standalone worker only, never the API's in-process poller) also
     runs the data crawler while the lock is held, when ``settings.crawl`` is on.
+    ``rollups=True`` counts stored games into the champion rollups after each tick (while
+    the lock is held; failures are logged, never raised).
     """
     stop = stop if stop is not None else asyncio.Event()
     interval = float(ctx.settings.poll_interval_seconds)
     lock = AdvisoryLock(_engine_of(ctx))
     standing_by = False
     crawl = _CrawlerRunner(ctx) if crawler and ctx.settings.crawl else None
+    rollup = RollupRunner(ctx.session_factory, ctx.settings) if rollups else None
     logger.info(
         "poller started (every %.0fs%s)", interval, ", with the data crawler" if crawl else ""
     )
@@ -571,6 +582,8 @@ async def poll_forever(
                     finally:
                         if crawl is not None:
                             crawl.tick_finished()
+                    if rollup is not None:
+                        await rollup.run(stop)
                 else:
                     if crawl is not None:
                         await crawl.stop()
@@ -590,6 +603,9 @@ async def poll_forever(
     finally:
         if crawl is not None:
             await crawl.stop()
+        if rollup is not None:
+            with contextlib.suppress(Exception):
+                await rollup.aclose()
         if lock.held:
             await _write_heartbeat(ctx, {"running": False})
         await lock.release()
@@ -699,7 +715,7 @@ async def run_worker(settings: Settings) -> None:
                 riot=riot,
                 scorer=scorer,
             )
-            await poll_forever(ctx, stop, crawler=True)
+            await poll_forever(ctx, stop, crawler=True, rollups=True)
     finally:
         for sig in installed:
             with contextlib.suppress(Exception):

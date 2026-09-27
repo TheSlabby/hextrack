@@ -12,6 +12,6 @@ Cmnd_Alias HEXTRACK_INSTALL = /usr/local/sbin/hextrack-install ^/home/walker/hex
 Cmnd_Alias HEXTRACK_SERVICE = /usr/bin/systemctl ^(start|stop|restart|try-restart) hextrack-(api|worker|bot)( hextrack-(api|worker|bot))*$, \
                               /usr/bin/systemctl start hextrack-migrate
 # hextrack-admin passes its arguments to the sandboxed CLI as argv (no shell), running as hextrack.
-Cmnd_Alias HEXTRACK_ADMIN   = /usr/local/sbin/hextrack-admin ^(train|model|backfill|roster|crawl)( .*)?$
+Cmnd_Alias HEXTRACK_ADMIN   = /usr/local/sbin/hextrack-admin ^(train|model|backfill|roster|crawl|champions)( .*)?$
 
 walker ALL=(root) NOPASSWD: HEXTRACK_INSTALL, HEXTRACK_SERVICE, HEXTRACK_ADMIN

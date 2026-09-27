@@ -8,13 +8,14 @@ import { Crosshair, Skull, Swords } from "lucide-react";
 
 import { useMatchupInsights } from "@/api/queries";
 import type { ChampionMatchup, MatchupInsights } from "@/api/types";
-import { AiScoreBadge, ChampionIcon, EmptyState, ErrorState, GlowCard, SectionHeader, WinRateBar } from "@/components/common";
+import { AiScoreBadge, EmptyState, ErrorState, GlowCard, SectionHeader } from "@/components/common";
+import { MatchupRow } from "@/components/common/MatchupRow";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { championDisplayName } from "@/lib/champions";
-import { formatPercent, plural } from "@/lib/format";
+import { plural } from "@/lib/format";
 
-import { formatSignedCompact, gamesPhrase, type TrendsFilters } from "./model";
+import { gamesPhrase, type TrendsFilters } from "./model";
 import { Refetching } from "./parts";
 
 const MIN_GAMES_OPTIONS = [3, 5, 10] as const;
@@ -145,7 +146,7 @@ function MatchupList({
         <ul className="flex flex-col gap-1.5">
           {items.slice(0, LIST_ROWS).map((item) => (
             <li key={item.champion_id}>
-              <MatchupRow item={item} />
+              <MatchupItem item={item} />
             </li>
           ))}
         </ul>
@@ -154,33 +155,26 @@ function MatchupList({
   );
 }
 
-function MatchupRow({ item }: { item: ChampionMatchup }) {
-  const name = championDisplayName(item.champion_name);
-  const gold = Math.round(item.avg_gold_diff);
+function MatchupItem({ item }: { item: ChampionMatchup }) {
   return (
-    <div
-      className="flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-2.5 py-2"
-      aria-label={`${name}: ${item.wins} wins, ${item.losses} losses, ${formatPercent(item.winrate)} win rate, ${formatSignedCompact(gold)} gold on average`}
-    >
-      <ChampionIcon champion={item.champion_name} size="sm" />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold text-text">{name}</span>
-        <span className="flex items-center gap-2 text-xs text-text-muted tabular-nums">
-          <span className="text-text-secondary">{formatSignedCompact(gold)} gold</span>
-          {item.avg_ai_score !== null ? (
-            <AiScoreBadge
-              score={item.avg_ai_score}
-              kind="average"
-              size="sm"
-              detail={`Over ${plural(item.games, "game")} against ${name}.`}
-            />
-          ) : (
-            <span>not scored</span>
-          )}
-        </span>
-      </div>
-      <WinRateBar wins={item.wins} losses={item.losses} size="sm" className="w-24 shrink-0 sm:w-28" />
-    </div>
+    <MatchupRow
+      champion={item.champion_name}
+      wins={item.wins}
+      losses={item.losses}
+      avgGoldDiff={item.avg_gold_diff}
+      detail={
+        item.avg_ai_score !== null ? (
+          <AiScoreBadge
+            score={item.avg_ai_score}
+            kind="average"
+            size="sm"
+            detail={`Over ${plural(item.games, "game")} against ${championDisplayName(item.champion_name)}.`}
+          />
+        ) : (
+          <span>not scored</span>
+        )
+      }
+    />
   );
 }
 

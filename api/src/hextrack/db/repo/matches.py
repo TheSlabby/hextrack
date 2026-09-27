@@ -7,11 +7,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Text, any_, bindparam, func, select, update
+from sqlalchemy import Text, any_, bindparam, case, func, select, update
 from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from hextrack.db.models import Match, MatchParticipant
+from hextrack.db.models import Match, MatchParticipant, MatchTimelinePlayer
 
 
 async def existing_match_ids(session: AsyncSession, match_ids: Sequence[str]) -> set[str]:
@@ -132,3 +132,104 @@ async def write_scores(
             .values(scored_at=scored_at, model_version=model_version)
             .execution_options(synchronize_session=False)
         )
+
+
+# --- match timelines (the crawler's backlog step) -------------------------------------------
+
+
+async def pending_timelines(session: AsyncSession, limit: int) -> list[str]:
+    """Up to ``limit`` match ids waiting for a timeline: roster games first, then crawled
+    ones, newest first within each (both through ``ix_matches_timeline_pending``)."""
+    ids: list[str] = []
+    for source in ("roster", "crawl"):
+        room = limit - len(ids)
+        if room <= 0:
+            break
+        stmt = (
+            select(Match.match_id)
+            .where(Match.timeline_state == "pending", Match.source == source)
+            .order_by(Match.game_start.desc())
+            .limit(room)
+        )
+        ids.extend(await session.scalars(stmt))
+    return ids
+
+
+async def participant_ids(session: AsyncSession, match_id: str) -> dict[str, int]:
+    """``{puuid: participant_id}`` of a stored match."""
+    stmt = select(MatchParticipant.puuid, MatchParticipant.participant_id).where(
+        MatchParticipant.match_id == match_id
+    )
+    return {row[0]: int(row[1]) for row in (await session.execute(stmt)).all()}
+
+
+async def store_timeline(
+    session: AsyncSession, match_id: str, rows: Sequence[Mapping[str, Any]]
+) -> bool:
+    """Insert ``match_timeline_players`` rows (ON CONFLICT DO NOTHING) and mark the match's
+    timeline "ok". A match the champion rollup already counted without its timeline
+    (``champ_rollup = 1``) moves to 3 in the same statement, so the rollup worker adds the
+    timeline kinds exactly once. Returns False (nothing written) when the match is no longer
+    pending."""
+    marked = await session.scalar(
+        update(Match)
+        .where(Match.match_id == match_id, Match.timeline_state == "pending")
+        .values(
+            timeline_state="ok",
+            champ_rollup=case((Match.champ_rollup == 1, 3), else_=Match.champ_rollup),
+        )
+        .returning(Match.match_id)
+        .execution_options(synchronize_session=False)
+    )
+    if marked is None:
+        return False
+    if rows:
+        stmt = insert(MatchTimelinePlayer).on_conflict_do_nothing(
+            index_elements=[MatchTimelinePlayer.match_id, MatchTimelinePlayer.participant_id]
+        )
+        await session.execute(stmt, [dict(r) for r in rows])
+    return True
+
+
+async def set_timeline_state(session: AsyncSession, match_id: str, state: str) -> None:
+    """Give up on a pending timeline ("missing" or "failed")."""
+    await session.execute(
+        update(Match)
+        .where(Match.match_id == match_id, Match.timeline_state == "pending")
+        .values(timeline_state=state)
+        .execution_options(synchronize_session=False)
+    )
+
+
+async def timeline_attempt_failed(
+    session: AsyncSession, match_id: str, *, max_attempts: int
+) -> str | None:
+    """Count a failed timeline fetch; the match becomes "failed" at ``max_attempts``.
+    Returns the new state (None when the match was not pending)."""
+    attempts = Match.timeline_attempts + 1
+    return await session.scalar(
+        update(Match)
+        .where(Match.match_id == match_id, Match.timeline_state == "pending")
+        .values(
+            timeline_attempts=attempts,
+            timeline_state=case((attempts >= max_attempts, "failed"), else_="pending"),
+        )
+        .returning(Match.timeline_state)
+        .execution_options(synchronize_session=False)
+    )
+
+
+async def timeline_state_counts(session: AsyncSession) -> dict[str, int]:
+    """``{timeline_state: matches}`` over sampled matches (NULL = not sampled is left out)."""
+    stmt = (
+        select(Match.timeline_state, func.count())
+        .where(Match.timeline_state.is_not(None))
+        .group_by(Match.timeline_state)
+    )
+    return {str(row[0]): int(row[1]) for row in (await session.execute(stmt)).all()}
+
+
+async def count_pending_timelines(session: AsyncSession) -> int:
+    """Matches waiting for a timeline (an index-only count on the partial index)."""
+    stmt = select(func.count()).select_from(Match).where(Match.timeline_state == "pending")
+    return int(await session.scalar(stmt) or 0)

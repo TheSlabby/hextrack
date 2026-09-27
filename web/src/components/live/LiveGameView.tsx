@@ -1,9 +1,11 @@
 import { useId } from "react";
+import { Link } from "@tanstack/react-router";
 import { Hexagon } from "lucide-react";
 
 import type { LiveBan, LiveGame, LiveParticipant, RankEntry, TeamId } from "@/api/types";
 import { AiScoreBadge } from "@/components/common/AiScoreBadge";
 import { ChampionIcon } from "@/components/common/ChampionIcon";
+import { ChampionLink } from "@/components/common/ChampionLink";
 import { GlowCard } from "@/components/common/GlowCard";
 import { Stagger, StaggerItem } from "@/components/common/Motion";
 import { SpellIcons } from "@/components/common/SpellIcons";
@@ -13,7 +15,7 @@ import { PlayerNameLink } from "@/components/match/MatchBits";
 import { TEAM_SIDE_LABEL } from "@/components/match/matchUtils";
 import { useNow } from "@/components/summoner/hooks";
 import { Badge } from "@/components/ui/badge";
-import { championDisplayName } from "@/lib/champions";
+import { championDisplayName, championSlug } from "@/lib/champions";
 import { cn } from "@/lib/cn";
 import { formatPercent, formatRecord, plural, timeAgo } from "@/lib/format";
 import { QUEUE_FLEX, queueLabel } from "@/lib/queues";
@@ -257,7 +259,20 @@ function LiveParticipantRow({ p, queueId }: { p: LiveParticipant; queueId: numbe
     >
       {/* Player: champion, spells, runes, name (+ rank and avg AI on narrow rows). */}
       <div className="flex min-w-0 items-center gap-2">
-        <ChampionIcon champion={p.champion_name ?? ""} size="md" highlight={p.is_tracked} />
+        {p.champion_name ? (
+          // The champion name under the player is the accessible link; the portrait is a mouse shortcut.
+          <Link
+            to="/champions/$champion"
+            params={{ champion: championSlug(p.champion_name) }}
+            tabIndex={-1}
+            aria-hidden="true"
+            className="shrink-0 rounded-lg"
+          >
+            <ChampionIcon champion={p.champion_name} size="md" highlight={p.is_tracked} />
+          </Link>
+        ) : (
+          <ChampionIcon champion="" size="md" highlight={p.is_tracked} />
+        )}
         <SpellIcons spell1={p.spell1_id} spell2={p.spell2_id} size="sm" />
         <RuneIcons
           keystoneId={p.keystone_id}
@@ -277,7 +292,11 @@ function LiveParticipantRow({ p, queueId }: { p: LiveParticipant; queueId: numbe
               </Badge>
             ) : null}
           </div>
-          <span className="truncate text-[11px] text-text-muted">{championOf(p)}</span>
+          {p.champion_name ? (
+            <ChampionLink champion={p.champion_name} className="max-w-full self-start truncate text-[11px] text-text-muted" />
+          ) : (
+            <span className="truncate text-[11px] text-text-muted">{championOf(p)}</span>
+          )}
           <div className="@3xl:hidden">
             {rank.entry ? (
               <TierBadge entry={rank.entry} size="sm" emblem={false} />

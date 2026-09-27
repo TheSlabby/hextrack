@@ -46,6 +46,11 @@ crawl_app = typer.Typer(
 app.add_typer(model_app, name="model")
 app.add_typer(roster_app, name="roster")
 app.add_typer(crawl_app, name="crawl")
+champions_app = typer.Typer(
+    help="Champion pages: the rollup tables the worker fills from stored games.",
+    no_args_is_help=True,
+)
+app.add_typer(champions_app, name="champions")
 app.add_typer(db_app, name="db")
 
 
@@ -454,6 +459,8 @@ def seed_demo_cmd(
     setup_logging()
     report = _run(seed_demo(settings, reset=reset, players=players, matches=matches, seed=seed))
     _print_dataclass("Demo seed", report)
+    if report.deleted_matches:
+        console.print(_ROLLUP_STALE_HINT)
 
 
 @app.command("clear-demo")
@@ -464,6 +471,8 @@ def clear_demo_cmd() -> None:
     setup_logging()
     deleted = _run(clear_demo(get_settings()))
     console.print(f"Deleted {deleted} demo matches and all demo summoners.")
+    if deleted:
+        console.print(_ROLLUP_STALE_HINT)
 
 
 # --- roster ----------------------------------------------------------------------------------
@@ -577,6 +586,12 @@ def crawl_status_cmd() -> None:
         f"crawled games: {st.crawled_total:,} stored ({st.crawled_24h:,} in the last 24 h) "
         f"of {st.matches_total:,} games in the database"
     )
+    tl = st.timelines
+    console.print(
+        "match timelines: "
+        + ", ".join(f"{tl.get(k, 0):,} {k}" for k in ("pending", "ok", "missing", "failed"))
+        + ("" if st.timelines_enabled else " [dim](fetching disabled: HEXTRACK_TIMELINES=false)[/]")
+    )
     console.print(f"database size: {_bytes(st.db_size_bytes)}")
     if st.disk_free_bytes is not None:
         low = st.disk_free_bytes < st.min_free_gb * 1024**3
@@ -625,6 +640,160 @@ def crawl_seed_cmd(
             else ""
         )
         + ")"
+    )
+
+
+# --- champion rollups ------------------------------------------------------------------------
+
+_ROLLUP_STALE_HINT = (
+    "[yellow]note:[/] the champion rollups still count the deleted games; "
+    "run `hextrack champions rebuild --run` to recount them."
+)
+_ROLLUP_STATES = {
+    0: "queued",
+    1: "counted",
+    2: "counted with timeline",
+    3: "timeline arrived (queued)",
+    -1: "not eligible",
+}
+
+
+async def _in_transaction[T](settings: Settings, fn: Callable[[AsyncSession], Awaitable[T]]) -> T:
+    """Run ``fn`` in one DB transaction (committed on success; no Riot client)."""
+    from hextrack.db.engine import make_async_engine, make_session_factory, session_scope
+
+    engine = make_async_engine(settings, pool_size=1, max_overflow=0)
+    try:
+        async with session_scope(make_session_factory(engine)) as session:
+            return await fn(session)
+    finally:
+        await engine.dispose()
+
+
+async def _process_rollups(settings: Settings) -> Any:
+    """Count every queued match now (batch per transaction), printing progress."""
+    import time
+
+    from hextrack.db.engine import make_async_engine, make_session_factory
+    from hextrack.riot.ddragon import DDragon
+    from hextrack.stats.champions.worker import RollupRun, run_rollups
+
+    started = time.monotonic()
+
+    def progress(run: RollupRun) -> None:
+        if run.batches % 10 == 0:
+            rate = run.matches / max(run.seconds, 1e-6)
+            err_console.print(f"  {run.matches:,} matches ({rate:,.0f}/s)")
+
+    engine = make_async_engine(settings, pool_size=1, max_overflow=0)
+    ddragon = DDragon()
+    try:
+        run = await run_rollups(
+            make_session_factory(engine),
+            ddragon,
+            settings,
+            budget_seconds=None,
+            on_batch=progress,
+        )
+    finally:
+        await ddragon.aclose()
+        await engine.dispose()
+    run.seconds = time.monotonic() - started
+    return run
+
+
+def _print_rollup_run(run: Any) -> None:
+    rate = run.matches / run.seconds if run.seconds else 0.0
+    console.print(
+        f"[green]counted[/] {run.matches:,} matches in {run.batches} batches, "
+        f"{run.seconds:.1f}s ({rate:,.0f} matches/s)"
+    )
+
+
+@champions_app.command("status")
+def champions_status_cmd(
+    patches: Annotated[int, typer.Option(min=1, help="Newest patches to list.")] = 6,
+) -> None:
+    """Show the rollup queue, counted games per patch and the tables' sizes (read only)."""
+    from hextrack.stats.champions.worker import champions_status
+
+    st = _run(_with_session(get_settings(), champions_status))
+    queue = Table(title="Matches by champ_rollup", title_justify="left")
+    for col in ("state", "", "matches", "with timeline"):
+        queue.add_column(col, justify="right" if col in ("matches", "with timeline") else "left")
+    for state, n in sorted(st.by_state.items()):
+        queue.add_row(
+            str(state), _ROLLUP_STATES.get(state, "?"), f"{n:,}", f"{st.timelines_ok[state]:,}"
+        )
+    console.print(queue)
+    backlog = st.by_state.get(0, 0) + st.by_state.get(3, 0)
+    console.print(f"backlog: {backlog:,} matches to count")
+
+    newest = sorted({p.patch for p in st.patches}, key=_patch_sort_key, reverse=True)[:patches]
+    table = Table(title="Counted games by patch", title_justify="left")
+    for col in ("patch", "queue", "matches", "with timeline"):
+        table.add_column(col, justify="left" if col == "patch" else "right")
+    for p in st.patches:
+        if p.patch in newest:
+            table.add_row(p.patch, str(p.queue_id), f"{p.matches:,}", f"{p.timeline_matches:,}")
+    older = [p for p in st.patches if p.patch not in newest]
+    if older:
+        table.add_row(
+            f"(+{len({p.patch for p in older})} older)",
+            "",
+            f"{sum(p.matches for p in older):,}",
+            f"{sum(p.timeline_matches for p in older):,}",
+        )
+    console.print(table)
+
+    sizes = Table(title="Rows", title_justify="left")
+    sizes.add_column("table")
+    sizes.add_column("rows", justify="right")
+    for name, n in st.tables.items():
+        sizes.add_row(name, f"{n:,}")
+    console.print(sizes)
+
+
+def _patch_sort_key(patch: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in patch.split(".") if part.isdigit())
+
+
+@champions_app.command("run")
+def champions_run_cmd() -> None:
+    """Count every queued match now (the worker also does this after each poll)."""
+    setup_logging()
+    _print_rollup_run(_run(_process_rollups(get_settings())))
+
+
+@champions_app.command("rebuild")
+def champions_rebuild_cmd(
+    run: Annotated[
+        bool, typer.Option("--run", help="Count every stored game again right away.")
+    ] = False,
+) -> None:
+    """Empty the champion rollup tables and queue every stored game to be counted again.
+
+    One transaction. Without --run the worker recounts the games over its next polls
+    (about 15 s of work after each)."""
+    from hextrack.stats.champions.worker import rebuild
+
+    setup_logging()
+    settings = get_settings()
+    queued = _run(_in_transaction(settings, rebuild))
+    console.print(f"[yellow]rollups emptied;[/] {queued:,} matches queued again")
+    if run:
+        _print_rollup_run(_run(_process_rollups(settings)))
+
+
+@champions_app.command("prune")
+def champions_prune_cmd() -> None:
+    """Drop rollup rows with fewer than 3 games on patches older than the newest 3."""
+    from hextrack.stats.champions.worker import PRUNE_KEEP_PATCHES, PRUNE_MIN_GAMES, prune
+
+    deleted = _run(_in_transaction(get_settings(), prune))
+    console.print(
+        f"pruned {deleted:,} rollup rows (under {PRUNE_MIN_GAMES} games, "
+        f"patches older than the newest {PRUNE_KEEP_PATCHES})"
     )
 
 

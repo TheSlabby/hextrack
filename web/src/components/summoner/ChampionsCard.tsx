@@ -1,10 +1,12 @@
+import { Link } from "@tanstack/react-router";
 import { Swords } from "lucide-react";
 
 import type { ChampionStat } from "@/api/types";
 import { AiScoreBadge, ChampionIcon, EmptyState, GlowCard, SectionHeader, WinRateBar } from "@/components/common";
 import { cn } from "@/lib/cn";
 import { formatDecimal, formatPercent, plural } from "@/lib/format";
-import { championDisplayName } from "@/lib/champions";
+import { ChampionLink } from "@/components/common/ChampionLink";
+import { championDisplayName, championSlug } from "@/lib/champions";
 
 
 export interface ChampionsCardProps {
@@ -57,12 +59,21 @@ function ChampionRow({ champion }: { champion: ChampionStat }) {
   return (
     <div role="row" className={cn(GRID, "py-2")}>
       <span role="cell">
-        <ChampionIcon champion={champion.champion_name} size="sm" />
+        {/* The name is the accessible link; the portrait is a mouse shortcut to the same page. */}
+        <Link
+          to="/champions/$champion"
+          params={{ champion: championSlug(champion.champion_name) }}
+          tabIndex={-1}
+          aria-hidden="true"
+          className="block rounded-md"
+        >
+          <ChampionIcon champion={champion.champion_name} size="sm" />
+        </Link>
       </span>
       <span role="cell" className="flex min-w-0 flex-col">
-        <span className="truncate text-sm font-medium text-text" title={name}>
+        <ChampionLink champion={champion.champion_name} className="max-w-full self-start truncate text-sm font-medium text-text">
           {name}
-        </span>
+        </ChampionLink>
         <span className="text-[11px] text-text-muted tabular-nums">{plural(champion.games, "game")}</span>
       </span>
       <span role="cell" className="flex flex-col gap-1">

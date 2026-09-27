@@ -288,6 +288,12 @@ def rune_page(
     return primary_style, runes, shards
 
 
+def role_bound_item(participant: Mapping[str, Any]) -> int | None:
+    """``roleBoundItem`` (the role quest's extra item slot), or None if absent."""
+    value = participant.get("roleBoundItem")
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
 def ban_ids(info: Mapping[str, Any]) -> list[int] | None:
     """Champion ids banned by both teams (``info.teams[].bans``; "no ban" -1 dropped), or None
     when the payload has no ban data."""
@@ -366,6 +372,7 @@ def map_participant(
         "primary_style_id": primary_style,
         "rune_ids": rune_ids,
         "stat_shards": stat_shards,
+        "role_bound_item": role_bound_item(p),
     }
     for column, key in INT_STATS.items():
         row[column] = _int(p, key, where=where)

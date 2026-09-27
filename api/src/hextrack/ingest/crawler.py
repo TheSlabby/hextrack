@@ -16,13 +16,23 @@ Frontier (``crawl_players``):
 * grown with the participants of crawled games while it is below ``crawl_frontier_max``.
   Tracked summoners (the poller owns them) and demo puuids are never added.
 
-One step (:meth:`Crawler.step`): maybe a ladder page, then one player: uncrawled players
-first (oldest discovered; every :data:`LADDER_PICK_EVERY` th pick prefers a ladder player so
-ranks stay mixed), else whoever was crawled longest ago, at least :data:`RECRAWL_AFTER` back.
-Their newest ``crawl_matches_per_player`` ranked games since the season start are listed,
-stored ones skipped, and the rest fetched and stored one transaction per match. A game with
-a tracked player in it is left to the poller (it announces friends' games; the crawler never
-does).
+One step (:meth:`Crawler.step`): first the timeline backlog (below), then maybe a ladder
+page, then one player: uncrawled players first (oldest discovered; every
+:data:`LADDER_PICK_EVERY` th pick prefers a ladder player so ranks stay mixed), else whoever
+was crawled longest ago, at least :data:`RECRAWL_AFTER` back. Their newest
+``crawl_matches_per_player`` ranked games since the season start are listed, stored ones
+skipped, and the rest fetched and stored one transaction per match. A game with a tracked
+player in it is left to the poller (it announces friends' games; the crawler never does).
+
+Timeline backlog (champion build orders, :mod:`hextrack.ingest.timeline`): each step first
+fetches up to :data:`TIMELINE_BATCH` timelines of games marked ``timeline_state = 'pending'``
+(roster games first, then sampled crawled games, newest first) through the same budget gate
+(regional routing, like match fetches), so timelines come before new crawl games but never
+before the poll. A stored timeline writes its rows and ``timeline_state = 'ok'`` in one
+transaction (moving ``champ_rollup`` 1 -> 3 for the rollup worker). A 404 marks the game
+"missing", a timeline whose players differ from the stored match "failed"; other errors count
+an attempt and give up ("failed") at :data:`~hextrack.ingest.timeline.TIMELINE_MAX_ATTEMPTS`.
+Rate limits and key errors are not attempts: they pause the crawler like any other request.
 
 Budget gate (:class:`CrawlBudget`): before every request the crawler waits until
 
@@ -44,7 +54,9 @@ Heartbeat (``app_state["crawler"]``, written every :data:`HEARTBEAT_SECONDS`)::
      | "error", "updated_at": ISO, "started_at": ISO, "matches_added": int (this run),
      "matches_added_today": int, "day": "YYYY-MM-DD" (UTC), "players_crawled": int (this run),
      "frontier_uncrawled": int, "frontier_total": int, "last_error": str | None,
-     "reserve": {"na1": int, "americas": int}, "ladder_pages": {"GOLD II": [max_page, end_known]}}
+     "reserve": {"na1": int, "americas": int}, "ladder_pages": {"GOLD II": [max_page, end_known]},
+     "timelines_fetched": int (this run), "timelines_fetched_today": int,
+     "timelines_pending": int | None}
 """
 
 from __future__ import annotations
@@ -71,6 +83,14 @@ from hextrack.demo.names import DEMO_PUUID_PREFIX
 from hextrack.ingest.context import IngestContext
 from hextrack.ingest.mapping import InvalidMatchPayload
 from hextrack.ingest.service import MATCH_TYPE, ingest_match_json
+from hextrack.ingest.timeline import (
+    STATE_FAILED,
+    STATE_MISSING,
+    TIMELINE_MAX_ATTEMPTS,
+    InvalidTimeline,
+    TimelineMismatch,
+    extract_timeline,
+)
 from hextrack.rank import APEX_TIERS, DIVISION_ORDER, TIER_ORDER, RANKED_SOLO_5x5
 from hextrack.riot.client import METHOD_ROUTING, Routing
 from hextrack.riot.errors import (
@@ -138,6 +158,14 @@ LADDER_SLOTS: Final[tuple[tuple[str, str], ...]] = tuple(
     for tier in TIER_ORDER
     for division in (("I",) if tier in APEX_TIERS else DIVISION_ORDER)
 )
+
+# --- timelines ---
+#: Most pending timelines fetched per step (before the step's player crawl). A player crawl
+#: fetches up to ``crawl_matches_per_player`` (20) games, so a backlog gets about half the
+#: spare budget; in steady state (1 in 3 crawled games sampled) it stays near empty.
+TIMELINE_BATCH: Final = 20
+#: Demo games have no Riot timeline.
+_DEMO_MATCH_PREFIX: Final = "DEMO_"
 
 # --- reporting ---
 HEARTBEAT_SECONDS: Final = 60.0
@@ -313,6 +341,9 @@ class CrawlReport:
     frontier_added: int = 0
     #: "GOLD II p17" when a ladder page was fetched.
     ladder: str | None = None
+    #: Pending timelines tried this step, and how many of them were stored.
+    timelines_tried: int = 0
+    timelines_stored: int = 0
     errors: list[str] = field(default_factory=list)
 
 
@@ -388,6 +419,10 @@ class Crawler:
         self.matches_added_today = 0
         self.day = self.started_at.date().isoformat()
         self.players_crawled = 0
+        self.timelines_fetched = 0
+        self.timelines_fetched_today = 0
+        #: Timelines still pending after the last backlog query (None: not counted yet).
+        self.timelines_pending: int | None = None
         self.counts = _Counts()
         self._steps = 0
         self._picks = 0
@@ -430,15 +465,17 @@ class Crawler:
                 if self.paused_reason in ("riot_forbidden", "error"):
                     self.paused_reason = None
                 await self._housekeeping()
-                if report.puuid is None:
+                if report.puuid is None and not report.timelines_tried:
                     await self._pause(IDLE_PAUSE_SECONDS)
         finally:
             await self.write_heartbeat(running=False)
             logger.info("crawler stopped")
 
     async def step(self) -> CrawlReport:
-        """Maybe fetch a ladder page, then crawl one player."""
+        """Fetch pending timelines, maybe a ladder page, then crawl one player."""
         report = CrawlReport()
+        if self.ctx.settings.timelines:
+            await self._timelines(report)
         self.counts = await self._frontier_counts()
         tracked = await self._tracked()
         if self.counts.uncrawled < LADDER_BACKLOG_MIN or self._steps % LADDER_EVERY_STEPS == 0:
@@ -734,12 +771,96 @@ class Crawler:
         if crawled:
             self.counts.uncrawled = max(self.counts.uncrawled - 1, 0)
 
-    def _count_added(self, n: int) -> None:
+    def _roll_day(self) -> None:
+        """Reset today's counters on the first use of a new UTC day."""
         today = _utcnow().date().isoformat()
         if today != self.day:
-            self.day, self.matches_added_today = today, 0
+            self.day, self.matches_added_today, self.timelines_fetched_today = today, 0, 0
+
+    def _count_added(self, n: int) -> None:
+        self._roll_day()
         self.matches_added += n
         self.matches_added_today += n
+
+    # --- timeline backlog -----------------------------------------------------------------
+    async def _timelines(self, report: CrawlReport) -> None:
+        """Fetch up to :data:`TIMELINE_BATCH` pending timelines (roster games first)."""
+        async with self.ctx.session_factory() as session:
+            batch = await matches_repo.pending_timelines(session, TIMELINE_BATCH)
+            self.timelines_pending = (
+                len(batch)
+                if len(batch) < TIMELINE_BATCH
+                else await matches_repo.count_pending_timelines(session)
+            )
+        for match_id in batch:
+            report.timelines_tried += 1
+            if await self._timeline(match_id, report):
+                report.timelines_stored += 1
+                self._roll_day()
+                self.timelines_fetched += 1
+                self.timelines_fetched_today += 1
+            if self.timelines_pending:
+                self.timelines_pending -= 1
+
+    async def _timeline(self, match_id: str, report: CrawlReport) -> bool:
+        """Fetch and store one game's timeline; True when stored. Rate limits and key errors
+        propagate without counting an attempt (the game stays pending)."""
+        if match_id.startswith(_DEMO_MATCH_PREFIX):
+            await self._timeline_state(match_id, STATE_MISSING)
+            return False
+        await self._gate("match_timeline")
+        try:
+            raw = await self.ctx.riot.match_timeline(match_id)
+        except (*_FATAL_RIOT_ERRORS, RiotRateLimited):
+            raise
+        except RiotNotFound:
+            logger.info("crawl: no timeline for %s at Riot", match_id)
+            await self._timeline_state(match_id, STATE_MISSING)
+            return False
+        except RiotError as exc:
+            logger.info("crawl: timeline %s failed: %s", match_id, exc)
+            report.errors.append(f"timeline {match_id}: {_short(exc)}")
+            await self._timeline_attempt(match_id)
+            return False
+        try:
+            async with session_scope(self.ctx.session_factory) as session:
+                players = await matches_repo.participant_ids(session, match_id)
+                rows = extract_timeline(raw, players, match_id=match_id)
+                return await matches_repo.store_timeline(session, match_id, rows)
+        except TimelineMismatch as exc:
+            logger.warning("crawl: timeline %s: %s; giving up", match_id, exc)
+            report.errors.append(f"timeline {match_id}: {_short(exc)}")
+            await self._timeline_state(match_id, STATE_FAILED)
+        except InvalidTimeline as exc:
+            logger.warning("crawl: timeline %s: invalid payload (%s)", match_id, exc)
+            report.errors.append(f"timeline {match_id}: {_short(exc)}")
+            await self._timeline_attempt(match_id)
+        except Exception as exc:
+            logger.exception("crawl: unexpected error storing the timeline of %s", match_id)
+            report.errors.append(f"timeline {match_id}: {type(exc).__name__}: {_short(exc)}")
+            await self._timeline_attempt(match_id)
+        return False
+
+    async def _timeline_state(self, match_id: str, state: str) -> None:
+        try:
+            async with session_scope(self.ctx.session_factory) as session:
+                await matches_repo.set_timeline_state(session, match_id, state)
+        except Exception:
+            logger.exception("crawl: could not mark the timeline of %s %s", match_id, state)
+
+    async def _timeline_attempt(self, match_id: str) -> None:
+        try:
+            async with session_scope(self.ctx.session_factory) as session:
+                state = await matches_repo.timeline_attempt_failed(
+                    session, match_id, max_attempts=TIMELINE_MAX_ATTEMPTS
+                )
+        except Exception:
+            logger.exception("crawl: could not count a timeline attempt for %s", match_id)
+            return
+        if state == STATE_FAILED:
+            logger.warning(
+                "crawl: timeline %s failed %d times; giving up", match_id, TIMELINE_MAX_ATTEMPTS
+            )
 
     # --- pauses, heartbeat, log -----------------------------------------------------------
     async def _pause(self, seconds: float) -> None:
@@ -766,9 +887,12 @@ class Crawler:
             self._last_log = now
             reserve = self.reserve_by_value()
             logger.info(
-                "crawl: +%d games (%d today), frontier %d/%d, reserve %s",
+                "crawl: +%d games (%d today), %d timelines today (%s pending), "
+                "frontier %d/%d, reserve %s",
                 self.matches_added - self._logged_added,
                 self.matches_added_today,
+                self.timelines_fetched_today,
+                "?" if self.timelines_pending is None else self.timelines_pending,
                 self.counts.uncrawled,
                 self.counts.total,
                 " ".join(f"{name}={value}" for name, value in reserve.items()),
@@ -784,9 +908,7 @@ class Crawler:
         }
 
     def heartbeat(self, *, running: bool = True) -> dict[str, Any]:
-        today = _utcnow().date().isoformat()
-        if today != self.day:
-            self.day, self.matches_added_today = today, 0
+        self._roll_day()
         return {
             "running": running,
             "paused_reason": self.paused_reason,
@@ -801,6 +923,9 @@ class Crawler:
             "last_error": self.last_error,
             "reserve": self.reserve_by_value(),
             "ladder_pages": self.ladder_pages,
+            "timelines_fetched": self.timelines_fetched,
+            "timelines_fetched_today": self.timelines_fetched_today,
+            "timelines_pending": self.timelines_pending,
         }
 
     async def write_heartbeat(self, *, running: bool = True) -> None:
@@ -826,6 +951,7 @@ class Crawler:
             return
         if state.get("day") == self.day:
             self.matches_added_today = int(state.get("matches_added_today") or 0)
+            self.timelines_fetched_today = int(state.get("timelines_fetched_today") or 0)
         pages = state.get("ladder_pages")
         if isinstance(pages, dict):
             for key, value in pages.items():

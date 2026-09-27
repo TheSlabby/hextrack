@@ -259,6 +259,9 @@ class MatchParticipant(Base):
     primary_style_id: Mapped[int | None] = mapped_column(SmallInteger)
     rune_ids: Mapped[list[int] | None] = mapped_column(ARRAY(SmallInteger))
     stat_shards: Mapped[list[int] | None] = mapped_column(ARRAY(SmallInteger))
+    #: ``roleBoundItem``: the role quest's extra slot (bot lane keeps its boots here since
+    #: the 2026 season). 0 = empty; NULL = not filled yet / not in the payload.
+    role_bound_item: Mapped[int | None] = mapped_column(Integer)
 
     # AI Score
     #: P(win | stat line) in [0, 1] from ``model_version``; None until scored.

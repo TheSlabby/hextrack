@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from hextrack.config import Settings
 from hextrack.db.models import AppState, CrawlPlayer, Match
+from hextrack.db.repo import matches as matches_repo
 from hextrack.ingest.crawler import STATE_KEY
 from hextrack.rank import DIVISION_ORDER, TIER_ORDER
 
@@ -176,6 +177,9 @@ class CrawlStatus:
     disk_free_bytes: int | None = None
     disk_total_bytes: int | None = None
     min_free_gb: float = 0.0
+    timelines_enabled: bool = True
+    #: Sampled games by ``matches.timeline_state`` (pending / ok / missing / failed).
+    timelines: dict[str, int] = field(default_factory=dict)
 
 
 def _tier_sort_key(label: str) -> tuple[int, int, str]:
@@ -236,6 +240,7 @@ async def crawl_status(
         heartbeat_row_updated_at=row[1] if row is not None else None,
         interpreted=interpret_heartbeat(heartbeat, now=now),
         min_free_gb=settings.crawl_min_free_gb,
+        timelines_enabled=settings.timelines,
     )
 
     for found_via, total, uncrawled, errored in await _frontier(session, CrawlPlayer.found_via):
@@ -254,6 +259,7 @@ async def crawl_status(
     status.crawled_total = await count_crawled_matches(session)
     status.crawled_24h = await count_crawled_matches(session, since=now - timedelta(hours=24))
     status.matches_total = int(await session.scalar(select(func.count()).select_from(Match)) or 0)
+    status.timelines = await matches_repo.timeline_state_counts(session)
     status.db_size_bytes = await session.scalar(text("SELECT pg_database_size(current_database())"))
 
     data_dir = await _data_directory(session)

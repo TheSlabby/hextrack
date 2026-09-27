@@ -1,7 +1,8 @@
 /**
  * Global search palette (⌘K / Ctrl+K / "/"). AppShell owns the open state and the shortcut;
- * this renders the dialog: live summoner search, recent visits, the tracked roster, page
- * navigation and a "Look up Name#TAG" fallback for players HexTrack has never seen.
+ * this renders the dialog: live summoner search, champions (Data Dragon list), recent visits,
+ * the tracked roster, page navigation and a "Look up Name#TAG" fallback for players HexTrack
+ * has never seen.
  */
 import { Fragment, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
@@ -14,6 +15,7 @@ import {
   Home,
   Loader2,
   Search,
+  Swords,
   Trash2,
   Trophy,
   UserRoundSearch,
@@ -22,10 +24,13 @@ import {
 
 import { useRoster, useSearch } from "@/api/queries";
 import type { RiotIdParts, RosterEntry, SummonerSearchResult } from "@/api/types";
+import { ChampionIcon } from "@/components/common/ChampionIcon";
 import { Kbd } from "@/components/common/Kbd";
+import { useChampionCatalog } from "@/components/match/useChampionCatalog";
 import { Badge } from "@/components/ui/badge";
 import { CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { championSlug } from "@/lib/champions";
 import { formatShortDate, timeAgo } from "@/lib/format";
 import { formatRiotId, parseRiotIdInput, summonerParams } from "@/lib/riotId";
 
@@ -38,6 +43,7 @@ import {
   type RecentSummoner,
   type RecentSummonerInput,
 } from "./recentSearches";
+import { searchChampions, type ChampionMatch } from "./championSearch";
 import { matchesRiotIdQuery, sameRiotId } from "./riotIdInput";
 import { SummonerOption } from "./SummonerOption";
 import { useDebouncedValue } from "./useDebouncedValue";
@@ -53,7 +59,7 @@ interface PageCommand {
   label: string;
   description: string;
   icon: LucideIcon;
-  to: "/" | "/leaderboard";
+  to: "/" | "/leaderboard" | "/champions";
   keywords: readonly string[];
 }
 
@@ -74,18 +80,29 @@ const PAGES: readonly PageCommand[] = [
     to: "/leaderboard",
     keywords: ["leaderboard", "ladder", "ranking", "standings", "roster", "season"],
   },
+  {
+    id: "page:champions",
+    label: "Champions",
+    description: "Win, pick and ban rates, builds and runes",
+    icon: Swords,
+    to: "/champions",
+    keywords: ["champions", "tier list", "meta", "builds", "runes", "win rate", "pick rate", "ban rate"],
+  },
 ];
 
 const SEARCH_LIMIT = 8;
 const SEARCH_DEBOUNCE_MS = 120;
 /** Roster rows shown with an empty query (all matches are shown while typing). */
 const ROSTER_PREVIEW = 6;
+/** Champion rows shown while typing. */
+const CHAMPION_LIMIT = 5;
 
 type PaletteItem =
   | { kind: "lookup"; id: string; parts: RiotIdParts }
   | { kind: "summoner"; id: string; result: SummonerSearchResult }
   | { kind: "recent"; id: string; entry: RecentSummoner }
   | { kind: "roster"; id: string; entry: RosterEntry }
+  | { kind: "champion"; id: string; champion: ChampionMatch }
   | { kind: "page"; id: string; page: PageCommand }
   | { kind: "clear-recent"; id: string };
 
@@ -106,11 +123,11 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         showCloseButton={false}
         className="top-[8dvh] w-full translate-y-0 gap-0 overflow-hidden rounded-2xl p-0 sm:top-[14dvh] sm:max-w-xl"
       >
-        <DialogTitle className="sr-only">Search summoners</DialogTitle>
+        <DialogTitle className="sr-only">Search</DialogTitle>
         <DialogDescription className="sr-only">
-          Search a Riot ID, jump to a tracked player or open a page. Use the arrow keys to move and Enter to open.
+          Search a Riot ID or a champion, jump to a tracked player or open a page. Use the arrow keys to move and Enter to open.
         </DialogDescription>
-        {/* Only mounted while open, so roster and search queries don't run in the background. */}
+        {/* Only mounted while open, so roster, champion and search queries don't run in the background. */}
         <PaletteBody onClose={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
@@ -126,6 +143,12 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
   const search = useSearch(searchEnabled ? debounced : "", SEARCH_LIMIT);
   const roster = useRoster();
   const recents = useRecentSearches();
+  // Static Data Dragon list, fetched the first time the palette opens and cached for the session.
+  const championCatalog = useChampionCatalog();
+  const champions = useMemo(
+    () => searchChampions(championCatalog.data, query, CHAMPION_LIMIT),
+    [championCatalog.data, query],
+  );
 
   const results = useMemo(() => (searchEnabled && search.data ? search.data : []), [searchEnabled, search.data]);
   const searching = query.length >= 2 && (debounced !== query || search.isFetching);
@@ -152,6 +175,17 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
         });
       }
     }
+
+    // Champions lead when a name starts with the query ("ahri"); otherwise they follow the players.
+    const championGroup: PaletteGroup | null = champions.length
+      ? {
+          id: "champions",
+          heading: "Champions",
+          items: champions.map((champion): PaletteItem => ({ kind: "champion", id: `champion:${champion.key}`, champion })),
+        }
+      : null;
+    const championsFirst = championGroup !== null && query.length >= 3 && champions[0]?.prefix === true;
+    if (championGroup && championsFirst) out.push(championGroup);
 
     if (results.length > 0) {
       // Put an exact Riot ID match first, keep the server's order (tracked first) otherwise.
@@ -186,6 +220,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
       .slice(0, query ? undefined : ROSTER_PREVIEW)
       .map((entry): PaletteItem => ({ kind: "roster", id: `roster:${entry.puuid}`, entry }));
     if (rosterItems.length) out.push({ id: "roster", heading: "Roster", items: rosterItems });
+    if (championGroup && !championsFirst) out.push(championGroup);
 
     const q = query.toLowerCase();
     const pageItems: PaletteItem[] = PAGES.filter(
@@ -195,7 +230,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
     if (pageItems.length) out.push({ id: "pages", heading: query ? "Pages" : "Go to", items: pageItems });
 
     return out;
-  }, [query, results, recents, roster.data]);
+  }, [query, results, recents, roster.data, champions]);
 
   // Controlled selection: highlight the first item whenever the list changes, then follow
   // the user's arrow keys / pointer until it changes again.
@@ -232,6 +267,10 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
           { gameName: item.entry.game_name, tagLine: item.entry.tag_line, profileIconId: item.entry.profile_icon_id },
         );
         break;
+      case "champion":
+        onClose();
+        void navigate({ to: "/champions/$champion", params: { champion: championSlug(item.champion.key) } });
+        break;
       case "page":
         onClose();
         void navigate({ to: item.page.to });
@@ -255,11 +294,13 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
         Summoner search is unavailable right now. You can still look up a full Riot ID.
       </p>
     ) : null;
-  const statusIndex = groups[0]?.id === "lookup" ? 1 : 0;
+  // After the groups that don't wait on the summoner search ("Look up", leading champions).
+  const leading = groups.findIndex((group) => group.id !== "lookup" && group.id !== "champions");
+  const statusIndex = leading < 0 ? groups.length : leading;
 
   return (
     <CommandPrimitive
-      label="Search summoners"
+      label="Search players and champions"
       shouldFilter={false}
       loop
       value={selectedValue}
@@ -271,7 +312,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
         <CommandPrimitive.Input
           value={text}
           onValueChange={setText}
-          placeholder="Search a Riot ID…"
+          placeholder="Search a Riot ID or champion…"
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
@@ -305,7 +346,8 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
               <UserRoundSearch className="size-6 text-gold" aria-hidden="true" />
               <p className="font-medium text-text">No matches for “{query}”</p>
               <p className="text-text-secondary">
-                Type the full Riot ID with its tag, like <span className="text-text">Name#NA1</span>, to look anyone up.
+                Type the full Riot ID with its tag, like <span className="text-text">Name#NA1</span>, to look anyone
+                up, or part of a champion's name.
               </p>
             </div>
           </CommandEmpty>
@@ -433,6 +475,17 @@ function PaletteItemContent({ item }: { item: PaletteItem }) {
               item.entry.tracked_since ? `Tracked since ${formatShortDate(item.entry.tracked_since)}` : "Tracked"
             }
           />
+          <ArrowRight className={SELECTED_ARROW} aria-hidden="true" />
+        </>
+      );
+    case "champion":
+      return (
+        <>
+          <ChampionIcon champion={item.champion.key} size="sm" />
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate font-medium text-text">{item.champion.name}</span>
+            <span className="truncate text-xs text-text-muted">Stats, builds and runes</span>
+          </span>
           <ArrowRight className={SELECTED_ARROW} aria-hidden="true" />
         </>
       );

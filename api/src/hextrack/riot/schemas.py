@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -92,6 +94,26 @@ class MatchDto(RiotDto):
 
     metadata: MatchMetadataDto
     info: MatchInfoDto
+
+
+class TimelineParticipantDto(RiotDto):
+    participant_id: int = Field(alias="participantId")
+    puuid: str | None = None
+
+
+class MatchTimelineInfoDto(RiotDto):
+    #: Frames are only checked to be objects here; ``hextrack.ingest.timeline`` reads the
+    #: events it needs defensively (a timeline has thousands of them).
+    frames: list[dict[str, Any]]
+    participants: list[TimelineParticipantDto] = Field(default_factory=list)
+    frame_interval: int | None = Field(default=None, alias="frameInterval")
+
+
+class MatchTimelineDto(RiotDto):
+    """match-v5 /lol/match/v5/matches/{matchId}/timeline."""
+
+    metadata: MatchMetadataDto
+    info: MatchTimelineInfoDto
 
 
 class CurrentGamePerksDto(RiotDto):

@@ -1,7 +1,8 @@
 """champion pages: full rune pages, bans, match timelines and champion rollups
 
 * ``match_participants``: ``primary_style_id``, ``rune_ids`` (4 primary + 2 secondary) and
-  ``stat_shards``. ``matches.ban_ids``. All NULL for stored games; new games get them at
+  ``stat_shards``, and ``role_bound_item`` (the role quest slot, where bot lane's boots
+  live). ``matches.ban_ids``. All NULL for stored games; new games get them at
   ingestion and the champion rollup worker fills older ones from ``raw`` as it counts them
   (a backfill here would rewrite every row).
 * ``matches.timeline_state`` / ``timeline_attempts``: the crawler's timeline backlog. Season
@@ -52,6 +53,7 @@ def upgrade() -> None:
     op.add_column("match_participants", sa.Column("primary_style_id", sa.SmallInteger()))
     op.add_column("match_participants", sa.Column("rune_ids", SMALLINT_ARRAY))
     op.add_column("match_participants", sa.Column("stat_shards", SMALLINT_ARRAY))
+    op.add_column("match_participants", sa.Column("role_bound_item", sa.Integer()))
 
     op.add_column("matches", sa.Column("ban_ids", SMALLINT_ARRAY))
     op.add_column("matches", sa.Column("timeline_state", sa.Text()))
@@ -178,6 +180,7 @@ def downgrade() -> None:
     op.drop_column("matches", "timeline_attempts")
     op.drop_column("matches", "timeline_state")
     op.drop_column("matches", "ban_ids")
+    op.drop_column("match_participants", "role_bound_item")
     op.drop_column("match_participants", "stat_shards")
     op.drop_column("match_participants", "rune_ids")
     op.drop_column("match_participants", "primary_style_id")

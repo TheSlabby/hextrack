@@ -40,7 +40,34 @@ ITEM_BUILDS: tuple[tuple[int, ...], ...] = (
     (6672, 3006, 3031, 3094, 3036, 1038, 3363),
     (3877, 3117, 3190, 3109, 2065, 0, 3364),
 )
+#: Full rune page per slot (TOP..UTILITY): (primary style, 4 primary runes keystone first,
+#: sub style, 2 secondary runes, (offense, flex, defense) shards). Slot 0 keeps the keystone
+#: 8010 / sub style 8400 older tests were written against.
+RUNE_PAGES: tuple[tuple[int, tuple[int, ...], int, tuple[int, ...], tuple[int, int, int]], ...] = (
+    (8000, (8010, 9111, 9104, 8299), 8400, (8444, 8451), (5005, 5008, 5011)),
+    (8000, (8010, 9111, 9105, 8299), 8100, (8143, 8135), (5005, 5008, 5001)),
+    (8100, (8112, 8139, 8138, 8135), 8300, (8345, 8347), (5008, 5008, 5001)),
+    (8000, (8008, 9111, 9103, 8014), 8300, (8345, 8347), (5005, 5008, 5011)),
+    (8400, (8439, 8446, 8429, 8453), 8300, (8345, 8347), (5007, 5008, 5011)),
+)
 DEFAULT_START = datetime(2026, 3, 1, 20, 0, tzinfo=UTC)
+
+
+def make_perks(slot: int) -> dict[str, Any]:
+    """A complete match-v5 ``perks`` object (2 styles with 4 + 2 selections, statPerks) for
+    slot ``slot`` (0-4) of :data:`RUNE_PAGES`."""
+    primary, runes, sub, sub_runes, (offense, flex, defense) = RUNE_PAGES[slot % 5]
+
+    def selections(perks: tuple[int, ...]) -> list[dict[str, int]]:
+        return [{"perk": perk, "var1": 0, "var2": 0, "var3": 0} for perk in perks]
+
+    return {
+        "statPerks": {"defense": defense, "flex": flex, "offense": offense},
+        "styles": [
+            {"description": "primaryStyle", "style": primary, "selections": selections(runes)},
+            {"description": "subStyle", "style": sub, "selections": selections(sub_runes)},
+        ],
+    }
 
 
 @dataclass(slots=True)
@@ -208,21 +235,7 @@ def make_participant(
         "item6": items[6],
         "summoner1Id": 4,
         "summoner2Id": 11 if jungle else 14 if slot == 2 else 7 if slot == 3 else 12,
-        "perks": {
-            "statPerks": {"defense": 5011, "flex": 5008, "offense": 5005},
-            "styles": [
-                {
-                    "description": "primaryStyle",
-                    "style": 8000,
-                    "selections": [{"perk": 8010, "var1": 0, "var2": 0, "var3": 0}],
-                },
-                {
-                    "description": "subStyle",
-                    "style": 8400,
-                    "selections": [{"perk": 8444, "var1": 0, "var2": 0, "var3": 0}],
-                },
-            ],
-        },
+        "perks": make_perks(slot),
         "timePlayed": duration_s,
     }
     raw.update(ps.overrides)
@@ -344,3 +357,237 @@ def match_series(
         )
         for i in range(count)
     ]
+
+
+# --- match timelines ---------------------------------------------------------------------------
+
+#: Starting items per slot (TOP..UTILITY), bought in the first seconds.
+START_ITEMS: tuple[tuple[int, ...], ...] = (
+    (1055, 2003),
+    (1101, 2003),
+    (1056, 2003, 2003),
+    (1055, 2003),
+    (3865, 2003),
+)
+#: Skill slot per champion level 1..18: Q max then E (slots 0, 1, 3, 4) or E max then Q (2).
+SKILL_ORDERS: tuple[tuple[int, ...], ...] = (
+    (1, 2, 3, 1, 1, 4, 1, 3, 1, 3, 4, 3, 3, 2, 2, 4, 2, 2),
+    (3, 1, 2, 3, 3, 4, 3, 1, 3, 1, 4, 1, 1, 2, 2, 4, 2, 2),
+)
+#: Bought and immediately undone by every participant (never in the extracted purchases).
+UNDONE_ITEM = 1036
+#: Component bought before each completed item and consumed by it (ITEM_DESTROYED).
+COMPONENT_ITEM = 1037
+#: The participant (id) whose timeline also has an "EVOLVE" level-up (not a skill point).
+EVOLVE_PARTICIPANT = 2
+
+
+@dataclass(slots=True)
+class TimelinePlan:
+    """What :func:`make_timeline_json` puts in one participant's timeline, and what
+    extraction should return for it (``purchases`` / ``purchase_s`` / ``skill_order``)."""
+
+    participant_id: int
+    purchases: list[int]
+    purchase_s: list[int]
+    skill_order: list[int]
+    events: list[dict[str, Any]]
+
+
+def _event(kind: str, second: float, pid: int, **fields: Any) -> dict[str, Any]:
+    return {"type": kind, "timestamp": int(second * 1000), "participantId": pid, **fields}
+
+
+def timeline_plan(
+    match_json: dict[str, Any],
+    participant_id: int,
+    *,
+    purchases: Sequence[tuple[int, int]] | None = None,
+    skills: Sequence[int] | None = None,
+) -> TimelinePlan:
+    """The default timeline of one participant (see :func:`make_timeline_json`).
+
+    Default purchases: the slot's :data:`START_ITEMS` in the first 15 s, then for each
+    non-empty final item (item0..item5, in slot order) a :data:`COMPONENT_ITEM` and the item,
+    spread between 25 % and 75 % of the game. Noise that extraction must ignore: an
+    :data:`UNDONE_ITEM` bought and undone at 20 s, a potion consumed (ITEM_DESTROYED), each
+    component destroyed when its item completes, the first starting item sold, the sale
+    undone (``beforeId`` 0) and sold again, plus LEVEL_UP / WARD_PLACED events. Default
+    skills: :data:`SKILL_ORDERS` up to the participant's ``champLevel``, and an "EVOLVE"
+    level-up for :data:`EVOLVE_PARTICIPANT`.
+
+    ``purchases`` ``[(itemId, second), ...]`` / ``skills`` ``[slot, ...]`` replace the
+    defaults (then only those ITEM_PURCHASED / SKILL_LEVEL_UP events are emitted).
+    """
+    info = match_json["info"]
+    participant = next(p for p in info["participants"] if p["participantId"] == participant_id)
+    index = participant_id - 1
+    slot = index % 5
+    duration = int(info["gameDuration"])
+    events: list[dict[str, Any]] = []
+    bought: list[tuple[int, int]] = []
+
+    if purchases is not None:
+        for item, second in purchases:
+            events.append(_event("ITEM_PURCHASED", second, participant_id, itemId=item))
+            bought.append((item, second))
+    else:
+        starters = START_ITEMS[slot]
+        for n, item in enumerate(starters):
+            second = 5 + 3 * n + (index % 3)
+            events.append(_event("ITEM_PURCHASED", second, participant_id, itemId=item))
+            bought.append((item, second))
+        events.append(_event("ITEM_PURCHASED", 20, participant_id, itemId=UNDONE_ITEM))
+        events.append(
+            _event("ITEM_UNDO", 20.5, participant_id, beforeId=UNDONE_ITEM, afterId=0, goldGain=350)
+        )
+        events.append(_event("ITEM_DESTROYED", 95, participant_id, itemId=2003))
+        finals = [participant[f"item{k}"] for k in range(6) if participant[f"item{k}"]]
+        for k, item in enumerate(finals):
+            second = int(duration * (0.25 + 0.5 * k / max(len(finals), 1)))
+            events.append(
+                _event("ITEM_PURCHASED", second - 60, participant_id, itemId=COMPONENT_ITEM)
+            )
+            bought.append((COMPONENT_ITEM, second - 60))
+            events.append(_event("ITEM_DESTROYED", second, participant_id, itemId=COMPONENT_ITEM))
+            events.append(_event("ITEM_PURCHASED", second, participant_id, itemId=item))
+            bought.append((item, second))
+        sold = starters[0]
+        late = int(duration * 0.8)
+        events.append(_event("ITEM_SOLD", late, participant_id, itemId=sold))
+        events.append(
+            _event("ITEM_UNDO", late + 1, participant_id, beforeId=0, afterId=sold, goldGain=-180)
+        )
+        events.append(_event("ITEM_SOLD", late + 2, participant_id, itemId=sold))
+
+    if skills is not None:
+        order = list(skills)
+    else:
+        level = int(participant.get("champLevel") or 18)
+        order = list(SKILL_ORDERS[1 if slot == 2 else 0][: min(level, 18)])
+    for n, skill in enumerate(order):
+        second = 60 + n * max(duration - 120, 60) / 18
+        events.append(
+            _event("SKILL_LEVEL_UP", second, participant_id, skillSlot=skill, levelUpType="NORMAL")
+        )
+        if skills is None:
+            events.append(_event("LEVEL_UP", second - 0.5, participant_id, level=n + 1))
+    if skills is None and participant_id == EVOLVE_PARTICIPANT and len(order) >= 6:
+        second = 60 + 6 * max(duration - 120, 60) / 18
+        events.append(
+            _event("SKILL_LEVEL_UP", second, participant_id, skillSlot=4, levelUpType="EVOLVE")
+        )
+    if purchases is None:
+        events.append(
+            {
+                "type": "WARD_PLACED",
+                "timestamp": 70_000 + index * 1000,
+                "creatorId": participant_id,
+                "wardType": "YELLOW_TRINKET",
+            }
+        )
+
+    return TimelinePlan(
+        participant_id=participant_id,
+        purchases=[item for item, _ in bought],
+        purchase_s=[second for _, second in bought],
+        skill_order=order,
+        events=events,
+    )
+
+
+def make_timeline_json(
+    match_json: dict[str, Any],
+    *,
+    purchases: dict[int, Sequence[tuple[int, int]]] | None = None,
+    skills: dict[int, Sequence[int]] | None = None,
+    extra_events: Sequence[dict[str, Any]] = (),
+    frame_interval_ms: int = 60_000,
+    puuids: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """A match-v5 timeline (``/lol/match/v5/matches/{id}/timeline``) for ``match_json``.
+
+    Frames every ``frame_interval_ms`` with ``participantFrames`` and the events of that
+    minute (per participant see :func:`timeline_plan`; ``purchases`` / ``skills`` are keyed by
+    participantId and replace that participant's defaults), plus game-level events
+    (PAUSE_END, CHAMPION_KILL, GAME_END). ``info.participants`` pairs participantIds with the
+    match's puuids (``puuids`` overrides them, e.g. to build a mismatching timeline). The
+    expected extraction per participant is ``timeline_plan(match_json, pid).purchases`` etc.
+    """
+    info = match_json["info"]
+    duration = int(info["gameDuration"])
+    ids = [p["participantId"] for p in info["participants"]]
+    players = list(puuids) if puuids is not None else [p["puuid"] for p in info["participants"]]
+    events: list[dict[str, Any]] = [
+        {"type": "PAUSE_END", "timestamp": 0, "realTimestamp": 1_700_000_000_000},
+        {
+            "type": "CHAMPION_KILL",
+            "timestamp": 400_000,
+            "killerId": 3,
+            "victimId": 8,
+            "assistingParticipantIds": [2],
+            "bounty": 300,
+            "position": {"x": 7000, "y": 7000},
+        },
+    ]
+    for pid in ids:
+        events.extend(
+            timeline_plan(
+                match_json,
+                pid,
+                purchases=(purchases or {}).get(pid),
+                skills=(skills or {}).get(pid),
+            ).events
+        )
+    events.extend(extra_events)
+    end_ms = duration * 1000
+    events.append(
+        {"type": "GAME_END", "timestamp": end_ms, "winningTeam": 100, "gameId": info["gameId"]}
+    )
+
+    frame_count = end_ms // frame_interval_ms + 1
+    frames: list[dict[str, Any]] = []
+    for n in range(frame_count):
+        lo = n * frame_interval_ms
+        hi = lo + frame_interval_ms
+        frame_events = [
+            e
+            for e in events
+            if lo <= e["timestamp"] < hi or (n == frame_count - 1 and e["timestamp"] >= hi)
+        ]
+        frames.append(
+            {
+                "timestamp": lo if n < frame_count - 1 else end_ms,
+                "events": sorted(frame_events, key=lambda e: e["timestamp"]),
+                "participantFrames": {
+                    str(pid): {
+                        "participantId": pid,
+                        "level": min(1 + n // 2, 18),
+                        "currentGold": 500 + 40 * n,
+                        "totalGold": 500 + 400 * n,
+                        "xp": 280 * n,
+                        "minionsKilled": 7 * n,
+                        "jungleMinionsKilled": 0,
+                        "position": {"x": 1000 + 100 * pid, "y": 1000 + 100 * n},
+                    }
+                    for pid in ids
+                },
+            }
+        )
+    return {
+        "metadata": {
+            "dataVersion": "2",
+            "matchId": match_json["metadata"]["matchId"],
+            "participants": players,
+        },
+        "info": {
+            "endOfGameResult": info.get("endOfGameResult", "GameComplete"),
+            "frameInterval": frame_interval_ms,
+            "gameId": info["gameId"],
+            "participants": [
+                {"participantId": pid, "puuid": puuid}
+                for pid, puuid in zip(ids, players, strict=True)
+            ],
+            "frames": frames,
+        },
+    }

@@ -26,6 +26,7 @@ from hextrack.db.repo import summoners as summoners_repo
 from hextrack.ingest import events
 from hextrack.ingest.context import IngestContext
 from hextrack.ingest.mapping import InvalidMatchPayload, MappedMatch, is_scorable, map_match
+from hextrack.ingest.timeline import STATE_PENDING, timeline_sampled
 from hextrack.rank import (
     APEX_TIERS,
     DIVISION_ORDER,
@@ -696,9 +697,22 @@ async def ingest_match_json(
     player's newest) and, when ``enqueue_events`` and the match is new, enqueues
     ``new_match`` / ``great_game`` / ``bad_game`` events for tracked players whose game ended
     within :data:`hextrack.ingest.events.GAME_EVENT_MAX_AGE`.
+
+    A game that gets a match timeline (:func:`hextrack.ingest.timeline.timeline_sampled`) is
+    stored with ``timeline_state = "pending"`` for the crawler's backlog step.
     """
     mapped = map_match(raw)
     match = {**mapped.match, "source": source}
+    if timeline_sampled(
+        mapped.match_id,
+        source,
+        match["queue_id"],
+        bool(match["remake"]),
+        match["game_start"],
+        ctx.settings,
+    ):
+        # The crawler's backlog step fetches it (hextrack.ingest.timeline).
+        match["timeline_state"] = STATE_PENDING
     match_id = mapped.match_id
     created = await matches_repo.insert_match(session, match)
     scores: dict[str, float] | None = None

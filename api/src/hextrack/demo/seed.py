@@ -33,13 +33,20 @@ from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal
 
-from sqlalchemy import delete, func, or_, select, tuple_
+from sqlalchemy import delete, func, or_, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hextrack.config import Settings
 from hextrack.db.engine import make_async_engine, make_session_factory
-from hextrack.db.models import BotEvent, Match, MatchParticipant, RankSnapshot, Summoner
+from hextrack.db.models import (
+    BotEvent,
+    Match,
+    MatchParticipant,
+    MatchTimelinePlayer,
+    RankSnapshot,
+    Summoner,
+)
 from hextrack.demo.matchgen import (
     BLUE,
     CHAMPIONS_BY_KEY,
@@ -64,6 +71,7 @@ from hextrack.demo.names import (
     make_opponents,
     validate_roster,
 )
+from hextrack.demo.timelines import demo_timeline_rows
 from hextrack.ingest.context import IngestContext
 from hextrack.ingest.service import ingest_match_json
 from hextrack.rank import (
@@ -861,9 +869,22 @@ async def delete_demo_data(session: AsyncSession) -> int:
     return deleted
 
 
+async def _add_timeline(session: AsyncSession, match_id: str, raw: dict[str, Any]) -> None:
+    """Store a synthetic timeline (:mod:`hextrack.demo.timelines`) for a new demo game and
+    mark it "ok", so the crawler never asks Riot for it and the champion rollups count its
+    build paths."""
+    await session.execute(insert(MatchTimelinePlayer), demo_timeline_rows(match_id, raw))
+    await session.execute(
+        update(Match).where(Match.match_id == match_id).values(timeline_state="ok")
+    )
+
+
 async def clear_demo(settings: Settings) -> int:
     """Delete all demo data (see :func:`delete_demo_data`) without seeding anything new, e.g.
-    once real games have been imported. Returns the number of demo matches deleted."""
+    once real games have been imported. Returns the number of demo matches deleted.
+
+    The champion rollups keep counting deleted games that were already folded in; run
+    ``hextrack champions rebuild`` afterwards (the CLI says so)."""
     engine = make_async_engine(settings, pool_size=1, max_overflow=0)
     try:
         async with make_session_factory(engine)() as session:
@@ -1055,6 +1076,7 @@ async def seed_demo(
                 for i, raw in enumerate(dataset.matches, start=1):
                     result = await ingest_match_json(ctx, session, raw, enqueue_events=False)
                     if result.created:
+                        await _add_timeline(session, result.match_id, raw)
                         created += 1
                         participants += result.participants
                         scored += 1 if result.scored else 0

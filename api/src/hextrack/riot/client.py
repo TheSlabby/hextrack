@@ -5,8 +5,8 @@ Contract (other modules depend on exactly this surface):
 * ``RiotClient(settings, transport=None)``: ``transport`` lets tests inject
   ``httpx.MockTransport`` / respx. Requests carry ``X-Riot-Token`` (the key never appears in
   a URL); path segments are URL-quoted (spaces, unicode, "#" and "/" in names).
-* Account and match calls use the regional host (``settings.riot_region``); summoner and
-  league calls use the platform host (``settings.riot_platform``).
+* Account, match and match timeline calls use the regional host (``settings.riot_region``);
+  summoner and league calls use the platform host (``settings.riot_platform``).
 * Every request waits on the rate limiter of its routing value: application limits from
   ``settings.app_rate_limits`` (overridable with ``app_limits``) plus per-method limits, both
   updated from the ``X-App-Rate-Limit`` / ``X-Method-Rate-Limit`` response headers
@@ -72,6 +72,7 @@ from hextrack.riot.schemas import (
     CurrentGameInfoDto,
     LeagueEntryDto,
     MatchDto,
+    MatchTimelineDto,
     SummonerDto,
 )
 
@@ -114,6 +115,7 @@ METHOD_ROUTING: Final[Mapping[str, Routing]] = {
     "league_exp_entries": "platform",
     "match_ids_by_puuid": "regional",
     "match": "regional",
+    "match_timeline": "regional",
 }
 
 _LEAGUE_ENTRIES: Final = TypeAdapter(list[LeagueEntryDto])
@@ -411,6 +413,27 @@ class RiotClient:
         if dto.metadata.match_id.casefold() != match_id.casefold():
             raise self._bad_response(
                 "match", f"asked for match {match_id} but Riot returned {dto.metadata.match_id}"
+            )
+        return data
+
+    async def match_timeline(self, match_id: str) -> dict[str, Any]:
+        """GET /lol/match/v5/matches/{matchId}/timeline as raw JSON.
+
+        Validated against :class:`hextrack.riot.schemas.MatchTimelineDto` (frames present,
+        ``metadata.matchId`` the requested id), otherwise :class:`RiotBadResponse`. The
+        events themselves are read by :mod:`hextrack.ingest.timeline`. A 404 (Riot keeps no
+        timeline for the game) raises :class:`RiotNotFound` like every other call.
+        """
+        data = await self._get(
+            "match_timeline", f"/lol/match/v5/matches/{_segment(match_id)}/timeline"
+        )
+        if not isinstance(data, dict):
+            raise self._bad_response("match_timeline", "timeline body is not a JSON object")
+        dto = self._validate(MatchTimelineDto, data, "match_timeline")
+        if dto.metadata.match_id.casefold() != match_id.casefold():
+            raise self._bad_response(
+                "match_timeline",
+                f"asked for the timeline of {match_id} but Riot returned {dto.metadata.match_id}",
             )
         return data
 

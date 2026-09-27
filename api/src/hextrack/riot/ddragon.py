@@ -4,7 +4,9 @@
 last known version (or :data:`FALLBACK_VERSION`) when Data Dragon is unreachable. After a
 failure the network is not retried for :data:`FAILURE_RETRY_SECONDS`, so an offline machine
 does not pay a timeout on every request. ``champion_map`` maps numeric champion id -> Data
-Dragon key ("MonkeyKing") for the current version, cached per version.
+Dragon key ("MonkeyKing") for the current version, cached per version. ``item_catalog``
+classifies one game patch's items (``hextrack.stats.champions.items``) from the newest Data
+Dragon version of that patch, cached per version.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import httpx
 import orjson
 
 from hextrack import __version__
+from hextrack.stats.champions.items import ItemCatalog
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +36,8 @@ VERSION_TTL_SECONDS: Final = 6 * 60 * 60
 FAILURE_RETRY_SECONDS: Final = 5 * 60
 #: How many versions' champion maps to keep in memory.
 CHAMPION_CACHE_VERSIONS: Final = 3
+#: How many versions' item catalogs to keep in memory (a season has ~24 patches).
+ITEM_CACHE_VERSIONS: Final = 40
 DEFAULT_LOCALE: Final = "en_US"
 DEFAULT_TIMEOUT: Final = httpx.Timeout(5.0)
 
@@ -59,6 +64,44 @@ def item_icon_url(version: str, item_id: int) -> str:
 def champion_data_url(version: str, locale: str = DEFAULT_LOCALE) -> str:
     """champion.json (summary data for every champion) for ``version``."""
     return f"{CDN}/{version}/data/{locale}/champion.json"
+
+
+def item_data_url(version: str, locale: str = DEFAULT_LOCALE) -> str:
+    """item.json (every item, with its recipe) for ``version``."""
+    return f"{CDN}/{version}/data/{locale}/item.json"
+
+
+def pick_versions(payload: Any) -> list[str]:
+    """Every release-style entry of a versions.json payload, newest first (see
+    :func:`pick_latest_version`)."""
+    if not isinstance(payload, list):
+        raise ValueError("versions.json is not a JSON array")
+    versions = [v for v in payload if isinstance(v, str) and _VERSION_RE.match(v)]
+    if not versions:
+        raise ValueError("versions.json contains no release version")
+    return sorted(versions, key=_version_key, reverse=True)
+
+
+def resolve_patch_version(patch: str, versions: list[str]) -> str | None:
+    """Data Dragon version for a game patch ("16.18" -> newest "16.18.x").
+
+    A patch Data Dragon doesn't list falls back to the nearest known version: the newest
+    one before it, else the oldest one after it. None when ``versions`` is empty or the
+    patch is not "major.minor"."""
+    try:
+        wanted = tuple(int(part) for part in patch.split(".")[:2])
+    except ValueError:
+        return None
+    if len(wanted) != 2 or not versions:
+        return None
+    keyed = sorted(((_version_key(v), v) for v in versions), reverse=True)
+    for key, version in keyed:
+        if key[:2] == wanted:
+            return version
+    older = [v for key, v in keyed if key[:2] < wanted]
+    if older:
+        return older[0]
+    return keyed[-1][1]
 
 
 def pick_latest_version(payload: Any) -> str:
@@ -125,6 +168,8 @@ class DDragon:
         self._locale = locale
 
         self._version: str | None = None
+        #: Every release version from the last versions.json, newest first.
+        self._versions: list[str] = []
         self._version_fetched_at: float | None = None
         self._version_failed_at: float | None = None
         self._version_lock = asyncio.Lock()
@@ -132,6 +177,10 @@ class DDragon:
         self._champions: OrderedDict[str, dict[int, str]] = OrderedDict()
         self._champions_failed_at: dict[str, float] = {}
         self._champions_lock = asyncio.Lock()
+
+        self._items: OrderedDict[str, ItemCatalog] = OrderedDict()
+        self._items_failed_at: dict[str, float] = {}
+        self._items_lock = asyncio.Lock()
 
     async def aclose(self) -> None:
         """Close the HTTP client if this instance created it."""
@@ -153,7 +202,8 @@ class DDragon:
             if self._version_fresh() or self._recently_failed(self._version_failed_at):
                 return self.current_version
             try:
-                version = pick_latest_version(await self._fetch_json(VERSIONS_URL))
+                versions = pick_versions(await self._fetch_json(VERSIONS_URL))
+                version = versions[0]
             except (httpx.HTTPError, ValueError) as exc:
                 self._version_failed_at = self._clock()
                 logger.warning(
@@ -166,6 +216,7 @@ class DDragon:
             if version != self._version:
                 logger.info("Data Dragon version %s", version)
             self._version = version
+            self._versions = versions
             self._version_fetched_at = self._clock()
             self._version_failed_at = None
             return version
@@ -206,6 +257,54 @@ class DDragon:
                 self._champions.popitem(last=False)
             return dict(mapping)
 
+    async def versions(self) -> list[str]:
+        """Every known release version, newest first (refreshed like
+        :meth:`latest_version`); empty when versions.json was never fetched."""
+        await self.latest_version()
+        return list(self._versions)
+
+    async def item_catalog(self, patch: str) -> ItemCatalog | None:
+        """Item classification for game patch ``patch`` ("16.18"), from the newest Data
+        Dragon version of that patch (or the nearest known one). Cached per version.
+
+        When that item.json cannot be fetched, the catalog of the nearest cached version is
+        returned, or None if none was ever loaded."""
+        versions = await self.versions()
+        version = resolve_patch_version(patch, versions)
+        if version is None:
+            # versions.json never loaded: Data Dragon names releases "major.minor.1".
+            if not _VERSION_RE.match(f"{patch}.1"):
+                return None
+            version = f"{patch}.1"
+        cached = self._cached_items(version)
+        if cached is not None:
+            return cached
+        async with self._items_lock:
+            cached = self._cached_items(version)
+            if cached is not None:
+                return cached
+            if self._recently_failed(self._items_failed_at.get(version)):
+                return self._fallback_items(version)
+            try:
+                catalog = ItemCatalog.from_item_json(
+                    await self._fetch_json(item_data_url(version, self._locale)), version
+                )
+            except (httpx.HTTPError, ValueError) as exc:
+                self._items_failed_at[version] = self._clock()
+                logger.warning(
+                    "Data Dragon item.json %s unavailable (%s: %s)",
+                    version,
+                    type(exc).__name__,
+                    exc,
+                )
+                return self._fallback_items(version)
+            self._items_failed_at.pop(version, None)
+            self._items[version] = catalog
+            self._items.move_to_end(version)
+            while len(self._items) > ITEM_CACHE_VERSIONS:
+                self._items.popitem(last=False)
+            return catalog
+
     async def champion_key(self, champion_id: int) -> str | None:
         """Data Dragon key for one champion id, or None if unknown."""
         return (await self.champion_map()).get(champion_id)
@@ -216,6 +315,7 @@ class DDragon:
     profile_icon_url = staticmethod(profile_icon_url)
     item_icon_url = staticmethod(item_icon_url)
     champion_data_url = staticmethod(champion_data_url)
+    item_data_url = staticmethod(item_data_url)
 
     # --- internals ------------------------------------------------------------------------
     def _version_fresh(self) -> bool:
@@ -234,6 +334,22 @@ class DDragon:
             return None
         self._champions.move_to_end(version)
         return dict(mapping)
+
+    def _cached_items(self, version: str) -> ItemCatalog | None:
+        catalog = self._items.get(version)
+        if catalog is not None:
+            self._items.move_to_end(version)
+        return catalog
+
+    def _fallback_items(self, version: str) -> ItemCatalog | None:
+        if not self._items:
+            return None
+        wanted = _version_key(version)
+        nearest = min(
+            self._items,
+            key=lambda v: tuple(abs(a - b) for a, b in zip(_version_key(v), wanted, strict=False)),
+        )
+        return self._items[nearest]
 
     def _fallback_champions(self) -> dict[int, str]:
         if not self._champions:

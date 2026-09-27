@@ -7,6 +7,7 @@ from dicts, records every call and can raise configured :class:`RiotError` s::
     me = riot.add_account("Hex Walker", "NA1", puuid="p1", level=312)
     riot.add_league_entry("p1", "RANKED_SOLO_5x5", "GOLD", "II", 45, wins=30, losses=25)
     riot.add_match(make_match_json("NA1_1", [spec("p1", "Hex Walker", "NA1")]))
+    riot.add_timeline(make_timeline_json(raw))  # match_timeline("NA1_1"); unknown ids 404
     riot.fail("match", RiotRateLimited(retry_after=3))          # next call only
     riot.fail("summoner_by_puuid", RiotForbidden("expired"), times=None)  # every call
 
@@ -62,6 +63,8 @@ class FakeRiotClient:
         #: puuid -> match ids, newest first.
         self.match_ids: dict[str, list[str]] = defaultdict(list)
         self.matches: dict[str, dict[str, Any]] = {}
+        #: match id -> raw timeline served by ``match_timeline`` (others 404).
+        self.timelines: dict[str, dict[str, Any]] = {}
         self.calls: list[Call] = []
         self.closed = False
         self._failures: dict[str, deque[_Failure]] = defaultdict(deque)
@@ -128,6 +131,12 @@ class FakeRiotClient:
                 if match_id not in ids:
                     ids.append(match_id)
                     ids.sort(key=lambda i: self._start_ms(i) or 0, reverse=True)
+        return match_id
+
+    def add_timeline(self, raw: dict[str, Any], *, match_id: str | None = None) -> str:
+        """Serve ``raw`` from ``match_timeline`` (for ``match_id``, default its matchId)."""
+        match_id = match_id or raw["metadata"]["matchId"]
+        self.timelines[match_id] = copy.deepcopy(raw)
         return match_id
 
     def add_ladder_page(
@@ -279,6 +288,13 @@ class FakeRiotClient:
             return copy.deepcopy(self.matches[match_id])
         except KeyError:
             raise RiotNotFound(f"match {match_id} not found", status=404) from None
+
+    async def match_timeline(self, match_id: str) -> dict[str, Any]:
+        self._enter("match_timeline", match_id)
+        try:
+            return copy.deepcopy(self.timelines[match_id])
+        except KeyError:
+            raise RiotNotFound(f"timeline {match_id} not found", status=404) from None
 
     # --- internals ----------------------------------------------------------------------------
     def _enter(self, method: str, *args: Any, **kwargs: Any) -> None:

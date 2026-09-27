@@ -1,8 +1,10 @@
 import { useId } from "react";
+import { Link } from "@tanstack/react-router";
 
 import type { ParticipantSummary, TeamDetail } from "@/api/types";
 import { AiScoreBreakdownButton } from "@/components/ai/AiScoreBreakdown";
 import { ChampionIcon } from "@/components/common/ChampionIcon";
+import { ChampionLink } from "@/components/common/ChampionLink";
 import { GlowCard } from "@/components/common/GlowCard";
 import { ItemSlots } from "@/components/common/ItemSlots";
 import { RolePercentileLabel } from "@/components/common/RolePercentile";
@@ -11,7 +13,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { cn } from "@/lib/cn";
 import { formatCompact, formatDecimal, formatInteger, formatPercent } from "@/lib/format";
 import { positionLabel } from "@/lib/positions";
-import { championDisplayName } from "@/lib/champions";
+import { championDisplayName, championSlug } from "@/lib/champions";
 
 import { KdaLine, KdaRatio, PlayerNameLink, StatBar } from "./MatchBits";
 import { TeamBans, TeamObjectives } from "./TeamObjectives";
@@ -66,7 +68,16 @@ function totals(players: readonly ParticipantSummary[]) {
 function PlayerCell({ p, focused }: { p: ParticipantSummary; focused: boolean }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <ChampionIcon champion={p.champion_name} size="sm" level={p.champ_level} highlight={focused} />
+      {/* The champion name in the caption is the accessible link; the portrait is a mouse shortcut. */}
+      <Link
+        to="/champions/$champion"
+        params={{ champion: championSlug(p.champion_name) }}
+        tabIndex={-1}
+        aria-hidden="true"
+        className="shrink-0 rounded-md"
+      >
+        <ChampionIcon champion={p.champion_name} size="sm" level={p.champ_level} highlight={focused} />
+      </Link>
       {/* Spells only when the table has room (keeps it scroll-free inside a ~820px row). */}
       <SpellIcons spell1={p.summoner1_id} spell2={p.summoner2_id} size="sm" className="hidden @4xl:flex" />
       <div className="flex min-w-0 flex-col">
@@ -74,7 +85,7 @@ function PlayerCell({ p, focused }: { p: ParticipantSummary; focused: boolean })
         <PlayerNameLink participant={p} focused={focused} showTrackedMark className="text-[13px]" />
         <span className="truncate text-[11px] text-text-muted">
           {p.team_position !== "UNKNOWN" ? `${positionLabel(p.team_position)} · ` : ""}
-          {championDisplayName(p.champion_name)}
+          <ChampionLink champion={p.champion_name} />
         </span>
       </div>
     </div>
@@ -222,7 +233,13 @@ function TeamList({ team, teams, remake, maxima, focusPuuid, matchId, players }:
               className={cn("flex flex-col gap-2 px-3 py-2.5", focused && "bg-gold/5 shadow-[inset_2px_0_0_var(--color-gold)]")}
             >
               <div className="flex min-w-0 items-center gap-2">
-                <ChampionIcon champion={p.champion_name} size="sm" level={p.champ_level} highlight={focused} />
+                <ChampionLink
+                  champion={p.champion_name}
+                  aria-label={championDisplayName(p.champion_name)}
+                  className="shrink-0 rounded-md"
+                >
+                  <ChampionIcon champion={p.champion_name} size="sm" level={p.champ_level} highlight={focused} />
+                </ChampionLink>
                 <SpellIcons spell1={p.summoner1_id} spell2={p.summoner2_id} size="sm" />
                 <div className="ml-0.5 flex min-w-0 flex-1 flex-col">
                   <PlayerNameLink participant={p} focused={focused} showTrackedMark className="text-[13px]" />
