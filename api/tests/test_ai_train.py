@@ -383,3 +383,23 @@ def test_scorable_clause_matches_is_scorable():
         )
     )
     assert "'CLASSIC'" in sql and "'GameComplete'" in sql and "300" in sql
+
+
+async def test_rescore_skips_while_another_rescore_holds_the_lock(
+    dataset, settings, session_factory
+):
+    from hextrack.db.engine import make_sync_engine
+    from hextrack.hextrack_ai.registry import RESCORE_LOCK_KEY
+
+    write_model(settings.model_dir, "v-a", trained_at=datetime(2026, 9, 1, tzinfo=UTC), seed=1)
+    activate(settings, "v-a", rescore_stored=False)
+    engine = make_sync_engine(settings)
+    try:
+        with engine.connect() as other:
+            other.execute(select(func.pg_advisory_lock(RESCORE_LOCK_KEY)))
+            # The worker's automatic rescore steps aside instead of racing the CLI.
+            assert rescore(settings, all_rows=False, wait=False) == 0
+            other.execute(select(func.pg_advisory_unlock(RESCORE_LOCK_KEY)))
+    finally:
+        engine.dispose()
+    assert rescore(settings, all_rows=False, wait=False) == (N_RANKED + 1) * 10

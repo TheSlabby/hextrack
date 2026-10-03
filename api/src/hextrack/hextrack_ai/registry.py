@@ -56,6 +56,10 @@ logger = logging.getLogger(__name__)
 
 #: Matches per transaction in :func:`rescore` (about 10x as many participant rows).
 RESCORE_CHUNK_MATCHES: Final = 500
+#: Postgres advisory lock held for a whole rescore, so two rescores (the CLI's activate and
+#: the worker's automatic one after it notices the new model) never update the same rows in
+#: interleaved chunks, which deadlocked.
+RESCORE_LOCK_KEY: Final = 0x6865_7874_7273  # "hextrs"
 #: How long :func:`population_feature_means` results are reused when the stored matches have
 #: not changed (see :func:`_fingerprint`).
 POPULATION_CACHE_TTL_SECONDS: Final = 900.0
@@ -356,6 +360,7 @@ def rescore(
     all_rows: bool,
     chunk_matches: int = RESCORE_CHUNK_MATCHES,
     scorer: Scorer | None = None,
+    wait: bool = True,
 ) -> int:
     """Score participants with the active model: unscored/other-version rows only, or every
     scorable row when ``all_rows``. Returns the number of participant rows updated.
@@ -365,6 +370,10 @@ def rescore(
     ``chunk_matches`` matches. ``scorer`` (the model :func:`activate` has just loaded)
     saves reading the artifacts again; without it the active model is loaded, which raises
     :class:`NoActiveModel` when there is none.
+
+    Holds :data:`RESCORE_LOCK_KEY` for the whole run. With ``wait`` it waits for another
+    rescore to finish (and then usually finds nothing left); without it, it returns 0 at
+    once when another rescore holds the lock (the worker's automatic rescore).
     """
     if chunk_matches < 1:
         raise ValueError("chunk_matches must be positive")
@@ -375,7 +384,14 @@ def rescore(
     total = 0
     n_matches = 0
     last_id = ""
+    lock_conn = engine.connect()
     try:
+        if wait:
+            lock_conn.execute(select(func.pg_advisory_lock(RESCORE_LOCK_KEY)))
+        elif not lock_conn.execute(select(func.pg_try_advisory_lock(RESCORE_LOCK_KEY))).scalar():
+            logger.info("another rescore is running; skipping this one")
+            return 0
+        lock_conn.commit()
         factory = make_sync_session_factory(engine)
         _warn_if_db_disagrees(factory, version)
         while True:
@@ -407,6 +423,8 @@ def rescore(
             last_id = match_rows[-1].match_id
             logger.info("rescored %d participant rows in %d matches so far", total, n_matches)
     finally:
+        # Closing the session-level lock's connection releases the lock.
+        lock_conn.close()
         engine.dispose()
     logger.info("rescore with model %s done: %d rows, %d matches", version, total, n_matches)
     return total

@@ -640,7 +640,8 @@ def _rescore_stale(settings: Settings) -> int:
     """Score rows that still carry an older model version (blocking; run in a thread)."""
     from hextrack.hextrack_ai.registry import rescore
 
-    return rescore(settings, all_rows=False)
+    # Skip if `hextrack model activate` / `train --activate` is already rescoring.
+    return rescore(settings, all_rows=False, wait=False)
 
 
 async def reload_scorer_if_changed(ctx: IngestContext) -> bool:
