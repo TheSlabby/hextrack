@@ -514,6 +514,14 @@ Index("ix_matches_game_start", Match.game_start.desc())
 Index("ix_matches_queue_id_game_start", Match.queue_id, Match.game_start.desc())
 #: Roster-only lookups (rescore, population means) skip the crawler's games through this.
 Index("ix_matches_source_queue_start", Match.source, Match.queue_id, Match.game_start.desc())
+#: Scored rows only (the roster's games; crawled games are stored unscored): the role
+#: percentile population reads this small index instead of scanning every participant.
+Index(
+    "ix_match_participants_scored_position",
+    MatchParticipant.team_position,
+    postgresql_include=["ai_score", "model_version", "queue_id", "match_id"],
+    postgresql_where=text("ai_score IS NOT NULL"),
+)
 #: The timeline backlog (crawler) and the champion rollup queue (worker).
 Index(
     "ix_matches_timeline_pending",

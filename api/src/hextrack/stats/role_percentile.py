@@ -25,11 +25,16 @@ just activated and the rescore is running, or was skipped) is *provisional*: it 
 reused for :data:`PROVISIONAL_SECONDS`, so a half-rescored population is not kept for 15
 minutes. Loads are serialized by an asyncio lock, so a burst of concurrent requests after a
 refresh runs the population query once. Tables are immutable snapshots, safe to share.
+
+The process-wide cache refreshes in the background: once a (non-provisional) table is 15
+minutes old, requests keep getting it while one task re-reads the population, so no visitor
+waits for the query. The API also warms it at startup.
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 import weakref
 from bisect import bisect_left
@@ -44,6 +49,8 @@ from hextrack.config import Settings
 from hextrack.db.models import Match, MatchParticipant
 from hextrack.queues import RANKED_QUEUES
 from hextrack.stats import queries
+
+logger = logging.getLogger(__name__)
 
 #: Positions with a population; anything else (UNKNOWN, "", "Invalid") has no percentile.
 KNOWN_POSITIONS: Final[tuple[str, ...]] = ("TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY")
@@ -165,8 +172,12 @@ class RolePercentileCache:
         refresh_seconds: float = REFRESH_SECONDS,
         provisional_seconds: float = PROVISIONAL_SECONDS,
         clock: Callable[[], float] = time.monotonic,
+        background_refresh: bool = False,
     ) -> None:
         self.refresh_seconds = refresh_seconds
+        #: Serve an expired table while a background task reloads it (see the module doc).
+        self.background_refresh = background_refresh
+        self._refresh_task: asyncio.Task[None] | None = None
         self.provisional_seconds = provisional_seconds
         self._clock = clock
         self._tables: dict[str | None, RolePercentileTable] = {}
@@ -226,6 +237,11 @@ class RolePercentileCache:
         if fresh is not None:
             self._latest = fresh
             return fresh
+        stale = self._stale(model_version, engine) if self.background_refresh else None
+        if stale is not None:
+            self._refresh_in_background(engine, model_version)
+            self._latest = stale
+            return stale
         async with self._get_lock():
             fresh = self._fresh(model_version, engine)
             if fresh is None:
@@ -256,6 +272,34 @@ class RolePercentileCache:
             return None
         return table
 
+    def _stale(self, model_version: str, engine: Any) -> RolePercentileTable | None:
+        """An expired, non-provisional table of this version and engine (safe to keep serving
+        for a moment); provisional tables are always reloaded in the request."""
+        if not self._same_engine(engine):
+            return None
+        table = self._tables.get(model_version)
+        if table is None or table.provisional:
+            return None
+        return table
+
+    def _refresh_in_background(self, engine: Any, model_version: str) -> None:
+        if self._refresh_task is not None and not self._refresh_task.done():
+            return
+
+        async def refresh() -> None:
+            try:
+                async with self._get_lock():
+                    if self._fresh(model_version, engine) is not None:
+                        return
+                    async with AsyncSession(engine) as session:
+                        table = await load_table(session, model_version, now=self._clock())
+                    self.loads += 1
+                    self._store(table)
+            except Exception:
+                logger.exception("role percentile refresh failed; keeping the previous table")
+
+        self._refresh_task = asyncio.get_running_loop().create_task(refresh())
+
     def _store(self, table: RolePercentileTable) -> None:
         self._tables.pop(table.version, None)
         self._tables[table.version] = table
@@ -279,7 +323,7 @@ def _weak(engine: Any) -> weakref.ref[Any] | None:
 
 
 #: The process-wide cache every route uses.
-ROLE_PERCENTILES: Final = RolePercentileCache()
+ROLE_PERCENTILES: Final = RolePercentileCache(background_refresh=True)
 
 
 async def average_role_percentiles(

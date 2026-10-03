@@ -223,6 +223,21 @@ def mount_spa(app: FastAPI, web_dist: Path) -> None:
         return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
 
+async def _warm_caches(app: FastAPI) -> None:
+    """Load the role percentile population right after startup, so the first visitor after a
+    deploy doesn't wait for it (the leaderboard and profiles need it)."""
+    from hextrack.stats import queries, role_percentile
+
+    try:
+        async with app.state.session_factory() as session:
+            version = await queries.resolve_model_version(session, app.state.scorer)
+            await role_percentile.ROLE_PERCENTILES.ensure_loaded(session, model_version=version)
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.warning("warming the role percentile cache failed", exc_info=True)
+
+
 def _log_poller_exit(task: asyncio.Task[None]) -> None:
     """Surface an in-process poller crash immediately instead of at shutdown."""
     if task.cancelled():
@@ -284,13 +299,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         watcher = asyncio.create_task(
             watch_active_model(app, contexts, settings, stop), name="hextrack-model-watch"
         )
+        warm = asyncio.create_task(_warm_caches(app), name="hextrack-warm-caches")
         try:
             yield
         finally:
             stop.set()
-            watcher.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await watcher
+            for background in (watcher, warm):
+                background.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await background
             task: asyncio.Task[None] | None = app.state.poller_task
             if task is not None:
                 try:

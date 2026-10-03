@@ -333,3 +333,26 @@ async def test_loaded_scorer_counts_as_the_active_model(app, client, session):
     )
     board = {e["puuid"]: e for e in (await client.get("/api/v1/leaderboard")).json()["entries"]}
     assert board[A]["avg_ai_role_percentile"] == 25.0
+
+
+async def test_background_refresh_serves_the_old_table_while_reloading(session):
+    await _seed_population(session, other_version=False)
+    clock = FakeClock()
+    cache = RolePercentileCache(clock=clock, background_refresh=True)
+    first = await cache.ensure_loaded(session, model_version="v1")
+    extra = make_match_json("NA1_8", start=SEASON + timedelta(days=1))
+    await add_match(session, extra, scores=_scores(extra, [0.9] * 10))
+    await session.commit()
+
+    clock.now += role_percentile.REFRESH_SECONDS
+    # Expired: the request gets the old table at once; one task reloads it.
+    assert await cache.ensure_loaded(session, model_version="v1") is first
+    assert await cache.ensure_loaded(session, model_version="v1") is first
+    task = cache._refresh_task
+    assert task is not None
+    await task
+    assert cache.loads == 2
+    refreshed = await cache.ensure_loaded(session, model_version="v1")
+    assert refreshed is not first
+    assert refreshed.scores["TOP"] == [0.1, 0.3, 0.5, 0.7, 0.9, 0.9]
+    cache.invalidate()
