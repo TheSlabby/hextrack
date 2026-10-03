@@ -9,8 +9,10 @@ import "./index.css";
 import { createQueryClient } from "@/api/queryClient";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { installStaleChunkReload } from "@/lib/staleChunks";
 import { router } from "@/router";
 
+installStaleChunkReload();
 const queryClient = createQueryClient();
 
 const container = document.getElementById("root");

@@ -23,11 +23,12 @@ from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -188,6 +189,17 @@ def install_exception_handlers(app: FastAPI) -> None:
         return _error(502, "Riot API error", "riot_unavailable")
 
 
+class ImmutableAssets(StaticFiles):
+    """``/assets`` files are content-hashed by the build, so browsers may keep them for a year
+    without asking again (a new deploy references new file names)."""
+
+    def file_response(self, *args: Any, **kwargs: Any) -> Response:
+        response = super().file_response(*args, **kwargs)
+        if response.status_code == 200:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
 def mount_spa(app: FastAPI, web_dist: Path) -> None:
     """Serve the built frontend: ``/assets`` statically, other files as-is, and
     ``index.html`` for every other non-/api path (client-side routing)."""
@@ -197,7 +209,7 @@ def mount_spa(app: FastAPI, web_dist: Path) -> None:
         return
     assets = web_dist / "assets"
     if assets.is_dir():
-        app.mount("/assets", StaticFiles(directory=assets), name="assets")
+        app.mount("/assets", ImmutableAssets(directory=assets), name="assets")
     root = web_dist.resolve()
 
     @app.get("/{full_path:path}", include_in_schema=False)

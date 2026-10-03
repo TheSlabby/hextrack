@@ -174,6 +174,12 @@ if ! npm run build --silent -- --outDir "$stage/web/dist" >"$stage_root/build.lo
 fi
 cd ..
 
+# Tabs opened before this deploy still ask for the old hash-named page chunks: carry the current
+# release's assets over for two weeks (cp -p keeps their age, so carried files expire too).
+if [ -d /opt/hextrack/current/web/dist/assets ]; then
+  find /opt/hextrack/current/web/dist/assets -type f -mtime -14 -exec cp -n -p {} "$stage/web/dist/assets/" \;
+fi
+
 say "installing"
 sudo -n /usr/local/sbin/hextrack-install "$stage"
 

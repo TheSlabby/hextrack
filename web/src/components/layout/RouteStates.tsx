@@ -1,10 +1,12 @@
+import { useEffect } from "react";
 import { Link, useRouter, type ErrorComponentProps } from "@tanstack/react-router";
-import { Compass, Home } from "lucide-react";
+import { Compass, Home, RefreshCw } from "lucide-react";
 
 import { EmptyState } from "@/components/common/EmptyState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { GlowCard } from "@/components/common/GlowCard";
 import { Button } from "@/components/ui/button";
+import { isChunkLoadError, reloadForNewVersion } from "@/lib/staleChunks";
 
 /** Shown for unknown URLs. */
 export function NotFoundPage() {
@@ -30,6 +32,24 @@ export function NotFoundPage() {
 /** Route-level error boundary. */
 export function RouteErrorPage({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
+  const staleChunk = isChunkLoadError(error);
+  // A page chunk from an older deploy is gone: reload once to get the new version.
+  useEffect(() => {
+    if (staleChunk) reloadForNewVersion();
+  }, [staleChunk]);
+
+  if (staleChunk) {
+    return (
+      <GlowCard className="mx-auto mt-8 max-w-xl">
+        <EmptyState
+          icon={RefreshCw}
+          title="HexTrack was updated"
+          description="A new version went live while this tab was open, so it's reloading. If nothing happens, hit Reload."
+          action={<Button onClick={() => window.location.reload()}>Reload</Button>}
+        />
+      </GlowCard>
+    );
+  }
   return (
     <GlowCard className="mx-auto mt-8 max-w-xl">
       <ErrorState
