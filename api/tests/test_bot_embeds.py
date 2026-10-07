@@ -192,6 +192,31 @@ def test_great_game_embed() -> None:
     assert embed.url == "https://hextrack.example/match/NA1_5001?player=Hex%20Walker-NA1"
 
 
+@pytest.mark.parametrize(
+    ("key", "shown"),
+    [
+        ("MonkeyKing", "Wukong"),
+        ("MissFortune", "Miss Fortune"),
+        ("Kaisa", "Kai'Sa"),
+        ("FiddleSticks", "Fiddlesticks"),
+        ("Nunu", "Nunu & Willump"),
+        ("Ahri", "Ahri"),
+    ],
+)
+def test_game_embed_shows_the_champion_display_name(key: str, shown: str) -> None:
+    """The Champion field used to print the match-v5 key ("MonkeyKing"); the icon still
+    resolves through the key."""
+    embed = embeds.great_game(game_event(champion_id=62, champion_name=key), PLAYER, CTX)
+    assert fields(embed)["Champion"] == (shown, True)
+    assert embed.thumbnail.url == f"{CDN}/{VERSION}/img/champion/{key}.png"
+
+
+def test_game_embed_never_sends_an_empty_champion_field() -> None:
+    """Discord rejects a whole embed with an empty field value."""
+    embed = embeds.bad_game(game_event(champion_name=""), PLAYER, CTX)
+    assert fields(embed)["Champion"] == ("Unknown", True)
+
+
 def test_great_game_without_ai_score_has_no_footer() -> None:
     embed = embeds.great_game(game_event(ai_score=None), PLAYER, CTX)
     assert embed.footer.text is None
