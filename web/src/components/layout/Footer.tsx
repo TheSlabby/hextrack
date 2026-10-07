@@ -47,7 +47,12 @@ export function Footer() {
         {meta ? (
           <p className="text-xs text-text-muted tabular-nums" title={meta.model_version ?? undefined}>
             Data Dragon {meta.ddragon_version} · {meta.platform.toUpperCase()}
-            {trainedAt ? ` · Hex Score model trained ${formatDate(trainedAt)}` : ""}
+            {trainedAt ? (
+              <>
+                {" "}
+                · Hex Score model trained <span className="whitespace-nowrap">{formatDate(trainedAt)}</span>
+              </>
+            ) : null}
           </p>
         ) : null}
       </div>

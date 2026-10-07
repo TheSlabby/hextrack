@@ -55,7 +55,7 @@ export function HomeHero({ examples = [], loading = false }: HomeHeroProps) {
         </motion.h1>
 
         <motion.p {...enter(0.06)} className="mt-4 max-w-xl text-base leading-relaxed text-text-secondary sm:text-lg">
-          Match history, ranks and LP for you and your friends, plus a Hex Score on every game: a neural net's read on
+          Match history, ranks and LP for you and your friends, plus a Hex&nbsp;Score on every game: a neural net's read on
           how often your stat line wins.
         </motion.p>
 
