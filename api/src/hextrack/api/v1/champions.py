@@ -3,9 +3,18 @@ roster on a champion. The SQL lives in :mod:`hextrack.stats.champions.read`."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from typing import Annotated
 
-from hextrack.api.deps import ApiError, OptionalScorerDep, SessionDep, SettingsDep, error_responses
+from fastapi import APIRouter, Path, Request
+
+from hextrack.api.deps import (
+    SAFE_TEXT,
+    ApiError,
+    OptionalScorerDep,
+    SessionDep,
+    SettingsDep,
+    error_responses,
+)
 from hextrack.api.schemas import (
     ChampionDetail,
     ChampionList,
@@ -19,6 +28,10 @@ from hextrack.stats import queries
 from hextrack.stats.champions import player, read
 
 router = APIRouter(prefix="/champions", tags=["champions"])
+
+#: Validated like every other puuid path segment: a NUL byte would otherwise reach asyncpg
+#: as invalid UTF-8 and fail the summoner lookup with a 500.
+Puuid = Annotated[str, Path(min_length=1, max_length=100, pattern=SAFE_TEXT)]
 
 
 def _unknown_patch(patch: str) -> ApiError:
@@ -125,7 +138,7 @@ async def get_champion_player(
     settings: SettingsDep,
     scorer: OptionalScorerDep,
     champion: str,
-    puuid: str,
+    puuid: Puuid,
     queue: LeaderboardQueue = "all",
 ) -> ChampionPlayer:
     version = await queries.resolve_model_version(session, scorer)

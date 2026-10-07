@@ -2252,6 +2252,9 @@
             "required": true,
             "schema": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[^\\x00-\\x1f\\x7f]+$",
               "title": "Puuid"
             }
           },

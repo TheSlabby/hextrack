@@ -147,6 +147,16 @@ async def test_not_found(client, session) -> None:
         assert resp.status_code == 404 and resp.json()["code"] == "player_not_found"
 
 
+@pytest.mark.parametrize("puuid", ["a%00b", "%01", "p" * 101])
+async def test_unusable_puuid_is_rejected(client, session, puuid) -> None:
+    """A NUL byte in the puuid reached asyncpg as invalid UTF-8: a plain 500."""
+    await seed_base(session)
+    await session.commit()
+    resp = await client.get(url(puuid=puuid))
+    assert resp.status_code == 422, resp.text
+    assert resp.json()["code"] == "invalid_request"
+
+
 async def test_zero_games(client, session, dd) -> None:
     await seed_base(session)
     await add_game(session, 1, B)
