@@ -268,6 +268,17 @@ async def test_unknown_champion_is_404(client, session) -> None:
     assert resp.status_code == 404
 
 
+async def test_non_ascii_digits_are_not_a_champion_id(client, session) -> None:
+    """str.isdigit() accepts "²" (int() then raised: a 500) and "١٠٣" (Arabic-Indic 103,
+    which int() turned into Ahri's id); only ASCII digits are an id."""
+    await seed_list(session)
+    for name in ("²", "١٠٣"):
+        for path in (f"{URL}/{name}", f"{URL}/{name}/squad", f"{URL}/{name}/players/x"):
+            resp = await client.get(path)
+            assert resp.status_code == 404, (path, resp.status_code)
+            assert resp.json()["code"] == "champion_not_found"
+
+
 async def test_detail_key_is_case_insensitive_or_numeric(client, session) -> None:
     await seed_list(session)
     await add_stat(session, WUKONG, "TOP", "16.10", games=5, wins=2)
