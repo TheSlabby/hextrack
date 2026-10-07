@@ -126,7 +126,9 @@ async def test_impact_scores_depend_on_role_and_stay_in_range(trained, match_row
     as_support = scorer.score_rows([duration], [{**row, "team_position": "UTILITY"}])[0]
     unknown = scorer.score_rows([duration], [{**row, "team_position": ""}])[0]
     assert as_top != as_support
-    assert 0.0 < unknown < 1.0
+    # no position: the average of the five roles' scores
+    every_role = [scorer.score_rows([duration], [{**row, "team_position": r}])[0] for r in ROLES]
+    assert unknown == pytest.approx(float(np.mean(every_role)), abs=1e-9)
     # a champion the model never saw falls back to the unknown slot instead of failing
     assert 0.0 < scorer.score_rows([duration], [{**row, "champion_id": 999_999}])[0] < 1.0
 
@@ -134,6 +136,7 @@ async def test_impact_scores_depend_on_role_and_stay_in_range(trained, match_row
 async def test_score_tensor_matches_numpy_scores(trained, match_rows):
     _, scorer = trained
     duration, rows = match_rows
+    rows = [{**rows[0], "team_position": ""}, *rows[1:]]  # one player without a position
     scaled = scorer.scale(scorer.features([duration] * len(rows), rows))
     roles, champions = scorer.context(rows)
     expected = scorer.scores_from_scaled(scaled, roles, champions)
@@ -149,6 +152,7 @@ async def test_score_tensor_matches_numpy_scores(trained, match_rows):
 async def test_impact_attributions_add_up_from_the_role_baseline(trained, match_rows):
     _, scorer = trained
     duration, rows = match_rows
+    rows = [{**rows[0], "team_position": ""}, *rows[1:]]
     scaled = scorer.scale(scorer.features([duration] * len(rows), rows))
     roles, champions = scorer.context(rows)
     attr = integrated_gradients(scorer, scaled, roles, champions)

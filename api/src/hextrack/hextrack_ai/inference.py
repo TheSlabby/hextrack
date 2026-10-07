@@ -478,12 +478,21 @@ class Scorer:
     ) -> FloatArray:
         """Scores in (0, 1) for already-scaled inputs and their context."""
         n = scaled.shape[0]
-        raw = self.logits_from_scaled(scaled, roles, champions)
         if self._score_map is None:
-            return self.probabilities(raw)
+            return self.probabilities(self.logits_from_scaled(scaled, roles, champions))
         r = np.full(n, UNKNOWN_ROLE_SLOT, np.int64) if roles is None else np.asarray(roles)
         c = np.zeros(n, np.int64) if champions is None else np.asarray(champions)
-        return np.clip(self._score_map(raw, r, c), PROB_EPS, 1.0 - PROB_EPS)
+        out = self._score_map(self.logits_from_scaled(scaled, r, c), r, c)
+        # No position (rare): the network never trained on that slot, so average the five roles.
+        unknown = r == UNKNOWN_ROLE_SLOT
+        if unknown.any():
+            sub, sub_c = scaled[unknown], c[unknown]
+            total = np.zeros(sub.shape[0])
+            for slot in range(len(ROLES)):
+                rr = np.full(sub.shape[0], slot, np.int64)
+                total += self._score_map(self.logits_from_scaled(sub, rr, sub_c), rr, sub_c)
+            out[unknown] = total / len(ROLES)
+        return np.clip(out, PROB_EPS, 1.0 - PROB_EPS)
 
     def score_tensor(
         self, scaled: torch.Tensor, roles: torch.Tensor, champions: torch.Tensor
@@ -492,7 +501,17 @@ class Scorer:
         raw = self._forward(scaled, roles, champions)
         if self._score_map is None:
             return torch.sigmoid(raw)
-        return self._score_map.tensor(raw, roles, champions)
+        out = self._score_map.tensor(raw, roles, champions)
+        unknown = roles == UNKNOWN_ROLE_SLOT
+        if bool(unknown.any()):
+            total = torch.zeros_like(out)
+            for slot in range(len(ROLES)):
+                rr = torch.full_like(roles, slot)
+                total = total + self._score_map.tensor(
+                    self._forward(scaled, rr, champions), rr, champions
+                )
+            out = torch.where(unknown, total / len(ROLES), out)
+        return out
 
     def score_rows(
         self,

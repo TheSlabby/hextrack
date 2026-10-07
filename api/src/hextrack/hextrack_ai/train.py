@@ -45,7 +45,12 @@ from hextrack.config import Settings
 from hextrack.db.engine import make_sync_engine, make_sync_session_factory
 from hextrack.db.models import AiModel, Match, MatchParticipant
 from hextrack.hextrack_ai import impact, registry
-from hextrack.hextrack_ai.features import FEATURE_NAMES, FEATURE_SET, role_slots
+from hextrack.hextrack_ai.features import (
+    FEATURE_NAMES,
+    FEATURE_SET,
+    UNKNOWN_ROLE_SLOT,
+    role_slots,
+)
 from hextrack.hextrack_ai.inference import (
     CURVE_FILE,
     KIND_IMPACT,
@@ -553,6 +558,13 @@ def _fit_impact_model(
     champions = impact.champion_slots(data.champion_ids, vocabulary)
     train_rows, y_train = impact.game_rows(data.match_ids, data.team_ids, data.labels, train_mask)
     val_rows, y_val = impact.game_rows(data.match_ids, data.team_ids, data.labels, val_mask)
+    # games where someone has no position would train the "unknown role" slot on a handful of
+    # rows; the scorer averages the five roles for such players instead
+    known = data.roles != UNKNOWN_ROLE_SLOT
+    keep_train = known[train_rows].all(axis=1)
+    keep_val = known[val_rows].all(axis=1)
+    train_rows, y_train = train_rows[keep_train], y_train[keep_train]
+    val_rows, y_val = val_rows[keep_val], y_val[keep_val]
     if train_rows.shape[0] < 2 or val_rows.shape[0] < 1:
         raise NotEnoughData(
             f"need complete 5v5 games to train the impact model; found {train_rows.shape[0]} "
