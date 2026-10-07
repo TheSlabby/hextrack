@@ -14,7 +14,12 @@ from sqlalchemy import delete, func, select, update
 
 from hextrack.db.models import AiModel, Match, MatchParticipant
 from hextrack.hextrack_ai import registry
-from hextrack.hextrack_ai.features import FEATURE_NAMES, FEATURE_SET, compute_feature_matrix
+from hextrack.hextrack_ai.features import (
+    FEATURE_NAMES,
+    IMPACT_FEATURE_NAMES,
+    IMPACT_FEATURE_SET,
+    compute_feature_matrix,
+)
 from hextrack.hextrack_ai.inference import ACTIVE_FILE, ModelLoadError, Scorer
 from hextrack.hextrack_ai.registry import (
     NoActiveModel,
@@ -113,8 +118,8 @@ async def test_train_end_to_end(dataset, settings, session_factory):
 
     meta = json.loads((version_dir / "meta.json").read_text())
     assert meta["version"] == report.version
-    assert meta["feature_set"] == FEATURE_SET
-    assert meta["feature_names"] == list(FEATURE_NAMES)
+    assert meta["feature_set"] == IMPACT_FEATURE_SET  # the default kind is the impact model
+    assert meta["feature_names"] == list(IMPACT_FEATURE_NAMES)
     assert meta["n_train"] == 480 and meta["n_val"] == 120
     assert datetime.fromisoformat(meta["trained_at"]).tzinfo is not None
     for key in ("val_auc", "val_accuracy", "val_loss", "best_epoch", "baseline_val_loss"):
@@ -131,7 +136,7 @@ async def test_train_end_to_end(dataset, settings, session_factory):
     async with session_factory() as session:
         row = await session.get(AiModel, report.version)
         assert row is not None and row.is_active
-        assert row.feature_names == list(FEATURE_NAMES)
+        assert row.feature_names == list(IMPACT_FEATURE_NAMES)
         assert row.metrics["val_auc"] == pytest.approx(report.val_auc, abs=1e-5)
 
     # the trained model loads and scores
@@ -139,7 +144,7 @@ async def test_train_end_to_end(dataset, settings, session_factory):
     assert scorer is not None and scorer.version == report.version
     infos = list_models(settings)
     assert [i.version for i in infos] == [report.version]
-    assert infos[0].is_active and infos[0].n_features == 30
+    assert infos[0].is_active and infos[0].n_features == len(IMPACT_FEATURE_NAMES) == 28
 
     # activating also re-scored the stored games, so averages are not empty afterwards
     n_scorable = N_RANKED + 1  # + the normal-draft match (ARAM / remake / abort are skipped)

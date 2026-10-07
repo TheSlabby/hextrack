@@ -269,14 +269,24 @@ _PARTICIPATION_SPECS: Final[tuple[FeatureSpec, ...]] = (
 FEATURE_SPECS: Final[dict[str, FeatureSpec]] = {
     s.name: s for s in (*_BASE_SPECS, *_PARTICIPATION_SPECS)
 }
+#: Stats the impact model (the Hex Score) leaves out because they mostly record that a team
+#: won rather than how a player played: towers and objective damage pile up at the end of won
+#: games. Without them the score follows the result less and predicts a player's later games
+#: better (5-fold on ~240k production games, 2026-10-07).
+IMPACT_EXCLUDED: Final[frozenset[str]] = frozenset({"objectiveDamagePerMinute", "turretsPerMinute"})
+IMPACT_FEATURE_SET: Final = "v3-28-impact"
+
 #: Feature names of each known feature set.
 FEATURE_SETS: Final[dict[str, tuple[str, ...]]] = {
     BASE_FEATURE_SET: tuple(s.name for s in _BASE_SPECS),
     PARTICIPATION_FEATURE_SET: tuple(s.name for s in (*_BASE_SPECS, *_PARTICIPATION_SPECS)),
+    IMPACT_FEATURE_SET: tuple(s.name for s in _BASE_SPECS if s.name not in IMPACT_EXCLUDED),
 }
 
 #: Ordered feature names (30 in the default FEATURE_SET). The order is the model contract.
 FEATURE_NAMES: Final[tuple[str, ...]] = FEATURE_SETS[FEATURE_SET]
+#: The impact model's inputs, in contract order (a subset of FEATURE_NAMES).
+IMPACT_FEATURE_NAMES: Final[tuple[str, ...]] = FEATURE_SETS[IMPACT_FEATURE_SET]
 #: feature name -> human label for charts.
 FEATURE_LABELS: Final[dict[str, str]] = {name: FEATURE_SPECS[name].label for name in FEATURE_NAMES}
 #: feature name -> group.

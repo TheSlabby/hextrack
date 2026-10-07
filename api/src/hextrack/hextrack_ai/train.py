@@ -48,6 +48,8 @@ from hextrack.hextrack_ai import impact, registry
 from hextrack.hextrack_ai.features import (
     FEATURE_NAMES,
     FEATURE_SET,
+    IMPACT_FEATURE_NAMES,
+    IMPACT_FEATURE_SET,
     UNKNOWN_ROLE_SLOT,
     role_slots,
 )
@@ -648,7 +650,9 @@ def _fit_impact_model(
             "n_train_games": int(train_rows.shape[0]),
             "n_val_games": int(val_rows.shape[0]),
         },
-        architecture=describe_impact_architecture(len(FEATURE_NAMES), n_champions=len(vocabulary)),
+        architecture=describe_impact_architecture(
+            data.features.shape[1], n_champions=len(vocabulary)
+        ),
         batch_size=effective_batch,
         n_train=int(train_idx.shape[0]),
         n_val=int(val_idx.shape[0]),
@@ -714,7 +718,18 @@ def train(
 
     engine = make_sync_engine(settings)
     try:
-        data = load_training_data(engine, since=since, queues=queue_list, max_matches=max_matches)
+        feature_set, feature_names = (
+            (IMPACT_FEATURE_SET, IMPACT_FEATURE_NAMES)
+            if kind == KIND_IMPACT
+            else (FEATURE_SET, FEATURE_NAMES)
+        )
+        data = load_training_data(
+            engine,
+            since=since,
+            queues=queue_list,
+            max_matches=max_matches,
+            feature_names=feature_names,
+        )
         scope = f"queues {','.join(map(str, queue_list))}" + (
             f" since {since.date().isoformat()}" if since else ""
         )
@@ -782,9 +797,9 @@ def train(
         meta: dict[str, Any] = {
             "version": version,
             "kind": kind,
-            "feature_set": FEATURE_SET,
-            "feature_names": list(FEATURE_NAMES),
-            "n_features": len(FEATURE_NAMES),
+            "feature_set": feature_set,
+            "feature_names": list(feature_names),
+            "n_features": len(feature_names),
             "architecture": fitted.architecture,
             "n_train": fitted.n_train,
             "n_val": fitted.n_val,
@@ -839,7 +854,7 @@ def train(
                 session.add(
                     AiModel(
                         version=version,
-                        feature_names=list(FEATURE_NAMES),
+                        feature_names=list(feature_names),
                         metrics=metrics,
                         trained_at=trained_at,
                         is_active=False,

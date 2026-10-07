@@ -186,3 +186,18 @@ async def test_a_legacy_model_trains_loads_and_rescores(clean_db, session_factor
 def test_unknown_kind_is_refused(settings):
     with pytest.raises(ValueError, match="unknown model kind"):
         train(settings, kind="nope")
+
+
+def test_impact_features_are_own_stats_without_structures():
+    from hextrack.hextrack_ai.features import (
+        FEATURE_NAMES,
+        IMPACT_EXCLUDED,
+        IMPACT_FEATURE_NAMES,
+        needs_team_totals,
+    )
+
+    assert IMPACT_EXCLUDED <= set(FEATURE_NAMES)
+    assert not IMPACT_EXCLUDED & set(IMPACT_FEATURE_NAMES)
+    # the legacy contract order, minus the exclusions; never team or opponent totals
+    assert list(IMPACT_FEATURE_NAMES) == [n for n in FEATURE_NAMES if n not in IMPACT_EXCLUDED]
+    assert not needs_team_totals(IMPACT_FEATURE_NAMES)

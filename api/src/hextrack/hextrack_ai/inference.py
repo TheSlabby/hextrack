@@ -10,8 +10,9 @@ Artifact layout under ``settings.model_dir``::
 
 :meth:`Scorer.load` reads ``ACTIVE``; without it (or when it names a missing directory) it
 falls back to the newest version directory. A ``model_dir`` that itself holds the three
-artifact files is loaded directly. Models whose ``meta.feature_names`` differ from
-:data:`~hextrack.hextrack_ai.features.FEATURE_NAMES` are refused.
+artifact files is loaded directly. Models whose ``meta.feature_names`` are neither
+:data:`~hextrack.hextrack_ai.features.FEATURE_NAMES` nor the known feature set their
+``meta.feature_set`` names are refused.
 
 Scoring runs on CPU under ``torch.inference_mode`` with one intra-op thread (the API and
 worker score one match at a time; more threads only add contention).
@@ -36,7 +37,7 @@ from sqlalchemy.exc import NoInspectionAvailable
 
 from hextrack.hextrack_ai.features import (
     FEATURE_NAMES,
-    FEATURE_SET,
+    FEATURE_SETS,
     ROLE_SLOTS,
     ROLES,
     UNKNOWN_ROLE_SLOT,
@@ -328,11 +329,13 @@ class Scorer:
         names = meta.get("feature_names")
         if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
             raise ModelLoadError("meta.json has no feature_names list")
-        if tuple(names) != FEATURE_NAMES:
+        feature_set = meta.get("feature_set")
+        known = FEATURE_SETS.get(feature_set) if isinstance(feature_set, str) else None
+        if tuple(names) != FEATURE_NAMES and tuple(names) != known:
             raise ModelLoadError(
-                f"model was trained on feature set {meta.get('feature_set')!r} "
-                f"({len(names)} features); this build uses {FEATURE_SET!r} "
-                f"({len(FEATURE_NAMES)} features). Retrain with `hextrack train`."
+                f"model was trained on feature set {feature_set!r} "
+                f"({len(names)} features), which this build can't compute (it knows "
+                f"{', '.join(sorted(FEATURE_SETS))}). Retrain with `hextrack train`."
             )
         kind = str(meta.get("kind") or KIND_WIN_PROBABILITY)
         if kind not in KINDS:
