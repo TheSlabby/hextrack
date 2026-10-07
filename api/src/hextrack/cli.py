@@ -331,6 +331,34 @@ def model_rescore(
     console.print(f"[green]rescored[/] {n} participant rows")
 
 
+@model_app.command("export-dataset")
+def model_export_dataset(
+    queues: Annotated[str, typer.Option(help="Comma-separated queue ids.")] = "420,440",
+    max_matches: Annotated[
+        int | None, typer.Option(min=1, help="Only the newest N games (default: all).")
+    ] = None,
+) -> None:
+    """Write every scorable game's participant stats to stdout as gzipped CSV (read-only).
+
+    For model research on a copy of the data: `hextrack model export-dataset > games.csv.gz`.
+    PUUIDs are hashed and Riot IDs left out.
+    """
+    from hextrack.db.engine import make_sync_engine
+    from hextrack.hextrack_ai.dataset import export_dataset
+
+    if sys.stdout.isatty():
+        raise _fail("refusing to write gzip to a terminal; redirect stdout to a file", code=2)
+    engine = make_sync_engine(get_settings())
+    try:
+        size = export_dataset(
+            engine, sys.stdout.buffer, queues=_parse_queues(queues), max_matches=max_matches
+        )
+    finally:
+        engine.dispose()
+    sys.stdout.buffer.flush()
+    print(f"exported {size} bytes of CSV", file=sys.stderr)
+
+
 @model_app.command("list")
 def model_list() -> None:
     """List trained models."""
