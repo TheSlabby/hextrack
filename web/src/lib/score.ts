@@ -98,7 +98,7 @@ export function averageOffset(rate: number): number {
 
 /** One-paragraph explanation for teasers and summaries. */
 export const AI_SCORE_SUMMARY =
-  "The AI Score is a neural network's estimate, from 0 to 100, of how often a stat line like yours wins. " +
+  "The Hex Score is a neural network's estimate, from 0 to 100, of how often a stat line like yours wins. " +
   "The result isn't an input, but gold, towers and objectives mostly come with winning, so the score " +
   "largely follows it: wins usually score 65+ and losses under 35.";
 

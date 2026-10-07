@@ -56,7 +56,7 @@ const CHART_HEIGHT = 232;
 
 const LEGEND: readonly LegendItem[] = [
   { label: "Win rate", color: CHART_COLORS.win, mark: "line" },
-  { label: "Avg AI Score", color: CHART_COLORS.ai, mark: "line" },
+  { label: "Avg Hex Score", color: CHART_COLORS.ai, mark: "line" },
   { label: "50 = coin flip", color: CHART_COLORS.reference, mark: "reference" },
 ];
 
@@ -270,7 +270,7 @@ function SessionChart({ buckets, minGames }: { buckets: readonly SessionGameBuck
     .filter((datum) => datum.games > 0)
     .map(
       (datum) =>
-        `Game ${datum.label}: ${Math.round(datum.winrate ?? 0)}% win rate over ${plural(datum.games, "game")}${datum.ai !== null ? `, average AI Score ${Math.round(datum.ai)}` : ""}.`,
+        `Game ${datum.label}: ${Math.round(datum.winrate ?? 0)}% win rate over ${plural(datum.games, "game")}${datum.ai !== null ? `, average Hex Score ${Math.round(datum.ai)}` : ""}.`,
     )
     .join(" ");
 
@@ -298,7 +298,7 @@ function SessionChart({ buckets, minGames }: { buckets: readonly SessionGameBuck
 
   return (
     <figure className="m-0 flex flex-col gap-1">
-      <figcaption className="sr-only">Win rate and average AI Score by game number in a session. {description}</figcaption>
+      <figcaption className="sr-only">Win rate and average Hex Score by game number in a session. {description}</figcaption>
       <div style={{ height: CHART_HEIGHT }} className="w-full min-w-0" aria-hidden="true">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ ...chartMargin, top: 12, right: 16, left: 4 }}>
@@ -333,7 +333,7 @@ function SessionChart({ buckets, minGames }: { buckets: readonly SessionGameBuck
             />
             <Line
               dataKey="ai"
-              name="Avg AI Score"
+              name="Avg Hex Score"
               {...lineProps}
               type="linear"
               stroke={CHART_COLORS.ai}
@@ -395,7 +395,7 @@ function SessionTooltip({ datum, minGames }: { datum: SessionDatum; minGames: nu
             <span className="font-display text-sm font-semibold tabular-nums text-text">
               {datum.ai !== null ? Math.round(datum.ai) : "–"}
             </span>
-            <span className="text-text-secondary">{datum.ai !== null ? "avg AI Score" : "not scored"}</span>
+            <span className="text-text-secondary">{datum.ai !== null ? "avg Hex Score" : "not scored"}</span>
           </div>
           <span className="border-t border-border pt-1.5 text-[11px] text-text-muted tabular-nums">
             {plural(datum.games, "game")} · {formatRecord(datum.wins, datum.games - datum.wins)}
@@ -413,10 +413,10 @@ function SessionTable({ buckets, minGames }: { buckets: readonly SessionGameBuck
   return (
     <div className="overflow-x-auto rounded-xl border border-border scrollbar-thin">
       <table className="w-full text-sm tabular-nums">
-        <caption className="sr-only">Win rate and average AI Score by game number in a session</caption>
+        <caption className="sr-only">Win rate and average Hex Score by game number in a session</caption>
         <thead className="bg-surface-2">
           <tr className="border-b border-border text-left">
-            {["Game", "Games", "Record", "Win rate", "Avg AI"].map((heading, i) => (
+            {["Game", "Games", "Record", "Win rate", "Hex avg"].map((heading, i) => (
               <th
                 key={heading}
                 scope="col"
@@ -493,7 +493,7 @@ function StateTiles({ states, minGames }: { states: readonly SessionStateBucket[
                 caption={
                   <>
                     {plural(state.games, "game")}
-                    {state.games > 0 ? ` · ${ai !== null ? `AI ${ai}` : "not scored"}` : ""}
+                    {state.games > 0 ? ` · ${ai !== null ? `Hex ${ai}` : "not scored"}` : ""}
                     {small && state.games > 0 ? " · small sample" : ""}
                   </>
                 }

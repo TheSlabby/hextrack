@@ -24,7 +24,7 @@ export function RosterEmptyState({ className, compact }: { className?: string; c
           <div className="flex flex-col gap-2">
             <p>
               Track your friends with <Command>hextrack roster add "Name#TAG"</Command> and HexTrack keeps their games,
-              LP and AI Scores up to date.
+              LP and Hex Scores up to date.
             </p>
             <p>
               Just exploring? Load sample players with <Command>hextrack seed-demo</Command>.

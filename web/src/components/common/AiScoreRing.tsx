@@ -45,7 +45,7 @@ export function AiScoreRing({
   kind = "game",
   size = 128,
   thickness,
-  label = "AI Score",
+  label = "Hex Score",
   showGrade = true,
   animate = true,
   className,

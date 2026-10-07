@@ -102,8 +102,8 @@ function TeamTable({ team, teams, remake, maxima, minutes, focusPuuid, matchId, 
         <TableRow>
           <TableHead>Player</TableHead>
           <TableHead className="text-center">
-            <span aria-hidden="true">AI</span>
-            <span className="sr-only">AI Score</span>
+            <span aria-hidden="true">Hex</span>
+            <span className="sr-only">Hex Score</span>
           </TableHead>
           <TableHead>KDA</TableHead>
           <TableHead>Damage</TableHead>

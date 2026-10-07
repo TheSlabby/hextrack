@@ -11,7 +11,7 @@ import { SquadSection } from "@/components/home/SquadSection";
 import { computeStandings } from "@/components/leaderboard/sorting";
 
 export function HomePage() {
-  useDocumentTitle(`${SITE_NAME} · League stats with an AI Score`);
+  useDocumentTitle(`${SITE_NAME} · League stats with a Hex Score`);
   const leaderboard = useLeaderboard("all");
   const { data, isPending, error, refetch } = leaderboard;
 

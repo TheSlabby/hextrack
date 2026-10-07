@@ -78,7 +78,7 @@ function NothingInScope({ filters, onChange }: { filters: TrendsFilters; onChang
       <EmptyState
         icon={widen ? CalendarRange : Activity}
         title={`No ${gamesPhrase(filters)}`}
-        description="Trends need stored ranked games: sessions, the best time to play, lane matchups and games where the AI Score and the result disagreed."
+        description="Trends need stored ranked games: sessions, the best time to play, lane matchups and games where the Hex Score and the result disagreed."
         action={
           widen ? (
             <Button variant="outline" size="sm" onClick={() => onChange(widen.next)}>

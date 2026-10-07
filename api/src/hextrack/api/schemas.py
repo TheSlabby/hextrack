@@ -354,10 +354,10 @@ class AiExplain(ApiModel):
 
 
 class MatchAiExplain(ApiModel):
-    """Why one player's stat line in one game got its AI Score.
+    """Why one player's stat line in one game got its Hex Score.
 
     ``features`` use the ``FeatureAttribution`` fields for a single game: ``mean_attribution``
-    is this game's effect (logits at the base score; x ``b(1-b)`` x 100 = AI Score points),
+    is this game's effect (logits at the base score; x ``b(1-b)`` x 100 = Hex Score points),
     ``player_value`` the game's value. The effects add up to ``score - base_score``.
     """
 
@@ -1399,7 +1399,7 @@ class HealthBot(ApiModel):
 
 
 class HealthCrawler(ApiModel):
-    """The data crawler (games of untracked players, kept for AI training)."""
+    """The data crawler (games of untracked players, kept for model training)."""
 
     #: HEXTRACK_CRAWL is on for this deployment.
     enabled: bool

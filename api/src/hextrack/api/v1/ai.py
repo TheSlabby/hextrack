@@ -1,4 +1,4 @@
-"""AI Score trend and explanation routes."""
+"""Hex Score trend and explanation routes."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ def _explain(
 @router.get(
     "/{puuid}/ai-trend",
     response_model=AiTrend,
-    summary="Stored AI scores over recent games (works without a loaded model)",
+    summary="Stored Hex Scores over recent games (works without a loaded model)",
     responses=error_responses(404),
 )
 async def get_ai_trend(
@@ -77,7 +77,7 @@ async def get_ai_trend(
 @router.get(
     "/{puuid}/ai-explain",
     response_model=AiExplain,
-    summary="Which stats drive this player's AI Score (gradient x input)",
+    summary="Which stats drive this player's Hex Score (gradient x input)",
     responses=error_responses(404, 503),
 )
 async def get_ai_explain(

@@ -84,7 +84,7 @@ export function highlightsFor(
     player.largest_multikill === 4 && "Quadra kill",
     player.largest_multikill === 3 && "Triple kill",
     player.deaths === 0 && player.kills + player.assists > 0 && "Deathless game",
-    !skipAiRank && player.ai_rank === 1 && player.ai_score != null && "Highest AI Score in the lobby",
+    !skipAiRank && player.ai_rank === 1 && player.ai_score != null && "Highest Hex Score in the lobby",
     topOf((p) => p.damage_to_champions) && "Most damage in the lobby",
     damageShare >= 0.3 && `${formatPercent(damageShare)} of team damage`,
     topOf((p) => p.vision_score) && "Top vision score in the lobby",
@@ -121,7 +121,7 @@ export function buildRecap(match: MatchDetail, player: ParticipantSummary, { bad
 
   const alt = [
     `${playerName}: ${title} as ${champion}`,
-    grade && score !== null ? `AI Score ${score}, grade ${grade.grade}, ${grade.label}` : "No AI Score",
+    grade && score !== null ? `Hex Score ${score}, grade ${grade.grade}, ${grade.label}` : "No Hex Score",
     `${player.kills} kills, ${player.deaths} deaths, ${player.assists} assists, ${kdaRatio}`,
     badges.map((b) => (b.kind === "rank" ? rank?.description : b.label)).join(", "),
     statLine.replaceAll("  ·  ", ", "),
@@ -547,7 +547,7 @@ function draw(ctx: CanvasRenderingContext2D, recap: Recap, splash: HTMLImageElem
     ctx.font = `700 17px ${SANS}`;
     ctx.fillStyle = C.secondary;
     ctx.letterSpacing = "3px";
-    ctx.fillText("AI SCORE", cx, cy + 64);
+    ctx.fillText("HEX SCORE", cx, cy + 64);
     ctx.letterSpacing = "0px";
     ctx.font = `700 28px ${SANS}`;
     ctx.fillStyle = recap.grade.color;
@@ -649,7 +649,7 @@ function drawGroup(
       ctx.fillText(String(m.score), cx, y + px(12));
       ctx.font = `700 ${Math.max(10, px(12))}px ${SANS}`;
       ctx.fillStyle = m.grade.color;
-      ctx.fillText(fit(ctx, `${m.grade.grade} · AI SCORE`, r * 1.5), cx, y + px(32));
+      ctx.fillText(fit(ctx, `${m.grade.grade} · HEX SCORE`, r * 1.5), cx, y + px(32));
     } else {
       ctx.font = `500 ${px(20)}px ${SANS}`;
       ctx.fillStyle = C.muted;

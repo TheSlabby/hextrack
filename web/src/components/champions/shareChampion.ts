@@ -156,10 +156,10 @@ export function buildChampionCard(player: ChampionPlayer, tier: ChampionTier | n
         deaths: g.deaths,
         assists: g.assists,
         score: bestScore,
-        caption: [bestScore !== null ? `AI Score ${bestScore}` : null, g.win ? "Win" : "Loss", formatShortDate(g.game_start)]
+        caption: [bestScore !== null ? `Hex Score ${bestScore}` : null, g.win ? "Win" : "Loss", formatShortDate(g.game_start)]
           .filter(Boolean)
           .join("  ·  "),
-        line: `Best game: ${g.kills}/${g.deaths}/${g.assists}${bestScore !== null ? `, AI Score ${bestScore}` : ""}`,
+        line: `Best game: ${g.kills}/${g.deaths}/${g.assists}${bestScore !== null ? `, Hex Score ${bestScore}` : ""}`,
       }
     : null;
 
@@ -189,7 +189,7 @@ export function buildChampionCard(player: ChampionPlayer, tier: ChampionTier | n
     hasGames ? `${card.record} in ${card.gamesLabel}, ${card.winRate ?? "no"} win rate ${field}` : "No games yet",
     statLine.replaceAll("  ·  ", ", "),
     card.squad?.label,
-    avgScore !== null ? `Average AI Score ${avgScore}, ${avgOffset}` : null,
+    avgScore !== null ? `Average Hex Score ${avgScore}, ${avgOffset}` : null,
     best?.line,
   ]
     .filter(Boolean)
@@ -485,7 +485,7 @@ function draw(ctx: CanvasRenderingContext2D, card: ChampionCard, art: ChampionCa
     ctx.font = `700 15px ${SANS}`;
     ctx.fillStyle = C.secondary;
     ctx.letterSpacing = "3px";
-    ctx.fillText("AI SCORE AVG", cx, cy + 54);
+    ctx.fillText("HEX SCORE AVG", cx, cy + 54);
     ctx.letterSpacing = "0px";
     if (card.avgOffset) {
       ctx.font = `600 22px ${SANS}`;

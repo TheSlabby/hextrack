@@ -104,7 +104,7 @@ export function AttributionChart({ features }: AttributionChartProps) {
 
       <div className="flex flex-col">
         <ScaleHeader showsMixed={showsMixed} />
-        <ul className="flex flex-col" aria-label="Stat influence on the AI Score">
+        <ul className="flex flex-col" aria-label="Stat influence on the Hex Score">
           {visible.map((driver, i) => (
             <AttributionRow key={driver.key} driver={driver} maxShare={maxShare} order={i} />
           ))}

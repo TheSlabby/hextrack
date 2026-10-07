@@ -143,8 +143,8 @@ function MatchDetailContent({ match, focusPuuid, embedded }: { match: MatchDetai
           <ChartPanel
             embedded={embedded}
             ai
-            eyebrow="AI Score"
-            title="AI Score ranking"
+            eyebrow="Hex Score"
+            title="Hex Score ranking"
             description="All ten players by how often their stat line wins."
           >
             <AiRankingChart match={match} focusPuuid={focusPuuid} />
@@ -307,7 +307,7 @@ function HeroPlayerName({ match, player }: { match: MatchDetail; player: Partici
             </span>
           </TooltipTrigger>
           <TooltipContent className="max-w-64">
-            From the teammates' AI Scores. They share the same result, so their scores compare fairly.
+            From the teammates' Hex Scores. They share the same result, so their scores compare fairly.
           </TooltipContent>
         </Tooltip>
       ) : null}

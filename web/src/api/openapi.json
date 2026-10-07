@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "HexTrack API",
-    "description": "League of Legends stats with an AI Score.",
+    "description": "League of Legends stats with a Hex Score.",
     "version": "2.0.0"
   },
   "paths": {
@@ -198,7 +198,7 @@
             }
           },
           "503": {
-            "description": "Riot API key missing/rejected, or AI model not loaded",
+            "description": "Riot API key missing/rejected, or Hex Score model not loaded",
             "content": {
               "application/json": {
                 "schema": {
@@ -309,7 +309,7 @@
             }
           },
           "503": {
-            "description": "Riot API key missing/rejected, or AI model not loaded",
+            "description": "Riot API key missing/rejected, or Hex Score model not loaded",
             "content": {
               "application/json": {
                 "schema": {
@@ -523,7 +523,7 @@
         "tags": [
           "ai"
         ],
-        "summary": "Stored AI scores over recent games (works without a loaded model)",
+        "summary": "Stored Hex Scores over recent games (works without a loaded model)",
         "operationId": "get_ai_trend",
         "parameters": [
           {
@@ -590,7 +590,7 @@
         "tags": [
           "ai"
         ],
-        "summary": "Which stats drive this player's AI Score (gradient x input)",
+        "summary": "Which stats drive this player's Hex Score (gradient x input)",
         "operationId": "get_ai_explain",
         "parameters": [
           {
@@ -640,7 +640,7 @@
             }
           },
           "503": {
-            "description": "Riot API key missing/rejected, or AI model not loaded",
+            "description": "Riot API key missing/rejected, or Hex Score model not loaded",
             "content": {
               "application/json": {
                 "schema": {
@@ -667,7 +667,7 @@
         "tags": [
           "insights"
         ],
-        "summary": "Tilt detector: win rate and AI Score by game number within a play session",
+        "summary": "Tilt detector: win rate and Hex Score by game number within a play session",
         "operationId": "get_session_insights",
         "parameters": [
           {
@@ -1070,7 +1070,7 @@
         "tags": [
           "matches"
         ],
-        "summary": "Both teams, objectives, bans and AI scores for one stored match",
+        "summary": "Both teams, objectives, bans and Hex Scores for one stored match",
         "operationId": "get_match",
         "parameters": [
           {
@@ -1128,7 +1128,7 @@
         "tags": [
           "matches"
         ],
-        "summary": "Which stats moved one player's AI Score in this game",
+        "summary": "Which stats moved one player's Hex Score in this game",
         "operationId": "get_match_ai_explain",
         "parameters": [
           {
@@ -1191,7 +1191,7 @@
             }
           },
           "503": {
-            "description": "Riot API key missing/rejected, or AI model not loaded",
+            "description": "Riot API key missing/rejected, or Hex Score model not loaded",
             "content": {
               "application/json": {
                 "schema": {
@@ -1396,7 +1396,7 @@
             }
           },
           "503": {
-            "description": "Riot API key missing/rejected, or AI model not loaded",
+            "description": "Riot API key missing/rejected, or Hex Score model not loaded",
             "content": {
               "application/json": {
                 "schema": {
@@ -4224,7 +4224,7 @@
           "last_error"
         ],
         "title": "HealthCrawler",
-        "description": "The data crawler (games of untracked players, kept for AI training)."
+        "description": "The data crawler (games of untracked players, kept for model training)."
       },
       "HealthModel": {
         "properties": {
@@ -5226,7 +5226,7 @@
           "features"
         ],
         "title": "MatchAiExplain",
-        "description": "Why one player's stat line in one game got its AI Score.\n\n``features`` use the ``FeatureAttribution`` fields for a single game: ``mean_attribution``\nis this game's effect (logits at the base score; x ``b(1-b)`` x 100 = AI Score points),\n``player_value`` the game's value. The effects add up to ``score - base_score``."
+        "description": "Why one player's stat line in one game got its Hex Score.\n\n``features`` use the ``FeatureAttribution`` fields for a single game: ``mean_attribution``\nis this game's effect (logits at the base score; x ``b(1-b)`` x 100 = Hex Score points),\n``player_value`` the game's value. The effects add up to ``score - base_score``."
       },
       "MatchDetail": {
         "properties": {

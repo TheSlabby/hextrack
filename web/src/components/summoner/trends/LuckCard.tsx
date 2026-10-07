@@ -54,8 +54,8 @@ export function LuckCard({ puuid, filters }: LuckCardProps) {
         compact
         tone="ai"
         icon={Sparkles}
-        title="No AI model yet"
-        description="These lists compare each game's AI Score with its result, so they appear once a model has scored the games."
+        title="No Hex Score model yet"
+        description="These lists compare each game's Hex Score with its result, so they appear once a model has scored the games."
       />
     );
   } else if (data.losses_scored + data.wins_scored === 0) {
@@ -65,7 +65,7 @@ export function LuckCard({ puuid, filters }: LuckCardProps) {
         tone="ai"
         icon={Sparkles}
         title="No scored games yet"
-        description={`No ${gamesPhrase(filters)} with an AI Score for this player.`}
+        description={`No ${gamesPhrase(filters)} with a Hex Score for this player.`}
       />
     );
   } else {
@@ -79,7 +79,7 @@ export function LuckCard({ puuid, filters }: LuckCardProps) {
   return (
     <GlowCard glow="cyan" className="flex flex-col gap-4 p-4 sm:p-5">
       <SectionHeader
-        eyebrow="AI Score vs result"
+        eyebrow="Hex Score vs result"
         title={
           <span className="inline-flex items-center gap-2">
             <Dices className="size-5 text-cyan" aria-hidden="true" />
@@ -136,7 +136,7 @@ function LuckBody({ data, puuid, high, low, expanded, onExpand }: LuckBodyProps)
         />
       </div>
       <p className="text-xs leading-relaxed text-text-muted">
-        The AI Score estimates how often a stat line like this one wins, so an unlucky loss is a game that looked won on
+        The Hex Score estimates how often a stat line like this one wins, so an unlucky loss is a game that looked won on
         paper, and a lucky win one that didn&apos;t. Unlucky losses show the highest scores first, lucky wins the lowest.
         &ldquo;Top 27% TOP&rdquo; means the score beat 73% of scored games in that position.
       </p>
@@ -225,7 +225,7 @@ function LuckRow({ game, kind, player }: { game: LuckGame; kind: LuckKind; playe
     game.ai_role_percentile !== null && isKnownRole(game.team_position)
       ? `, ${roleStanding(game.ai_role_percentile).label} of ${ROLE_GAMES[game.team_position]}`
       : "";
-  const label = `${result} as ${champion}, ${game.kills} kills, ${game.deaths} deaths, ${game.assists} assists, AI Score ${toScore100(game.ai_score)}${percentile}, ${queue}, ${formatDurationLong(game.duration)}, ${formatDateTime(game.game_start)}`;
+  const label = `${result} as ${champion}, ${game.kills} kills, ${game.deaths} deaths, ${game.assists} assists, Hex Score ${toScore100(game.ai_score)}${percentile}, ${queue}, ${formatDurationLong(game.duration)}, ${formatDateTime(game.game_start)}`;
 
   return (
     <Link

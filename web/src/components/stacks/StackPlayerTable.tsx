@@ -36,7 +36,7 @@ const SORT_LABELS: Readonly<Record<SortKey, string>> = {
   player: "Name",
   games: "Games",
   winrate: "Win rate",
-  ai: "Average AI Score",
+  ai: "Average Hex Score",
   kda: "KDA",
   carries: "Carries",
   ran_downs: "Ran it down",
@@ -89,7 +89,7 @@ function nextSort(current: SortState, key: SortKey): SortState {
 
 // --- columns ------------------------------------------------------------------------------
 
-const VERDICT_SCOPE = "Counted in stacks where every member was scored by the AI model.";
+const VERDICT_SCOPE = "Counted in stacks where every member was scored by the model.";
 
 interface Column {
   id: string;
@@ -106,11 +106,11 @@ const COLUMNS: readonly Column[] = [
   { id: "winrate", label: "Win rate", sortKey: "winrate", className: "w-28" },
   {
     id: "ai",
-    label: "AI Score",
+    label: "Hex Score",
     sortKey: "ai",
     align: "center",
     className: "w-[88px]",
-    hint: `Average AI Score in these stacks (0 to 100). ${AI_AVERAGE_NOTE}`,
+    hint: `Average Hex Score in these stacks (0 to 100). ${AI_AVERAGE_NOTE}`,
   },
   { id: "kda", label: "KDA", sortKey: "kda", className: "w-[120px]", hint: "KDA ratio, then average kills / deaths / assists per game" },
   {
@@ -119,7 +119,7 @@ const COLUMNS: readonly Column[] = [
     sortKey: "carries",
     align: "center",
     className: "w-[72px]",
-    hint: `Wins where their AI Score beat every teammate's by ${EDGE_GAP} or more (${HARD_GAP}+ is a hard carry). ${VERDICT_SCOPE}`,
+    hint: `Wins where their Hex Score beat every teammate's by ${EDGE_GAP} or more (${HARD_GAP}+ is a hard carry). ${VERDICT_SCOPE}`,
   },
   {
     id: "ran_downs",
@@ -127,7 +127,7 @@ const COLUMNS: readonly Column[] = [
     sortKey: "ran_downs",
     align: "center",
     className: "w-[108px]",
-    hint: `Losses where their AI Score trailed every teammate's by ${CARRY_GAP} or more. ${VERDICT_SCOPE}`,
+    hint: `Losses where their Hex Score trailed every teammate's by ${CARRY_GAP} or more. ${VERDICT_SCOPE}`,
   },
   {
     id: "tried",
@@ -435,7 +435,7 @@ export function StackPlayerTable({ data }: { data: StackSummary }) {
       </ul>
 
       <p className="text-xs leading-relaxed text-text-muted">
-        {AI_AVERAGE_NOTE} Carries, ran it down and tried compare teammates' AI Scores in the same game, only in stacks
+        {AI_AVERAGE_NOTE} Carries, ran it down and tried compare teammates' Hex Scores in the same game, only in stacks
         where everyone was scored.
       </p>
     </GlowCard>

@@ -16,11 +16,11 @@ Use the Tailwind utilities generated from the tokens. Never hard-code hex values
 | Borders | `border-border` (6%), `border-border-strong` (12%) | Use strong for hover, inputs and popovers. |
 | Text | `text-text`, `text-text-secondary`, `text-text-muted` | Muted is `#76829b`. The brief's `#5f6b82` failed WCAG AA. |
 | Primary accent | `text-gold`, `bg-gold`, `text-gold-bright` | Highlights, key numbers, focus rings, the primary CTA. |
-| AI accent | `text-cyan`, `bg-cyan/10`, `border-cyan/30` | Only for AI features and interactive AI affordances. |
+| Hex Score accent | `text-cyan`, `bg-cyan/10`, `border-cyan/30` | Only for Hex Score features and their interactive affordances (the `ai` variants). |
 | Outcomes | `text-win` / `bg-win-tint`, `text-loss` / `bg-loss-tint`, `text-remake` | Blue = win, red = loss, grey = remake. |
-| AI grades | `text-score-{s,a,b,c,d}` | Pick them through `lib/score.ts`; never choose a grade colour by hand. |
+| Hex Score grades | `text-score-{s,a,b,c,d}` | Pick them through `lib/score.ts`; never choose a grade colour by hand. |
 | Tiers | `text-tier-{iron..challenger}` | Pick them through `lib/tiers.ts` (`TIER_TEXT_CLASS`, `TIER_COLORS`). |
-| Champion tiers | `text-champ-tier-{s,a,b,c,d}`, `shadow-glow-champ-tier-s` | S..D strength in a role (not ranks, not AI grades). Render with `ChampionTierBadge`; classes in `lib/championTiers.ts`. |
+| Champion tiers | `text-champ-tier-{s,a,b,c,d}`, `shadow-glow-champ-tier-s` | S..D strength in a role (not ranks, not Hex Score grades). Render with `ChampionTierBadge`; classes in `lib/championTiers.ts`. |
 
 Other utilities: `surface-raised`, `glass` (the nav), `label-caps` (section labels), `shimmer`, `text-gold-gradient`,
 `scrollbar-thin`. Radii: `rounded-2xl` (16px) for cards, `rounded-xl` (14px) for inner panels and popovers, `rounded-lg` for
@@ -48,15 +48,15 @@ then a secondary caption.
 | A page section | `GlowCard` (`interactive` for clickable cards, `glow="gold" \| "cyan"` for emphasis, `asChild` to wrap a `<Link>`) |
 | A section title row | `SectionHeader` (`eyebrow`, `icon`, `description`, `action` slot for filters) |
 | A headline stat | `StatTile` (count-up value, `caption`, signed `delta`). Use `bare` inside another card. |
-| An AI score in a row or table | `AiScoreBadge` (one game: grade + number; an average: `kind="average"`, no grade). MVP/ACE comes from `AiScoreWithRank` |
-| The hero AI score | `AiScoreRing` (gauge; `kind="average"` for a season average, `animate={false}` for extra rings — only one sweeps per view) |
+| A Hex Score in a row or table | `AiScoreBadge` (one game: grade + number; an average: `kind="average"`, no grade). MVP/ACE comes from `AiScoreWithRank` |
+| The hero Hex Score | `AiScoreRing` (gauge; `kind="average"` for a season average, `animate={false}` for extra rings — only one sweeps per view) |
 | A rank | `TierBadge` ("Diamond II · 54 LP") or `RankEmblem` alone (hand-drawn SVG, tinted per tier) |
 | A champion / items / spells | `ChampionIcon` (xs to xl, `level`, `highlight`), `ItemSlots`, `SpellIcons` |
 | A player avatar | `ProfileIcon` (gold ring, level plate) |
 | A role | `PositionIcon` + `positionLabel()` |
 | Win/loss | `WinRateBar` (split bar plus W/L text), `FormDots` (newest first, W/L letters) |
 | Loading | The skeletons in `Skeletons.tsx`, sized like the final layout so nothing shifts. `Skeleton` for custom shapes. |
-| Nothing to show | `EmptyState` (icon, title, guidance, action; `tone="ai"` for AI) |
+| Nothing to show | `EmptyState` (icon, title, guidance, action; `tone="ai"` for the Hex Score) |
 | A failed query | `ErrorState error={query.error} onRetry={() => query.refetch()}`. Riot-key, rate-limit, network and 404 copy is built in. |
 | A keyboard hint | `Kbd` |
 | Entrance motion | `Stagger` + `StaggerItem`, or `Reveal`; `MotionMemory` + `AnimateOnce` on a page with tabs |
@@ -89,7 +89,7 @@ though sections arrive one query at a time.
   turns off animations under `prefers-reduced-motion`. For custom animations, gate on `useEntranceMotion()`: it is false
   under reduced motion and inside a section that has already played.
 - On mount: a staggered fade and slide-in (8px, **0.26s**, expo-out, **30ms** stagger, compressed so the last item starts
-  by 0.15s). Count-ups and the AI Score ring take **0.45s**; Recharts series **350ms** (`chartAnimation`,
+  by 0.15s). Count-ups and the Hex Score ring take **0.45s**; Recharts series **350ms** (`chartAnimation`,
   `useChartAnimation`).
 - Animate a page's first paint only: not refetches, and not tab switches. Radix unmounts inactive `TabsContent`, so a
   page with tabs wraps itself in `<MotionMemory>` and each re-mountable section in `<AnimateOnce id="…">`; later mounts
@@ -120,7 +120,7 @@ Import everything from `@/lib/chartTheme`:
 
 - Every chart uses `<ChartTooltip />`. It renders a surface-2 card in which the value leads and the series name follows,
   keyed by a short stroke of the series colour.
-- Colours: `CHART_COLORS.ai` for AI score, `.lp` for LP/rank, `.win` and `.loss`, and `.positive`/`.negative`/`.neutral`
+- Colours: `CHART_COLORS.ai` for Hex Score, `.lp` for LP/rank, `.win` and `.loss`, and `.positive`/`.negative`/`.neutral`
   (`divergingColor()`) for attributions. These are validated steps of the brand colours; don't swap in the raw brand hexes
   when there are several series. Categorical order is fixed (`CATEGORICAL_SERIES`) and never cycles.
 - One y-axis per chart, never two. The grid is horizontal hairlines only, solid, at 5% white. Axis text is muted at 11px.
@@ -132,7 +132,7 @@ Import everything from `@/lib/chartTheme`:
   `components/summoner/lpChartModel.ts`, which builds the bands from `MASTER_BASE` and `shortTier()`).
 - Loading uses `SkeletonChart` at the same height. Empty data uses `EmptyState compact` inside the chart card.
 
-## AI Score copy
+## Hex Score copy
 
 The score is the model's estimate of how often a stat line like this one wins. The result is not an input, but the
 stats that weigh most (gold, towers, objectives) come with winning, so a game's score mostly follows its result: wins
@@ -162,7 +162,7 @@ typically score around 90, losses around 10. Averages over a season collapse ont
 
 ## Do / don't
 
-- **Do** use one gold CTA per view, and cyan only for AI.
+- **Do** use one gold CTA per view, and cyan only for the Hex Score.
 - **Do** use tabular numerals for stats, and a proper minus sign for negatives (`formatSigned`).
 - **Do** match skeletons to the final layout.
 - **Don't** use shadcn's default greys (`bg-muted`, `text-muted-foreground`). Use the tokens above.

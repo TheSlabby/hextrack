@@ -130,7 +130,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Stored AI scores over recent games (works without a loaded model) */
+        /** Stored Hex Scores over recent games (works without a loaded model) */
         get: operations["get_ai_trend"];
         put?: never;
         post?: never;
@@ -147,7 +147,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Which stats drive this player's AI Score (gradient x input) */
+        /** Which stats drive this player's Hex Score (gradient x input) */
         get: operations["get_ai_explain"];
         put?: never;
         post?: never;
@@ -164,7 +164,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Tilt detector: win rate and AI Score by game number within a play session */
+        /** Tilt detector: win rate and Hex Score by game number within a play session */
         get: operations["get_session_insights"];
         put?: never;
         post?: never;
@@ -232,7 +232,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Both teams, objectives, bans and AI scores for one stored match */
+        /** Both teams, objectives, bans and Hex Scores for one stored match */
         get: operations["get_match"];
         put?: never;
         post?: never;
@@ -249,7 +249,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Which stats moved one player's AI Score in this game */
+        /** Which stats moved one player's Hex Score in this game */
         get: operations["get_match_ai_explain"];
         put?: never;
         post?: never;
@@ -1068,7 +1068,7 @@ export interface components {
         };
         /**
          * HealthCrawler
-         * @description The data crawler (games of untracked players, kept for AI training).
+         * @description The data crawler (games of untracked players, kept for model training).
          */
         HealthCrawler: {
             /** Enabled */
@@ -1361,10 +1361,10 @@ export interface components {
         };
         /**
          * MatchAiExplain
-         * @description Why one player's stat line in one game got its AI Score.
+         * @description Why one player's stat line in one game got its Hex Score.
          *
          *     ``features`` use the ``FeatureAttribution`` fields for a single game: ``mean_attribution``
-         *     is this game's effect (logits at the base score; x ``b(1-b)`` x 100 = AI Score points),
+         *     is this game's effect (logits at the base score; x ``b(1-b)`` x 100 = Hex Score points),
          *     ``player_value`` the game's value. The effects add up to ``score - base_score``.
          */
         MatchAiExplain: {
@@ -2651,7 +2651,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Riot API key missing/rejected, or AI model not loaded */
+            /** @description Riot API key missing/rejected, or Hex Score model not loaded */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -2730,7 +2730,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Riot API key missing/rejected, or AI model not loaded */
+            /** @description Riot API key missing/rejected, or Hex Score model not loaded */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -2919,7 +2919,7 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
-            /** @description Riot API key missing/rejected, or AI model not loaded */
+            /** @description Riot API key missing/rejected, or Hex Score model not loaded */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -3208,7 +3208,7 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
-            /** @description Riot API key missing/rejected, or AI model not loaded */
+            /** @description Riot API key missing/rejected, or Hex Score model not loaded */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -3354,7 +3354,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Riot API key missing/rejected, or AI model not loaded */
+            /** @description Riot API key missing/rejected, or Hex Score model not loaded */
             503: {
                 headers: {
                     [name: string]: unknown;

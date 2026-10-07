@@ -20,7 +20,7 @@ export function Footer() {
           <div className="flex items-center gap-2 text-sm text-text-secondary">
             <LogoMark size={18} />
             <span className="font-display font-semibold text-text">HexTrack</span>
-            <span className="text-text-muted">· League stats with an AI Score</span>
+            <span className="text-text-muted">· League stats with a Hex Score</span>
           </div>
           <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-text-secondary">
             <Link to="/" className="rounded-sm hover:text-text">
@@ -47,7 +47,7 @@ export function Footer() {
         {meta ? (
           <p className="text-xs text-text-muted tabular-nums" title={meta.model_version ?? undefined}>
             Data Dragon {meta.ddragon_version} · {meta.platform.toUpperCase()}
-            {trainedAt ? ` · AI model trained ${formatDate(trainedAt)}` : ""}
+            {trainedAt ? ` · Hex Score model trained ${formatDate(trainedAt)}` : ""}
           </p>
         ) : null}
       </div>

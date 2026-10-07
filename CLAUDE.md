@@ -1,9 +1,14 @@
 # CLAUDE.md
 
-HexTrack: an op.gg-style League of Legends stats site for a group of friends, with an
-"AI Score" on every game. Live at https://hextrack.slabby.dev. Monorepo with a FastAPI
+HexTrack: an op.gg-style League of Legends stats site for a group of friends, with a
+"Hex Score" on every game. Live at https://hextrack.slabby.dev. Monorepo with a FastAPI
 backend (`api/`) and a Vite + React frontend (`web/`). See README.md for the user-facing
 overview and web/DESIGN.md for the frontend design system.
+
+Naming: users only ever see "Hex Score" (it used to be "AI Score"; short labels say "Hex").
+Code keeps the old names, which are contracts: API fields (`ai_score`, `ai_role_percentile`,
+...), routes (`/api/v1/ai/...`), DB columns, TS/Python identifiers and the `hextrack_ai`
+package. Don't write "AI Score" or a bare "AI" in new copy.
 
 ## Rules that matter most
 
@@ -44,7 +49,7 @@ Still ask first for: anything that makes the Discord bot post, deleting data, an
 to the Pi's system setup (units, sudoers, Postgres roles) beyond a normal deploy. When a
 choice is genuinely his (product direction, trade-offs), ask briefly with a recommendation;
 otherwise decide. He likes fun, social features for the friend group (share cards, carry /
-"ran it down" banter, streaks, nemesis), as long as the AI Score wording rules hold.
+"ran it down" banter, streaks, nemesis), as long as the Hex Score wording rules hold.
 
 Gotchas seen before:
 - `./deploy.sh` says `Could not resolve hostname rpi5`: Tailscale is off on the Mac, or
@@ -137,7 +142,7 @@ cd web && npm run typecheck && npm run lint && npm run build
 
 ## Domain notes
 
-- **AI Score** = the model's probability that a participant's stat line is on the winning
+- **Hex Score** = the model's probability that a participant's stat line is on the winning
   team, 0 to 100. It is strongly tied to the result (scores cluster near 0 and 100; wins
   average ~80, losses ~21), so UI copy must not call it a skill or "carry" rating. Averages
   are shown as plain numbers, not grades. Averages only use rows scored by the active model.
@@ -164,7 +169,7 @@ cd web && npm run typecheck && npm run lint && npm run build
   don't track, so training has far more than the roster's games. It only spends Riot budget
   the roster poll, live games and the website leave over (it pauses while a poll tick runs),
   and pauses while the DB disk has less than `HEXTRACK_CRAWL_MIN_FREE_GB` free. Its games are
-  stored like any other (raw JSON, participants, AI scores) with `matches.source = "crawl"`
+  stored like any other (raw JSON, participants, Hex Scores) with `matches.source = "crawl"`
   (everything else is `"roster"`) and never make bot events. Frontier of players to crawl:
   `crawl_players` (found on ladder pages or in crawled games). Settings `HEXTRACK_CRAWL`
   (on/off), `..._CRAWL_MIN_FREE_GB`, `..._CRAWL_FRONTIER_MAX`, `..._CRAWL_MATCHES_PER_PLAYER`.

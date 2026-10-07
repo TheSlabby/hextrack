@@ -42,7 +42,7 @@ export const ROLE_GAMES: Readonly<Record<Position, string>> = {
 
 /** Who the percentile is measured against (tooltip footnote). */
 export const ROLE_PERCENTILE_NOTE =
-  "Compared with every ranked game the current AI model scored in the same role, not just the roster's.";
+  "Compared with every ranked game the current model scored in the same role, not just the roster's.";
 
 /** Averages of the percentile follow win rate, like average AI Scores. */
 export const ROLE_PERCENTILE_AVERAGE_NOTE =

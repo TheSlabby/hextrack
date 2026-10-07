@@ -29,7 +29,7 @@ router = APIRouter(prefix="/matches", tags=["matches"])
 @router.get(
     "/{match_id}",
     response_model=MatchDetail,
-    summary="Both teams, objectives, bans and AI scores for one stored match",
+    summary="Both teams, objectives, bans and Hex Scores for one stored match",
     responses=error_responses(404),
 )
 async def get_match(
@@ -50,7 +50,7 @@ async def get_match(
 @router.get(
     "/{match_id}/ai-explain",
     response_model=MatchAiExplain,
-    summary="Which stats moved one player's AI Score in this game",
+    summary="Which stats moved one player's Hex Score in this game",
     responses=error_responses(404, 409, 503),
 )
 async def get_match_ai_explain(
@@ -67,7 +67,7 @@ async def get_match_ai_explain(
     participant, duration, scorable = found
     if not scorable:
         # Remakes, Arena and other modes have no AI Score to explain.
-        raise ApiError(409, "This game isn't scored by the AI model", "not_scorable")
+        raise ApiError(409, "This game has no Hex Score", "not_scorable")
     row = inference.participant_to_dict(participant)
     population = await registry.population_feature_means(session, scorer)
     attributions, base, score = await run_in_threadpool(

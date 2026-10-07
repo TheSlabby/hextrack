@@ -33,15 +33,15 @@ err_console = Console(stderr=True)
 
 app = typer.Typer(
     name="hextrack",
-    help="HexTrack v2: League of Legends stats with an AI Score.",
+    help="HexTrack v2: League of Legends stats with a Hex Score.",
     no_args_is_help=True,
     pretty_exceptions_show_locals=False,
 )
-model_app = typer.Typer(help="Manage trained AI Score models.", no_args_is_help=True)
+model_app = typer.Typer(help="Manage trained Hex Score models.", no_args_is_help=True)
 roster_app = typer.Typer(help="Manage the tracked friends roster.", no_args_is_help=True)
 db_app = typer.Typer(help="Database migrations.", no_args_is_help=True)
 crawl_app = typer.Typer(
-    help="Data crawler (untracked players' games for AI training).", no_args_is_help=True
+    help="Data crawler (untracked players' games for model training).", no_args_is_help=True
 )
 app.add_typer(model_app, name="model")
 app.add_typer(roster_app, name="roster")
@@ -263,7 +263,7 @@ def train(
         ),
     ] = True,
 ) -> None:
-    """Train a new AI Score model from stored matches.
+    """Train a new Hex Score model from stored matches.
 
     Activating re-scores the stored games, because averages, trends and leaderboards only
     count rows scored by the active model. Restart the API and the worker afterwards so they
@@ -299,7 +299,7 @@ def model_activate(
     """Make VERSION the active model and re-score the stored games with it.
 
     Averages, trends and leaderboards only count rows scored by the active model, so
-    --no-rescore leaves the AI Score surfaces empty until `hextrack model rescore` runs. The
+    --no-rescore leaves the Hex Score surfaces empty until `hextrack model rescore` runs. The
     API and the worker pick the new model up within a minute; restarting them is not needed.
     """
     from hextrack.hextrack_ai.inference import ModelLoadError
@@ -337,7 +337,7 @@ def model_list() -> None:
     from hextrack.hextrack_ai.registry import list_models
 
     models = _call(list_models, get_settings())
-    table = Table(title="AI models")
+    table = Table(title="Hex Score models")
     for col in ("version", "trained_at", "active", "features", "val_auc"):
         table.add_column(col)
     for m in models:

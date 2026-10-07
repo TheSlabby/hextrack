@@ -67,13 +67,13 @@ export function AiScoreBadge({
           SIZE[size],
           className,
         )}
-        aria-label="AI Score not available"
+        aria-label="Hex Score not available"
       >
         <Sparkles className={ICON[size]} aria-hidden="true" />
         <span>–</span>
       </span>
     );
-    return withTooltip(pill, "Not scored yet. Scores appear once an AI model is trained.", tooltip);
+    return withTooltip(pill, "Not scored yet. Scores appear once a model is trained.", tooltip);
   }
 
   const value = toScore100(score);
@@ -87,7 +87,7 @@ export function AiScoreBadge({
           SIZE[size],
           className,
         )}
-        aria-label={`Average AI Score ${value}, ${formatSigned(offset)} versus a coin flip`}
+        aria-label={`Average Hex Score ${value}, ${formatSigned(offset)} versus a coin flip`}
       >
         <Sparkles className={cn(ICON[size], "text-cyan")} aria-hidden="true" />
         <span>{value}</span>
@@ -98,7 +98,7 @@ export function AiScoreBadge({
       <>
         <div className="flex items-baseline gap-2">
           <span className="font-display text-sm font-bold text-text tabular-nums">{value}</span>
-          <span className="font-medium text-text">Average AI Score</span>
+          <span className="font-medium text-text">Average Hex Score</span>
         </div>
         <p className="mt-0.5 text-text-secondary tabular-nums">
           {offset === 0 ? "Even with a coin flip (50)." : `${formatSigned(offset)} vs a coin flip (50).`}
@@ -120,7 +120,7 @@ export function AiScoreBadge({
         SIZE[size],
         className,
       )}
-      aria-label={`AI Score ${value}, grade ${grade.grade}${rankText ? `, ${rankText} of 10 in the match` : ""}`}
+      aria-label={`Hex Score ${value}, grade ${grade.grade}${rankText ? `, ${rankText} of 10 in the match` : ""}`}
     >
       {showGrade ? <span className="font-display font-bold">{grade.grade}</span> : null}
       <span className={cn(showGrade && "text-text")}>{value}</span>

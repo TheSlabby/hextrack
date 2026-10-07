@@ -203,7 +203,7 @@ export function AiScoreRecordCard({
       </div>
       {category.entries.length === 0 ? (
         <p className="text-sm text-text-muted">
-          {modelVersion ? "No scored game yet." : "Not scored: AI Scores appear once a model is trained."}
+          {modelVersion ? "No scored game yet." : "Not scored: Hex Scores appear once a model is trained."}
         </p>
       ) : (
         <ol className="grid gap-2 xl:grid-cols-3" aria-label={category.label}>

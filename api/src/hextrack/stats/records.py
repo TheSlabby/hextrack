@@ -170,7 +170,7 @@ CATEGORIES: Final[tuple[Category, ...]] = (
     ),
     Category(
         "highest_ai_score",
-        "Highest AI Score",
+        "Highest Hex Score",
         "score",
         lambda b: b.c.ai_score,
         where=_scored_by_active,

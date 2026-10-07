@@ -119,7 +119,7 @@ function PodiumCard({ entry, place, desktop }: { entry: LeaderboardEntry; place:
           score={entry.avg_ai_score}
           kind="average"
           size={ringSize(place, desktop)}
-          label="Avg AI Score"
+          label="Avg Hex Score"
           animate={place === 1}
         />
 
@@ -257,8 +257,8 @@ export function SquadSection({ data, standings, isPending, error, onRetry }: Squ
 
   const description =
     data && entries.length > 0
-      ? `${scored ? "Ranked by average AI Score" : "Ranked by win rate until an AI model is trained"} · ${plural(standings.minGames, "game")} minimum · season since ${formatShortDate(data.season_start)}`
-      : "The tracked roster, ranked by average AI Score";
+      ? `${scored ? "Ranked by average Hex Score" : "Ranked by win rate until a model is trained"} · ${plural(standings.minGames, "game")} minimum · season since ${formatShortDate(data.season_start)}`
+      : "The tracked roster, ranked by average Hex Score";
 
   let body;
   if (isPending) {

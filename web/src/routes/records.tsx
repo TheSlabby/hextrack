@@ -175,7 +175,7 @@ function RecordsBody({ data, players }: { data: Records; players: PlayerLookup }
         Only ranked games count (the queue filter above picks Solo/Duo, Flex or both); remakes are left out, and a
         record has to be above zero. Ties go to the earlier game. Best KDA is (kills + assists) / deaths (at least 1) and needs 5 takedowns; kill
         participation only counts games where the team got 10 or more kills. Longest game and fastest win list each
-        match once. Highest AI Score only counts games scored by the current model. Names are current Riot IDs.
+        match once. Highest Hex Score only counts games scored by the current model. Names are current Riot IDs.
       </p>
     </div>
   );

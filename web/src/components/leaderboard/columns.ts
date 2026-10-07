@@ -22,7 +22,7 @@ export const LEADERBOARD_COLUMNS: readonly LeaderboardColumn[] = [
     sortKey: "standing",
     align: "center",
     className: "w-[52px] pl-4",
-    hint: "Overall standing by average AI Score, for players with at least 20 ranked games this season",
+    hint: "Overall standing by average Hex Score, for players with at least 20 ranked games this season",
   },
   { id: "player", label: "Player", sortKey: "player", className: "min-w-48 xl:min-w-0" },
   { id: "rank", label: "Rank", sortKey: "rank", className: "w-32" },
@@ -31,11 +31,11 @@ export const LEADERBOARD_COLUMNS: readonly LeaderboardColumn[] = [
   { id: "kda", label: "KDA", sortKey: "kda", className: "w-24" },
   {
     id: "ai",
-    label: "AI Score",
+    label: "Hex Score",
     sortKey: "ai",
     align: "center",
     className: "w-24",
-    hint: "Average AI Score this season (0 to 100), with where the player's games sit among all scored games in the same role. Averages follow win rate closely, so they aren't graded",
+    hint: "Average Hex Score this season (0 to 100), with where the player's games sit among all scored games in the same role. Averages follow win rate closely, so they aren't graded",
   },
   {
     id: "lp",

@@ -1,7 +1,7 @@
 [project]
 name = "hextrack"
 version = "2.0.0"
-description = "HexTrack v2: League of Legends stats tracker with an AI Score"
+description = "HexTrack v2: League of Legends stats tracker with a Hex Score"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",

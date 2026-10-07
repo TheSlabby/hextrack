@@ -113,8 +113,8 @@ export function ModelMissingState({ compact, className }: { compact?: boolean; c
           <BrainCircuit className="size-7" aria-hidden="true" />
         </span>
         <div className="flex flex-col gap-1.5">
-          <span className="label-caps text-cyan">AI Score</span>
-          <h3 className="text-lg font-semibold text-text sm:text-xl">AI model not trained yet</h3>
+          <span className="label-caps text-cyan">Hex Score</span>
+          <h3 className="text-lg font-semibold text-text sm:text-xl">Model not trained yet</h3>
           <p className="text-sm leading-relaxed text-text-secondary">
             Insights appear once a model has learned from the stored ranked games. Train one on the server:
           </p>

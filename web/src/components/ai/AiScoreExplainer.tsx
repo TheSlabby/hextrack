@@ -91,9 +91,9 @@ function ExplainerBody() {
         <DialogHeader className="relative gap-2 text-left">
           <span className="label-caps flex items-center gap-1.5 text-cyan">
             <Sparkles className="size-3.5" aria-hidden="true" />
-            AI Score
+            Hex Score
           </span>
-          <DialogTitle className="text-xl sm:text-2xl">How the AI Score works</DialogTitle>
+          <DialogTitle className="text-xl sm:text-2xl">How the Hex Score works</DialogTitle>
           <DialogDescription className="max-w-prose leading-relaxed">{AI_SCORE_SUMMARY}</DialogDescription>
         </DialogHeader>
       </div>
@@ -127,7 +127,7 @@ function ExplainerBody() {
           </h3>
           <GradeScale />
           <table className="w-full text-sm">
-            <caption className="sr-only">AI Score grades and their score ranges</caption>
+            <caption className="sr-only">Hex Score grades and their score ranges</caption>
             <thead className="sr-only">
               <tr>
                 <th scope="col">Grade</th>

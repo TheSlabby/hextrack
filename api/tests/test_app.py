@@ -73,7 +73,7 @@ async def test_riot_error_mapping(settings):
 
             r = await c.get("/api/v1/_model")
             assert r.status_code == 503
-            assert r.json() == {"detail": "AI model not loaded", "code": "model_missing"}
+            assert r.json() == {"detail": "Hex Score model not loaded", "code": "model_missing"}
 
 
 async def test_spa_fallback(settings, tmp_path: Path):

@@ -64,7 +64,7 @@ export function SynergyCard({ model, className }: { model: SquadModel; className
             {plural(row.games, "ranked game")} · <WinLoss wins={row.wins} losses={row.games - row.wins} />
           </div>
           <DetailRows>
-            <DetailRow label="Avg AI Score">{scoreText(row.avg_ai_score)}</DetailRow>
+            <DetailRow label="Avg Hex Score">{scoreText(row.avg_ai_score)}</DetailRow>
           </DetailRows>
           <DetailNote>The row shows how that win rate moves with each friend.</DetailNote>
         </>
@@ -96,13 +96,13 @@ export function SynergyCard({ model, className }: { model: SquadModel; className
           <DetailRow label="Vs expected">{gapText(view.delta)} pts</DetailRow>
           <DetailRow label={`${name(row)} usually`}>{formatPercent(row.winrate)}</DetailRow>
           <DetailRow label={`${name(col)} usually`}>{formatPercent(col.winrate)}</DetailRow>
-          <DetailRow label={`${name(row)} avg AI Score`}>{scoreText(view.rowAi)}</DetailRow>
-          <DetailRow label={`${name(col)} avg AI Score`}>{scoreText(view.colAi)}</DetailRow>
+          <DetailRow label={`${name(row)} avg Hex Score`}>{scoreText(view.rowAi)}</DetailRow>
+          <DetailRow label={`${name(col)} avg Hex Score`}>{scoreText(view.colAi)}</DetailRow>
         </DetailRows>
         {view.games < minGames ? (
           <DetailNote>Under {minGames} games together: too few to read much into.</DetailNote>
         ) : (
-          <DetailNote>Expected is the average of their usual win rates. AI Scores are from the games they shared.</DetailNote>
+          <DetailNote>Expected is the average of their usual win rates. Hex Scores are from the games they shared.</DetailNote>
         )}
       </>
     );
@@ -141,7 +141,7 @@ export function SynergyCard({ model, className }: { model: SquadModel; className
       <p className={cn("text-xs leading-relaxed text-text-muted", FIT_TABLE)}>
         Each cell shows the win rate together and, below it, the points above or below expected and the games played
         (&ldquo;+4 · 36&rdquo;); the colour follows the points. Expected is the average of the two players&apos; usual
-        win rates. Hover or tap a cell for the record and both players&apos; average AI Score in those games.
+        win rates. Hover or tap a cell for the record and both players&apos; average Hex Score in those games.
       </p>
     </GlowCard>
   );

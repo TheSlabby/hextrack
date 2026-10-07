@@ -66,10 +66,10 @@ function SeasonCaption({
         <Sparkles className="size-4 text-cyan" aria-hidden="true" />
         {data.model_version ? (
           <>
-            AI model <span className="font-medium text-text">{modelLabel(data.model_version)}</span>
+            Hex Score model <span className="font-medium text-text">{modelLabel(data.model_version)}</span>
           </>
         ) : (
-          "AI model not trained yet"
+          "Hex Score model not trained yet"
         )}
       </span>
     </p>
@@ -166,8 +166,8 @@ export function LeaderboardPage() {
           <LeaderboardCards entries={sorted} standings={standings} queue={queue} />
         </div>
         <p className="mt-4 text-xs leading-relaxed text-text-muted">
-          # is the overall standing by average AI Score, for players with at least{" "}
-          {plural(standings.minGames, "ranked game")} this season; smaller samples count as closer to 50. The AI Score
+          # is the overall standing by average Hex Score, for players with at least{" "}
+          {plural(standings.minGames, "ranked game")} this season; smaller samples count as closer to 50. The Hex Score
           is the model's estimate of how often a stat line like this one wins. {AI_AVERAGE_NOTE} Season LP counts
           Ranked Solo/Duo since the season started. Best duo only counts tracked teammates.
         </p>
@@ -185,7 +185,7 @@ export function LeaderboardPage() {
             eyebrow="The Squad"
             icon={Trophy}
             title="Leaderboard"
-            description="The tracked roster's season, ranked by average AI Score."
+            description="The tracked roster's season, ranked by average Hex Score."
             action={<QueueToggle value={queue} onChange={setQueue} />}
           />
           <SeasonCaption data={data} queue={queue} failed={query.isError} />

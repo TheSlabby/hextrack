@@ -72,7 +72,7 @@ export function AiScoreBreakdownButton({
           trigger={
             <button
               type="button"
-              aria-label={`AI Score ${toScore100(participant.ai_score ?? 0)} for ${name}: see why`}
+              aria-label={`Hex Score ${toScore100(participant.ai_score ?? 0)} for ${name}: see why`}
               title="Why this score?"
               className="cursor-pointer rounded-full transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
             >
@@ -129,7 +129,7 @@ function Breakdown({ matchId, participant }: { matchId: string; participant: Par
     <DialogHeader>
       <DialogTitle className="flex items-center gap-2">
         <Sparkles className="size-4 text-cyan" aria-hidden="true" />
-        Why this AI Score?
+        Why this Hex Score?
       </DialogTitle>
       <DialogDescription>
         What moved the model's read of {name}'s stat line as {champion} in this game.
@@ -196,7 +196,7 @@ function Breakdown({ matchId, participant }: { matchId: string; participant: Par
             <span className="w-9 text-right font-semibold tabular-nums">{signed(restPts)}</span>
           </li>
         ) : null}
-        <Step label="This game's AI Score" value={String(score)} strong />
+        <Step label="This game's Hex Score" value={String(score)} strong />
       </ol>
 
       <p className="text-xs leading-relaxed text-text-muted">
@@ -207,7 +207,7 @@ function Breakdown({ matchId, participant }: { matchId: string; participant: Par
         trigger={
           <Button variant="ghost" size="xs" className="-ml-1.5 w-fit text-cyan hover:bg-cyan/10 hover:text-cyan">
             <CircleHelp aria-hidden="true" />
-            How the AI Score works
+            How the Hex Score works
           </Button>
         }
       />

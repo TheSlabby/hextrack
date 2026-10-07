@@ -224,8 +224,8 @@ export function championListColumns(role: ChampionRole | null): readonly Champio
       align: "center",
       className: "w-18",
       hint: role
-        ? "Strength against the other champions in this role, from win, pick and ban rates. Not the AI Score."
-        : "Strength in the champion's most played role (icon), from win, pick and ban rates. Not the AI Score.",
+        ? "Strength against the other champions in this role, from win, pick and ban rates. Not the Hex Score."
+        : "Strength in the champion's most played role (icon), from win, pick and ban rates. Not the Hex Score.",
     },
     { id: "roles", label: "Roles", className: "w-24", hint: "Main roles: at least 10% of the champion's games" },
     {

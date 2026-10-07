@@ -56,7 +56,7 @@ export function CarryRankingCard({
         icon={Crown}
         eyebrow="Who carries whom"
         title="Carry rate"
-        description="How often each player had the higher AI Score than their squad teammate."
+        description="How often each player had the higher Hex Score than their squad teammate."
       />
       {rows.length === 0 ? (
         <EmptyState compact tone="ai" icon={Crown} title="No scored duo games yet" />
@@ -108,7 +108,7 @@ export function CarryRankingCard({
                 </div>
                 <span className="sr-only">
                   {standing.qualified ? "" : "Not ranked: "}
-                  {name} had the higher AI Score in {standing.higher} of {plural(standing.scored, "duo game")}
+                  {name} had the higher Hex Score in {standing.higher} of {plural(standing.scored, "duo game")}
                   {standing.avgDiff !== null ? `, ${gapText(standing.avgDiff)} points on average` : ""}.
                 </span>
               </li>
@@ -118,7 +118,7 @@ export function CarryRankingCard({
       )}
       <p className="text-xs leading-relaxed text-text-muted">
         Ranked from {CARRY_MIN_GAMES} scored duo games. "of" is the number of duo games (a game with two squad teammates
-        counts once for each), and pts the average AI Score gap to the teammate.
+        counts once for each), and pts the average Hex Score gap to the teammate.
       </p>
     </GlowCard>
   );

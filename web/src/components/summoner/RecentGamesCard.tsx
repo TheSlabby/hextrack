@@ -93,7 +93,7 @@ function RecentGameRow({ game, now }: { game: MatchSummary; now: number }) {
   const style = OUTCOME[outcome];
   const champion = championDisplayName(me.champion_name);
   const queue = queueShortLabel(game.queue_id, game.game_mode);
-  const summary = `${style.label} as ${champion}, ${me.kills} kills, ${me.deaths} deaths, ${me.assists} assists, ${queue}, ${formatDurationLong(game.game_duration)}, ${formatDateTime(game.game_start)}${me.ai_score !== null ? `, AI Score ${toScore100(me.ai_score)}` : ""}`;
+  const summary = `${style.label} as ${champion}, ${me.kills} kills, ${me.deaths} deaths, ${me.assists} assists, ${queue}, ${formatDurationLong(game.game_duration)}, ${formatDateTime(game.game_start)}${me.ai_score !== null ? `, Hex Score ${toScore100(me.ai_score)}` : ""}`;
 
   return (
     <DdragonPatch patch={game.patch}>
