@@ -186,3 +186,23 @@ def export_dataset(
                         written += len(chunk)
         conn.rollback()
     return written
+
+
+#: Text only an export COPY contains, so cancelling never touches any other query. It sits in
+#: the first few hundred characters: pg_stat_activity keeps only the first 1 kB of a query.
+_EXPORT_MARKER: Final = "p->'challenges' AS c"
+
+
+def cancel_running_exports(engine: Engine) -> list[int]:
+    """Cancel export COPYs still running as this database role (e.g. one whose client went
+    away); returns their backend pids. A role may always cancel its own queries."""
+    stmt = text(
+        "SELECT pid FROM pg_stat_activity WHERE usename = current_user"
+        " AND pid <> pg_backend_pid() AND query LIKE 'COPY (%' AND position(:marker in query) > 0"
+    )
+    with engine.connect() as conn:
+        pids = [int(p) for p in conn.execute(stmt, {"marker": _EXPORT_MARKER}).scalars()]
+        for pid in pids:
+            conn.execute(text("SELECT pg_cancel_backend(:pid)"), {"pid": pid})
+        conn.rollback()
+    return pids
