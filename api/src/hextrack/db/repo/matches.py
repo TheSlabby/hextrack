@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Final
 
 from sqlalchemy import Text, any_, bindparam, case, func, select, update
 from sqlalchemy.dialects.postgresql import ARRAY, insert
@@ -13,14 +13,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from hextrack.db.models import Match, MatchParticipant, MatchTimelinePlayer
 
+#: ``matches.source`` of games stored by the data crawler, and of every other game.
+CRAWL_SOURCE: Final = "crawl"
+ROSTER_SOURCE: Final = "roster"
 
-async def existing_match_ids(session: AsyncSession, match_ids: Sequence[str]) -> set[str]:
-    """The subset of ``match_ids`` already stored, in one ``= ANY(:ids)`` query."""
+
+async def existing_match_ids(
+    session: AsyncSession, match_ids: Sequence[str], *, count_crawled: bool = True
+) -> set[str]:
+    """The subset of ``match_ids`` already stored, in one ``= ANY(:ids)`` query. With
+    ``count_crawled=False`` a game only the data crawler stored does not count: roster and
+    lookup ingestion still has to promote it (:func:`promote_crawled_match`)."""
     if not match_ids:
         return set()
     stmt = select(Match.match_id).where(
         Match.match_id == any_(bindparam("match_ids", list(match_ids), type_=ARRAY(Text)))
     )
+    if not count_crawled:
+        stmt = stmt.where(Match.source != CRAWL_SOURCE)
     return set(await session.scalars(stmt))
 
 
@@ -74,16 +84,19 @@ class StoredMatch:
     scored_at: datetime | None
     model_version: str | None
     participants: int
+    source: str = ROSTER_SOURCE
 
 
 async def stored_match(session: AsyncSession, match_id: str) -> StoredMatch | None:
-    """Scoring state and participant count of a stored match, or None when unknown."""
+    """Scoring state, source and participant count of a stored match, or None when
+    unknown."""
     stmt = (
         select(
             Match.match_id,
             Match.scored_at,
             Match.model_version,
             func.count(MatchParticipant.puuid),
+            Match.source,
         )
         .outerjoin(MatchParticipant, MatchParticipant.match_id == Match.match_id)
         .where(Match.match_id == match_id)
@@ -93,7 +106,34 @@ async def stored_match(session: AsyncSession, match_id: str) -> StoredMatch | No
     if row is None:
         return None
     return StoredMatch(
-        match_id=row[0], scored_at=row[1], model_version=row[2], participants=int(row[3])
+        match_id=row[0],
+        scored_at=row[1],
+        model_version=row[2],
+        participants=int(row[3]),
+        source=row[4],
+    )
+
+
+async def promote_crawled_match(session: AsyncSession, match_id: str) -> dict[str, Any] | None:
+    """Turn a game the data crawler stored into a roster game (``source = 'roster'``) and
+    return its stored payload; None when it is not (or no longer) a crawled game, e.g.
+    because another process promoted it first."""
+    stmt = (
+        update(Match)
+        .where(Match.match_id == match_id, Match.source == CRAWL_SOURCE)
+        .values(source=ROSTER_SOURCE)
+        .returning(Match.raw)
+    )
+    return await session.scalar(stmt)
+
+
+async def request_timeline(session: AsyncSession, match_id: str) -> None:
+    """Queue a game for the timeline backlog (``timeline_state = 'pending'``) unless it
+    already has a timeline state (fetched, queued or given up)."""
+    await session.execute(
+        update(Match)
+        .where(Match.match_id == match_id, Match.timeline_state.is_(None))
+        .values(timeline_state="pending")
     )
 
 

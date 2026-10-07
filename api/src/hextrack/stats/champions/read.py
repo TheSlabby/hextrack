@@ -304,7 +304,8 @@ async def champion_names(session: AsyncSession) -> dict[int, str]:
 def resolve_champion(names: Mapping[int, str], champion: str) -> tuple[int, str]:
     """(id, key) for a Data Dragon key (any case) or a numeric champion id."""
     value = champion.strip()
-    if value.isdigit():
+    # ASCII only: str.isdigit() also accepts "²" or "٣", and int("²") raises ValueError.
+    if value.isascii() and value.isdigit():
         cid = int(value)
         if cid in names:
             return cid, names[cid]

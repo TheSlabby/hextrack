@@ -424,6 +424,25 @@ async def test_invalid_payloads_are_dropped_and_the_batch_continues(
     assert rows[ids[3]].last_error is None
 
 
+@pytest.mark.parametrize("payload", [[1, 2], "great game", 7])
+async def test_non_object_payload_is_dropped_instead_of_stalling_the_queue(
+    clean_db: None,
+    session_factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    payload: Any,
+) -> None:
+    """dict(payload) of a JSON list / string / number raised outside the per-event error
+    handling: every batch failed on the same oldest row, so nothing behind it was posted."""
+    ids = await add_events(session_factory, ("great_game", payload), ("tier_up", tier_payload()))
+    sender = FakeSender()
+    result = await make_consumer(session_factory, settings, sender).process_batch()
+    assert (result.claimed, result.gave_up, result.sent) == (2, 1, 1)
+    rows = await events_by_id(session_factory)
+    assert rows[ids[0]].processed_at is not None
+    assert "not an object" in (rows[ids[0]].last_error or "")
+    assert rows[ids[1]].processed_at is not None and rows[ids[1]].last_error is None
+
+
 async def test_discord_bad_request_is_permanent(
     clean_db: None, session_factory: async_sessionmaker[AsyncSession], settings: Settings
 ) -> None:

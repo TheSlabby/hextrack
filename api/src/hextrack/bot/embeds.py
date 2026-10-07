@@ -23,6 +23,7 @@ Event payloads (see :mod:`hextrack.ingest.events`) are validated into
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -265,6 +266,43 @@ def _code_safe(text: str) -> str:
     return text.replace("`", "\u02cb")
 
 
+#: match-v5 / Data Dragon champion keys whose display name is not a plain camel-case split
+#: (both key spellings in use). KEEP IN SYNC with ``CHAMPION_NAMES`` in
+#: web/src/lib/champions.ts.
+CHAMPION_NAMES: Final[dict[str, str]] = {
+    "AurelionSol": "Aurelion Sol",
+    "BelVeth": "Bel'Veth",
+    "Belveth": "Bel'Veth",
+    "ChoGath": "Cho'Gath",
+    "Chogath": "Cho'Gath",
+    "DrMundo": "Dr. Mundo",
+    "FiddleSticks": "Fiddlesticks",
+    "Fiddlesticks": "Fiddlesticks",
+    "JarvanIV": "Jarvan IV",
+    "KSante": "K'Sante",
+    "KaiSa": "Kai'Sa",
+    "Kaisa": "Kai'Sa",
+    "KhaZix": "Kha'Zix",
+    "Khazix": "Kha'Zix",
+    "KogMaw": "Kog'Maw",
+    "LeBlanc": "LeBlanc",
+    "Leblanc": "LeBlanc",
+    "MonkeyKing": "Wukong",
+    "Nunu": "Nunu & Willump",
+    "RekSai": "Rek'Sai",
+    "Renata": "Renata Glasc",
+    "VelKoz": "Vel'Koz",
+    "Velkoz": "Vel'Koz",
+}
+_CAMEL_BOUNDARY: Final = re.compile(r"([a-z])([A-Z])")
+
+
+def champion_display_name(key: str) -> str:
+    """ "MonkeyKing" -> "Wukong", "MissFortune" -> "Miss Fortune", "Kaisa" -> "Kai'Sa" (as the
+    website's ``championDisplayName``)."""
+    return CHAMPION_NAMES.get(key) or _CAMEL_BOUNDARY.sub(r"\1 \2", key)
+
+
 def ansi_block(body: str) -> str:
     return f"```ansi\n{body}\n```"
 
@@ -364,7 +402,9 @@ def _game_embed(
     thumbnail = ctx.champion_icon_url(event.champion_id, event.champion_name)
     if thumbnail:
         embed.set_thumbnail(url=thumbnail)
-    embed.add_field(name="Champion", value=event.champion_name, inline=True)
+    # Discord rejects an empty field value (and with it the whole post).
+    champion = champion_display_name(event.champion_name).strip() or "Unknown"
+    embed.add_field(name="Champion", value=champion, inline=True)
     embed.add_field(name="Result", value="Victory" if event.win else "Defeat", inline=True)
     embed.add_field(name="KDA", value=format_kda_ratio(event.kda_ratio), inline=True)
     embed.add_field(name="Queue", value=queue_label(event.queue_id), inline=True)

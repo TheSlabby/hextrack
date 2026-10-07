@@ -39,7 +39,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from datetime import time as dtime
@@ -430,6 +430,12 @@ class EventConsumer:
         item = _Work(row=row)
         if self._silent(row.kind):
             item.silent = True
+        elif row.payload is not None and not isinstance(row.payload, Mapping):
+            # dict() of a JSON list or string raised here, outside every handler, so the
+            # same oldest row failed every batch and held back every event behind it.
+            item.error = InvalidEvent(
+                f"invalid {row.kind} payload: a JSON {type(row.payload).__name__}, not an object"
+            )
         else:
             try:
                 item.event = parse_event(row.kind, dict(row.payload or {}))
