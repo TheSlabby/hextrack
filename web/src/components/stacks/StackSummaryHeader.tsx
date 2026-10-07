@@ -75,7 +75,7 @@ export function StackSummaryHeader({ data }: { data: StackSummary }) {
       />
       <RecordTile wins={data.wins} losses={losses} winrate={data.winrate} />
       <StatTile
-        label="Avg game length"
+        label="Avg length"
         icon={Clock}
         value={
           data.avg_duration === null ? (
@@ -93,7 +93,7 @@ export function StackSummaryHeader({ data }: { data: StackSummary }) {
         label="Avg kills"
         icon={Swords}
         value={<KillsValue team={data.avg_team_kills} enemy={data.avg_enemy_kills} />}
-        caption="Team vs enemy, per game"
+        caption="Team vs enemy"
       />
 
       <GlowCard className="col-span-2 flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:gap-4 md:col-span-4">

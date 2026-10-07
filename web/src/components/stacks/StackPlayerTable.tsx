@@ -102,23 +102,23 @@ interface Column {
 
 const COLUMNS: readonly Column[] = [
   { id: "player", label: "Player", sortKey: "player", className: "pl-0" },
-  { id: "games", label: "Games", sortKey: "games", align: "right", className: "w-16" },
+  { id: "games", label: "Games", sortKey: "games", align: "right", className: "w-20" },
   { id: "winrate", label: "Win rate", sortKey: "winrate", className: "w-28" },
   {
     id: "ai",
-    label: "Hex Score",
+    label: "Hex",
     sortKey: "ai",
     align: "center",
     className: "w-[88px]",
     hint: `Average Hex Score in these stacks (0 to 100). ${AI_AVERAGE_NOTE}`,
   },
-  { id: "kda", label: "KDA", sortKey: "kda", className: "w-[120px]", hint: "KDA ratio, then average kills / deaths / assists per game" },
+  { id: "kda", label: "KDA", sortKey: "kda", className: "w-[112px]", hint: "KDA ratio, then average kills / deaths / assists per game" },
   {
     id: "carries",
     label: "Carries",
     sortKey: "carries",
     align: "center",
-    className: "w-[72px]",
+    className: "w-[92px]",
     hint: `Wins where their Hex Score beat every teammate's by ${EDGE_GAP} or more (${HARD_GAP}+ is a hard carry). ${VERDICT_SCOPE}`,
   },
   {
@@ -126,7 +126,7 @@ const COLUMNS: readonly Column[] = [
     label: "Ran it down",
     sortKey: "ran_downs",
     align: "center",
-    className: "w-[108px]",
+    className: "w-[116px]",
     hint: `Losses where their Hex Score trailed every teammate's by ${CARRY_GAP} or more. ${VERDICT_SCOPE}`,
   },
   {
@@ -134,10 +134,10 @@ const COLUMNS: readonly Column[] = [
     label: "Tried",
     sortKey: "tried",
     align: "center",
-    className: "w-16",
+    className: "w-20",
     hint: `Losses where they topped the squad by ${CARRY_GAP} or more and nobody ran it down. ${VERDICT_SCOPE}`,
   },
-  { id: "champion", label: "Top champ", className: "w-32 pr-0", hint: "Most played champion in these stacks" },
+  { id: "champion", label: "Top champ", className: "w-28 pr-0", hint: "Most played champion in these stacks" },
 ];
 
 const ALIGN = { left: "text-left", right: "text-right", center: "text-center" } as const;
