@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
 import csv
 import gzip
 import io
+import threading
 
 from hextrack.db.engine import make_sync_engine
-from hextrack.hextrack_ai.dataset import EXPORT_CHALLENGES, export_dataset, stat_columns
+from hextrack.hextrack_ai.dataset import (
+    EXPORT_CHALLENGES,
+    cancel_running_exports,
+    export_dataset,
+    stat_columns,
+)
 from tests.test_ai_support import insert_matches, signal_matches
 
 
@@ -24,6 +31,8 @@ async def test_export_dataset_rows_and_columns(clean_db, session_factory, settin
         size = export_dataset(engine, buf)
         limited = io.BytesIO()
         export_dataset(engine, limited, max_matches=1)
+        chunked = io.BytesIO()
+        export_dataset(engine, chunked, chunk_matches=2)
         other_queue = io.BytesIO()
         export_dataset(engine, other_queue, queues=[450])
     finally:
@@ -34,6 +43,10 @@ async def test_export_dataset_rows_and_columns(clean_db, session_factory, settin
     assert len(rows) == 30
     assert len(_read(limited.getvalue())) == 10
     assert _read(other_queue.getvalue()) == []
+    # chunked COPYs give the same rows (one header) in the same order: oldest game first
+    assert _read(chunked.getvalue()) == rows
+    starts = [r["game_start"] for r in rows]
+    assert starts == sorted(starts)
     header = set(rows[0])
     assert {"match_id", "game_duration", "player", "tracked", "win", "team_position"} <= header
     assert set(stat_columns()) <= header
@@ -49,3 +62,40 @@ async def test_export_dataset_rows_and_columns(clean_db, session_factory, settin
     for r in rows:
         p = by_match[r["match_id"]]["info"]["participants"][int(r["participant_id"]) - 1]
         assert int(r["kills"]) == p["kills"]
+
+
+async def test_cancel_running_exports_only_cancels_exports(clean_db, settings):
+    engine = make_sync_engine(settings)
+    errors: list[BaseException] = []
+
+    def run(sql: str) -> None:
+        try:
+            with engine.connect() as conn:
+                cur = conn.connection.driver_connection.cursor()
+                with cur.copy(sql) as copy:
+                    for _ in copy:
+                        pass
+        except BaseException as exc:  # noqa: BLE001 - the cancellation is what we expect
+            errors.append(exc)
+
+    try:
+        # nothing running: nothing cancelled (and this test's own connection is never a target)
+        assert cancel_running_exports(engine) == []
+        export = threading.Thread(
+            target=run, args=('COPY (SELECT pg_sleep(30) AS "c_kda") TO STDOUT',)
+        )
+        other = threading.Thread(target=run, args=("COPY (SELECT pg_sleep(1) AS x) TO STDOUT",))
+        export.start()
+        other.start()
+        for _ in range(100):
+            await asyncio.sleep(0.1)
+            cancelled = cancel_running_exports(engine)
+            if cancelled:
+                break
+        export.join(10)
+        other.join(10)
+        assert len(cancelled) == 1
+        assert not export.is_alive()
+        assert len(errors) == 1 and "cancel" in str(errors[0]).lower()  # only the export
+    finally:
+        engine.dispose()

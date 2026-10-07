@@ -359,6 +359,21 @@ def model_export_dataset(
     print(f"exported {size} bytes of CSV", file=sys.stderr)
 
 
+@model_app.command("cancel-exports")
+def model_cancel_exports() -> None:
+    """Cancel `model export-dataset` queries still running in the database (e.g. after the
+    command was interrupted). Touches no other query."""
+    from hextrack.db.engine import make_sync_engine
+    from hextrack.hextrack_ai.dataset import cancel_running_exports
+
+    engine = make_sync_engine(get_settings())
+    try:
+        pids = cancel_running_exports(engine)
+    finally:
+        engine.dispose()
+    console.print(f"cancelled {len(pids)} export quer{'y' if len(pids) == 1 else 'ies'}")
+
+
 @model_app.command("list")
 def model_list() -> None:
     """List trained models."""
