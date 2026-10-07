@@ -262,6 +262,10 @@ def train(
             help="Re-score stored games with the new model when activating it.",
         ),
     ] = True,
+    kind: Annotated[
+        str,
+        typer.Option(help="impact (the Hex Score, default) or win_probability (the legacy model)."),
+    ] = "impact",
 ) -> None:
     """Train a new AI Score model from stored matches.
 
@@ -278,12 +282,13 @@ def train(
     report = _call(
         run_train,
         get_settings(),
-        _expected=(NotEnoughData, UnknownModelVersion, NoActiveModel, ModelLoadError),
+        _expected=(NotEnoughData, UnknownModelVersion, NoActiveModel, ModelLoadError, ValueError),
         since=_parse_since(since),
         queues=_parse_queues(queues),
         epochs=epochs,
         activate=activate,
         rescore=rescore,
+        kind=kind,
     )
     _print_dataclass("Training report", report)
 

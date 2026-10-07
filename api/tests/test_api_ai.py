@@ -133,6 +133,7 @@ def explain_fakes(monkeypatch) -> dict[str, list[Any]]:
     monkeypatch.setattr(inference, "participant_to_dict", participant_to_dict)
     monkeypatch.setattr(explain, "explain_player", explain_player)
     monkeypatch.setattr(explain, "base_score", lambda scorer: 0.5)
+    monkeypatch.setattr(explain, "base_score_for", lambda scorer, rows: 0.5)
     monkeypatch.setattr(registry, "population_feature_means", population_feature_means)
     return calls
 

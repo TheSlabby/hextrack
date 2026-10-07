@@ -1,8 +1,9 @@
 """Per-stat attributions behind a player's AI Score (owner: B3).
 
 What the "What drives the score" chart shows, per stat: how much it moved the player's
-win probability, on average over their recent games, relative to an all-average stat line
-(scaled input ``x = 0``, the training-population mean, whose score is :func:`base_score`).
+Hex Score, on average over their recent games, relative to an average stat line for the
+game's role (:meth:`Scorer.baseline_scaled`; for legacy models the all-mean input ``x = 0``),
+whose score is :func:`base_score_for`. Role and champion are context, never credited.
 
 Three properties matter for that chart, and the legacy gradient x input port had none of
 them:
@@ -36,7 +37,12 @@ from typing import Any, Final
 import numpy as np
 import torch
 
-from hextrack.hextrack_ai.features import FEATURE_GROUPS, FEATURE_LABELS, FEATURE_SPECS
+from hextrack.hextrack_ai.features import (
+    FEATURE_GROUPS,
+    FEATURE_LABELS,
+    FEATURE_SPECS,
+    UNKNOWN_ROLE_SLOT,
+)
 from hextrack.hextrack_ai.inference import Scorer
 
 #: Riemann steps (midpoint rule) for integrated gradients. 128 keeps the per-game residual
@@ -110,19 +116,22 @@ def display_groups(feature_names: Sequence[str]) -> list[tuple[str, tuple[str, .
     return out
 
 
-def _sigmoid(logits: np.ndarray) -> np.ndarray:
-    return 0.5 * (1.0 + np.tanh(0.5 * np.asarray(logits, dtype=np.float64)))
-
-
 def integrated_gradients(
-    scorer: Scorer, scaled: np.ndarray, *, steps: int = IG_STEPS
+    scorer: Scorer,
+    scaled: np.ndarray,
+    roles: np.ndarray | None = None,
+    champions: np.ndarray | None = None,
+    *,
+    steps: int = IG_STEPS,
 ) -> np.ndarray:
-    """Per-row integrated gradients of the win probability from the scaled-zero baseline.
+    """Per-row integrated gradients of the score from the row's baseline line.
 
-    Returns a matrix shaped like ``scaled`` in probability units whose row ``i`` sums to
-    ``sigmoid(logit(x_i)) - sigmoid(logit(0))`` (completeness). Gradients are taken with
-    respect to the input only, so the shared model's parameters are never touched (safe
-    under concurrent requests).
+    The baseline is :meth:`Scorer.baseline_scaled` for the row's role (the training mean for
+    legacy models, the role's average line for impact models); role and champion are held
+    fixed along the path, so only stats get credit. Returns a matrix shaped like ``scaled``
+    in score units (0..1) whose row ``i`` sums to ``score(x_i) - score(baseline_i)``
+    (completeness). Gradients are taken with respect to the input only, so the shared
+    model's parameters are never touched (safe under concurrent requests).
     """
     if steps < 1:
         raise ValueError("steps must be positive")
@@ -130,20 +139,31 @@ def integrated_gradients(
     n, width = scaled.shape
     if n == 0:
         return np.zeros_like(scaled)
+    if roles is None:
+        roles = np.full(n, UNKNOWN_ROLE_SLOT, dtype=np.int64)
+    if champions is None:
+        champions = np.zeros(n, dtype=np.int64)
+    base = scorer.baseline_scaled(roles)
+    delta = scaled - base
     alphas = (torch.arange(steps, dtype=torch.float32) + 0.5) / steps
-    x = torch.as_tensor(scaled, dtype=torch.float32)
+    b = torch.as_tensor(base, dtype=torch.float32)
+    d = torch.as_tensor(delta, dtype=torch.float32)
+    r = torch.as_tensor(roles, dtype=torch.long).repeat(steps)
+    c = torch.as_tensor(champions, dtype=torch.long).repeat(steps)
     with torch.enable_grad():
-        path = (alphas.view(-1, 1, 1) * x.unsqueeze(0)).reshape(-1, width).requires_grad_(True)
-        probs = torch.sigmoid(scorer.model(path))
-        (grads,) = torch.autograd.grad(probs.sum(), path)
+        path = (b.unsqueeze(0) + alphas.view(-1, 1, 1) * d.unsqueeze(0)).reshape(-1, width)
+        path.requires_grad_(True)
+        scores = scorer.score_tensor(path, r, c)
+        (grads,) = torch.autograd.grad(scores.sum(), path)
     mean_grads = grads.detach().reshape(steps, n, width).to(torch.float64).mean(dim=0).numpy()
-    attr = np.nan_to_num(mean_grads * scaled, nan=0.0, posinf=0.0, neginf=0.0)
+    attr = np.nan_to_num(mean_grads * delta, nan=0.0, posinf=0.0, neginf=0.0)
 
     # Make each row add up exactly: spread the Riemann-sum residual over the features in
     # proportion to their attribution size (a zero attribution stays zero).
-    logits = scorer.logits_from_scaled(np.vstack([np.zeros((1, width)), scaled]))
-    probs_np = _sigmoid(logits)
-    target = np.nan_to_num(probs_np[1:] - probs_np[0])
+    target = np.nan_to_num(
+        scorer.scores_from_scaled(scaled, roles, champions)
+        - scorer.scores_from_scaled(base, roles, champions)
+    )
     residual = target - attr.sum(axis=1)
     weights = np.abs(attr)
     totals = weights.sum(axis=1, keepdims=True)
@@ -156,12 +176,12 @@ def _finite(value: float) -> float:
     return float(value) if math.isfinite(value) else 0.0
 
 
-def _baseline_slope(scorer: Scorer) -> float:
+def _slope(base: float | None) -> float:
     """``b(1 - b)`` at the base score (the unit conversion of ``mean_attribution``).
 
     Falls back to 0.5, exactly like the web app does when ``base_score`` is null.
     """
-    b = base_score(scorer)
+    b = base
     if b is None or not 0.0 < b < 1.0:
         b = 0.5
     return max(b * (1.0 - b), 1e-12)
@@ -180,14 +200,17 @@ def explain_player(
     (signed, logits at the base score, see the module docstring), mean_abs_attribution
     (mean per-game magnitude, same unit), player_value (mean raw value of the headline
     feature) and population_value (from ``population_means`` or None). The
-    mean_attributions add up to ``(mean(p) - base) / (base * (1 - base))``. Sorted by
-    mean_abs_attribution descending. Returns ``[]`` when ``rows`` is empty.
+    mean_attributions add up to ``(mean(p) - base) / (base * (1 - base))``, where ``base`` is
+    :func:`base_score_for` the same rows. Sorted by mean_abs_attribution descending. Returns
+    ``[]`` when ``rows`` is empty.
     """
     if not rows:
         return []
     raw = scorer.features(durations, rows)
     scaled = scorer.scale(raw)
-    effects = integrated_gradients(scorer, scaled) / _baseline_slope(scorer)
+    roles, champions = scorer.context(rows)
+    base = _base_for_context(scorer, roles, champions)
+    effects = integrated_gradients(scorer, scaled, roles, champions) / _slope(base)
     player_means = raw.mean(axis=0)
     index = {name: j for j, name in enumerate(scorer.feature_names)}
 
@@ -216,8 +239,25 @@ def explain_player(
 
 
 def base_score(scorer: Scorer) -> float | None:
-    """Model probability for an all-mean (scaled zero) input, or None if unavailable."""
+    """Score of the average stat line (see :meth:`Scorer.base_probability`), or None."""
     try:
         return scorer.base_probability()
     except (ValueError, RuntimeError):
         return None
+
+
+def _base_for_context(scorer: Scorer, roles: np.ndarray, champions: np.ndarray) -> float | None:
+    try:
+        value = float(np.mean(scorer.base_scores(roles, champions)))
+    except (ValueError, RuntimeError):
+        return None
+    return value if math.isfinite(value) else None
+
+
+def base_score_for(scorer: Scorer, rows: Sequence[Mapping[str, Any]]) -> float | None:
+    """Where :func:`explain_player` starts for ``rows``: the mean score of an average line in
+    each row's role and champion (for legacy models the same as :func:`base_score`)."""
+    if not rows:
+        return base_score(scorer)
+    roles, champions = scorer.context(rows)
+    return _base_for_context(scorer, roles, champions)

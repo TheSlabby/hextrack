@@ -101,4 +101,4 @@ def _explain_game(
     """CPU-bound model work for one stat line (run in a worker thread)."""
     attributions = explain.explain_player(scorer, [duration], [row], population)
     score = float(scorer.score_rows([duration], [row])[0])
-    return attributions, explain.base_score(scorer), score
+    return attributions, explain.base_score_for(scorer, [row]), score

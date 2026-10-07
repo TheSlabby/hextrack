@@ -24,6 +24,8 @@ async def test_export_dataset_rows_and_columns(clean_db, session_factory, settin
         size = export_dataset(engine, buf)
         limited = io.BytesIO()
         export_dataset(engine, limited, max_matches=1)
+        chunked = io.BytesIO()
+        export_dataset(engine, chunked, chunk_matches=2)
         other_queue = io.BytesIO()
         export_dataset(engine, other_queue, queues=[450])
     finally:
@@ -34,6 +36,10 @@ async def test_export_dataset_rows_and_columns(clean_db, session_factory, settin
     assert len(rows) == 30
     assert len(_read(limited.getvalue())) == 10
     assert _read(other_queue.getvalue()) == []
+    # chunked COPYs give the same rows (one header) in the same order: oldest game first
+    assert _read(chunked.getvalue()) == rows
+    starts = [r["game_start"] for r in rows]
+    assert starts == sorted(starts)
     header = set(rows[0])
     assert {"match_id", "game_duration", "player", "tracked", "win", "team_position"} <= header
     assert set(stat_columns()) <= header

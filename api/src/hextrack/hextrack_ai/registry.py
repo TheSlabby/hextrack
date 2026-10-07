@@ -322,6 +322,8 @@ def _rescore_chunk(
         select(
             MatchParticipant.match_id,
             MatchParticipant.puuid,
+            MatchParticipant.team_position,
+            MatchParticipant.champion_id,
             Match.game_duration,
             *feature_columns,
         )
@@ -331,7 +333,8 @@ def _rescore_chunk(
     if not rows:
         return 0
     features = feature_matrix_from_result_rows(rows, scorer.feature_names)
-    probs = scorer.probabilities(scorer.logits_from_scaled(scorer.scale(features)))
+    roles, champions = scorer.context([row._mapping for row in rows])
+    probs = scorer.scores_from_scaled(scorer.scale(features), roles, champions)
     now = datetime.now(UTC)
     session.execute(
         update(MatchParticipant),

@@ -308,6 +308,26 @@ def needs_team_totals(feature_names: Sequence[str]) -> bool:
     return any(_lookup(name).needs_team_totals for name in feature_names)
 
 
+#: Ranked positions (``match_participants.team_position``) in role-slot order. Not model
+#: *features*: the impact model takes the slot as context (a one-hot it never attributes).
+ROLES: Final[tuple[str, ...]] = ("TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY")
+#: Role slots: one per role plus a last one for "no position" (rare: custom or broken data).
+ROLE_SLOTS: Final = len(ROLES) + 1
+UNKNOWN_ROLE_SLOT: Final = len(ROLES)
+_ROLE_SLOT: Final[dict[str, int]] = {role: i for i, role in enumerate(ROLES)}
+#: Columns every model reads besides its features (role and champion context).
+CONTEXT_COLUMNS: Final[tuple[str, ...]] = ("team_position", "champion_id")
+
+
+def role_slot(position: object) -> int:
+    """Role slot of a ``team_position`` value (:data:`UNKNOWN_ROLE_SLOT` when not a role)."""
+    return _ROLE_SLOT.get(str(position or "").upper(), UNKNOWN_ROLE_SLOT)
+
+
+def role_slots(positions: Sequence[object]) -> npt.NDArray[np.int64]:
+    return np.fromiter((role_slot(p) for p in positions), dtype=np.int64, count=len(positions))
+
+
 def _clean(values: npt.ArrayLike) -> FloatArray:
     arr = np.asarray(values, dtype=np.float64)
     return np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)

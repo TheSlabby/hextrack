@@ -3,7 +3,7 @@
 Artifact layout under ``settings.model_dir``::
 
     ACTIVE                      # text file: the active version name
-    <version>/model.pth         # WinPredictionNet state_dict
+    <version>/model.pth         # HexImpactNet (or legacy WinPredictionNet) state_dict
     <version>/scaler.pkl        # sklearn StandardScaler fit on the training split
     <version>/meta.json         # version, feature_set, feature_names, metrics, trained_at...
     <version>/train_curve.png
@@ -34,8 +34,16 @@ import torch
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import NoInspectionAvailable
 
-from hextrack.hextrack_ai.features import FEATURE_NAMES, FEATURE_SET, compute_feature_matrix
-from hextrack.hextrack_ai.model import WinPredictionNet
+from hextrack.hextrack_ai.features import (
+    FEATURE_NAMES,
+    FEATURE_SET,
+    ROLE_SLOTS,
+    ROLES,
+    UNKNOWN_ROLE_SLOT,
+    compute_feature_matrix,
+    role_slots,
+)
+from hextrack.hextrack_ai.model import IMPACT_HIDDEN, HexImpactNet, WinPredictionNet
 
 logger = logging.getLogger(__name__)
 
@@ -132,8 +140,88 @@ def _array(value: object, n: int, default: float) -> FloatArray:
     return arr
 
 
+#: ``meta["kind"]`` of the current model: impact (see :mod:`hextrack.hextrack_ai.model`),
+#: shown as a percentile within the player's role.
+KIND_IMPACT: Final = "impact"
+#: ``meta["kind"]`` of older models (or none): "chance this stat line is on the winning team".
+KIND_WIN_PROBABILITY: Final = "win_probability"
+KINDS: Final = frozenset({KIND_IMPACT, KIND_WIN_PROBABILITY})
+
+
+def _float_matrix(value: object, shape: tuple[int, ...], name: str) -> FloatArray:
+    try:
+        arr = np.asarray(value, dtype=np.float64)
+    except (TypeError, ValueError) as exc:
+        raise ModelLoadError(f"meta.json {name} is not numeric: {exc}") from exc
+    if arr.shape != shape:
+        raise ModelLoadError(f"meta.json {name} has shape {arr.shape}, expected {shape}")
+    if not np.all(np.isfinite(arr)):
+        raise ModelLoadError(f"meta.json {name} contains non-finite values")
+    return arr
+
+
+class _ScoreMap:
+    """Impact -> Hex Score (0..1): the impact, minus its champion's average, as a percentile
+    of the training games in the same role (piecewise linear between stored quantiles)."""
+
+    def __init__(self, meta: dict[str, Any], n_champion_slots: int) -> None:
+        raw = meta.get("score_map")
+        if not isinstance(raw, dict):
+            raise ModelLoadError("meta.json has no score_map")
+        levels = np.asarray(raw.get("levels"), dtype=np.float64).reshape(-1)
+        if levels.shape[0] < 2 or not np.all(np.diff(levels) > 0):
+            raise ModelLoadError("score_map.levels must be increasing")
+        knots = _float_matrix(raw.get("knots"), (ROLE_SLOTS, levels.shape[0]), "score_map.knots")
+        if not np.all(np.diff(knots, axis=1) > 0):
+            raise ModelLoadError("score_map.knots must increase along every role")
+        offsets = _float_matrix(
+            raw.get("champion_offsets", [0.0] * n_champion_slots),
+            (n_champion_slots,),
+            "score_map.champion_offsets",
+        )
+        self.levels = levels
+        self.knots = knots
+        self.offsets = offsets
+        self._levels_t = torch.as_tensor(levels, dtype=torch.float32)
+        self._knots_t = torch.as_tensor(knots, dtype=torch.float32)
+        self._offsets_t = torch.as_tensor(offsets, dtype=torch.float32)
+
+    def __call__(
+        self, impact: FloatArray, roles: npt.NDArray[np.int64], champions: npt.NDArray[np.int64]
+    ) -> FloatArray:
+        value = np.asarray(impact, dtype=np.float64) - self.offsets[champions]
+        out = np.empty_like(value)
+        for slot in np.unique(roles):
+            mask = roles == slot
+            out[mask] = np.interp(value[mask], self.knots[slot], self.levels)
+        return out
+
+    def tensor(
+        self, impact: torch.Tensor, roles: torch.Tensor, champions: torch.Tensor
+    ) -> torch.Tensor:
+        """Differentiable twin of ``__call__`` (same interpolation, clamped at the ends)."""
+        value = impact - self._offsets_t[champions]
+        knots = self._knots_t[roles]
+        last = knots.shape[1] - 1
+        upper = torch.searchsorted(knots, value.unsqueeze(-1).contiguous()).squeeze(-1)
+        upper = upper.clamp(1, last)
+        x0 = knots.gather(1, (upper - 1).unsqueeze(-1)).squeeze(-1)
+        x1 = knots.gather(1, upper.unsqueeze(-1)).squeeze(-1)
+        t = ((value - x0) / (x1 - x0).clamp_min(1e-12)).clamp(0.0, 1.0)
+        y0 = self._levels_t[upper - 1]
+        y1 = self._levels_t[upper]
+        return y0 + t * (y1 - y0)
+
+
 class Scorer:
-    """A loaded model + scaler. Immutable after load; safe to share across requests."""
+    """A loaded model + scaler. Immutable after load; safe to share across requests.
+
+    Two kinds (``meta["kind"]``): :data:`KIND_IMPACT`, whose score is the player's impact as a
+    percentile of games in their role (it reads each row's ``team_position`` and
+    ``champion_id`` as context), and the legacy :data:`KIND_WIN_PROBABILITY`, the sigmoid of
+    a :class:`WinPredictionNet` over the stats alone. Callers use the kind-neutral methods
+    (:meth:`score_rows`, :meth:`scores_from_scaled`, :meth:`score_tensor`, ...).
+    """
 
     #: Model version string, e.g. "20260921-183005".
     version: str
@@ -143,14 +231,15 @@ class Scorer:
     #: Directory the artifacts were loaded from.
     path: Path
     #: The network, in eval mode. Never call ``.train()`` on it.
-    model: WinPredictionNet
+    model: WinPredictionNet | HexImpactNet
+    kind: str
 
     def __init__(
         self,
         *,
         version: str,
         meta: dict[str, Any],
-        model: WinPredictionNet,
+        model: WinPredictionNet | HexImpactNet,
         scaler_mean: FloatArray,
         scaler_scale: FloatArray,
         path: Path,
@@ -159,6 +248,7 @@ class Scorer:
         self.meta = meta
         self.feature_names = list(meta.get("feature_names", FEATURE_NAMES))
         self.path = path
+        self.kind = str(meta.get("kind") or KIND_WIN_PROBABILITY)
         model.eval()
         for param in model.parameters():
             param.requires_grad_(False)
@@ -167,9 +257,18 @@ class Scorer:
         scale = scaler_scale.astype(np.float64)
         # StandardScaler stores 1.0 for zero-variance features; keep that guarantee.
         self._scale = np.where((scale == 0) | ~np.isfinite(scale), 1.0, scale)
+        n = len(self.feature_names)
+        self._champions: dict[int, int] = {}
+        self._score_map: _ScoreMap | None = None
+        self._baselines = np.zeros((ROLE_SLOTS, n), dtype=np.float64)
+        if self.kind == KIND_IMPACT:
+            champions = meta.get("champions") or []
+            self._champions = {int(c): i + 1 for i, c in enumerate(champions)}
+            self._score_map = _ScoreMap(meta, len(champions) + 1)
+            self._baselines = _float_matrix(meta.get("baselines"), (ROLE_SLOTS, n), "baselines")
 
     def __repr__(self) -> str:
-        return f"Scorer(version={self.version!r}, n_features={self.n_features})"
+        return f"Scorer(version={self.version!r}, kind={self.kind!r}, n_features={self.n_features})"
 
     # --- loading ------------------------------------------------------------------------
 
@@ -235,6 +334,9 @@ class Scorer:
                 f"({len(names)} features); this build uses {FEATURE_SET!r} "
                 f"({len(FEATURE_NAMES)} features). Retrain with `hextrack train`."
             )
+        kind = str(meta.get("kind") or KIND_WIN_PROBABILITY)
+        if kind not in KINDS:
+            raise ModelLoadError(f"unknown model kind {kind!r}; this build knows {sorted(KINDS)}")
         n = len(names)
         version = meta.get("version")
         if not isinstance(version, str) or not version:
@@ -245,12 +347,22 @@ class Scorer:
             state = torch.load(version_dir / MODEL_FILE, map_location="cpu", weights_only=True)
         except Exception as exc:  # corrupt / foreign pickle
             raise ModelLoadError(f"cannot read {version_dir / MODEL_FILE}: {exc}") from exc
-        model = WinPredictionNet(n)
+        model: WinPredictionNet | HexImpactNet
+        if kind == KIND_IMPACT:
+            champions = meta.get("champions") or []
+            network = meta.get("network") if isinstance(meta.get("network"), dict) else {}
+            try:
+                hidden = tuple(int(h) for h in network.get("hidden", IMPACT_HIDDEN))
+                model = HexImpactNet(n, n_champions=len(champions), hidden=hidden)
+            except (TypeError, ValueError) as exc:
+                raise ModelLoadError(f"meta.json network is invalid: {exc}") from exc
+        else:
+            model = WinPredictionNet(n)
         try:
             model.load_state_dict(state)
         except (RuntimeError, TypeError, AttributeError) as exc:
             raise ModelLoadError(
-                f"{MODEL_FILE} does not match WinPredictionNet({n}): {exc}"
+                f"{MODEL_FILE} does not match {type(model).__name__}({n}): {exc}"
             ) from exc
 
         try:
@@ -290,6 +402,11 @@ class Scorer:
         metrics = self.meta.get("metrics")
         return dict(metrics) if isinstance(metrics, dict) else {}
 
+    @property
+    def uses_context(self) -> bool:
+        """True when scores depend on each row's role and champion, not only its stats."""
+        return self.kind == KIND_IMPACT
+
     # --- scoring --------------------------------------------------------------------------
 
     def features(
@@ -298,16 +415,53 @@ class Scorer:
         """Raw (unscaled) feature matrix for ``rows``."""
         return compute_feature_matrix(durations_seconds, rows, feature_names=self.feature_names)
 
+    def context(
+        self, rows: Sequence[Mapping[str, Any]]
+    ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64]]:
+        """``(role slots, champion slots)`` for ``rows`` (from ``team_position`` and
+        ``champion_id``; missing keys mean an unknown role / champion)."""
+        roles = role_slots([r.get("team_position") for r in rows])
+        champions = np.fromiter(
+            (self._champions.get(_int_or_zero(r.get("champion_id")), 0) for r in rows),
+            dtype=np.int64,
+            count=len(rows),
+        )
+        return roles, champions
+
     def scale(self, features: FloatArray) -> FloatArray:
         """Apply the training StandardScaler."""
         return (np.asarray(features, dtype=np.float64) - self._mean) / self._scale
 
-    def logits_from_scaled(self, scaled: FloatArray) -> FloatArray:
-        """Model logits (float64, shape (n,)) for already-scaled inputs."""
+    def _context_tensors(
+        self,
+        n: int,
+        roles: npt.NDArray[np.int64] | None,
+        champions: npt.NDArray[np.int64] | None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        r = np.full(n, UNKNOWN_ROLE_SLOT, np.int64) if roles is None else np.asarray(roles)
+        c = np.zeros(n, np.int64) if champions is None else np.asarray(champions)
+        return torch.as_tensor(r, dtype=torch.long), torch.as_tensor(c, dtype=torch.long)
+
+    def _forward(
+        self, x: torch.Tensor, roles: torch.Tensor, champions: torch.Tensor
+    ) -> torch.Tensor:
+        if isinstance(self.model, HexImpactNet):
+            return self.model(x, roles, champions)
+        return self.model(x).reshape(-1)
+
+    def logits_from_scaled(
+        self,
+        scaled: FloatArray,
+        roles: npt.NDArray[np.int64] | None = None,
+        champions: npt.NDArray[np.int64] | None = None,
+    ) -> FloatArray:
+        """Raw network output (float64, shape (n,)): win logits for the legacy kind, impact
+        (logits of the team's win chance) for the impact kind."""
         if scaled.shape[0] == 0:
             return np.zeros(0, dtype=np.float64)
+        r, c = self._context_tensors(scaled.shape[0], roles, champions)
         with torch.inference_mode():
-            out = self.model(torch.as_tensor(scaled, dtype=torch.float32))
+            out = self._forward(torch.as_tensor(scaled, dtype=torch.float32), r, c)
         return out.reshape(-1).to(torch.float64).numpy()
 
     @staticmethod
@@ -316,20 +470,45 @@ class Scorer:
         probs = 0.5 * (1.0 + np.tanh(0.5 * np.asarray(logits, dtype=np.float64)))
         return np.clip(probs, PROB_EPS, 1.0 - PROB_EPS)
 
+    def scores_from_scaled(
+        self,
+        scaled: FloatArray,
+        roles: npt.NDArray[np.int64] | None = None,
+        champions: npt.NDArray[np.int64] | None = None,
+    ) -> FloatArray:
+        """Scores in (0, 1) for already-scaled inputs and their context."""
+        n = scaled.shape[0]
+        raw = self.logits_from_scaled(scaled, roles, champions)
+        if self._score_map is None:
+            return self.probabilities(raw)
+        r = np.full(n, UNKNOWN_ROLE_SLOT, np.int64) if roles is None else np.asarray(roles)
+        c = np.zeros(n, np.int64) if champions is None else np.asarray(champions)
+        return np.clip(self._score_map(raw, r, c), PROB_EPS, 1.0 - PROB_EPS)
+
+    def score_tensor(
+        self, scaled: torch.Tensor, roles: torch.Tensor, champions: torch.Tensor
+    ) -> torch.Tensor:
+        """Differentiable scores (0..1, unclipped) for a float32 tensor of scaled inputs."""
+        raw = self._forward(scaled, roles, champions)
+        if self._score_map is None:
+            return torch.sigmoid(raw)
+        return self._score_map.tensor(raw, roles, champions)
+
     def score_rows(
         self,
         durations_seconds: Sequence[int | float],
         rows: Sequence[Mapping[str, Any]],
     ) -> np.ndarray:
-        """Win probabilities in (0, 1), shape (len(rows),). ``durations_seconds[i]`` is the
-        game duration of ``rows[i]``."""
+        """Scores in (0, 1), shape (len(rows),). ``durations_seconds[i]`` is the game
+        duration of ``rows[i]``."""
         scaled = self.scale(self.features(durations_seconds, rows))
-        return self.probabilities(self.logits_from_scaled(scaled))
+        roles, champions = self.context(rows)
+        return self.scores_from_scaled(scaled, roles, champions)
 
     def score_match(
         self, game_duration_seconds: int, participants: Sequence[Mapping[str, Any]]
     ) -> dict[str, float]:
-        """Score every participant of one match; returns ``{puuid: probability}``."""
+        """Score every participant of one match; returns ``{puuid: score}``."""
         if not participants:
             return {}
         puuids: list[str] = []
@@ -343,12 +522,43 @@ class Scorer:
         probs = self.score_rows([game_duration_seconds] * len(participants), participants)
         return {puuid: float(prob) for puuid, prob in zip(puuids, probs, strict=True)}
 
+    # --- baselines (what an average stat line scores) ---------------------------------------
+
+    def baseline_scaled(self, roles: npt.NDArray[np.int64] | None = None) -> FloatArray:
+        """Scaled stat line of an average player in each row's role, shape (n, n_features):
+        the training mean (zeros) for the legacy kind, the role's mean for the impact kind."""
+        if roles is None:
+            roles = np.array([UNKNOWN_ROLE_SLOT], dtype=np.int64)
+        return self._baselines[np.asarray(roles, dtype=np.int64)].copy()
+
+    def base_scores(
+        self,
+        roles: npt.NDArray[np.int64] | None = None,
+        champions: npt.NDArray[np.int64] | None = None,
+    ) -> FloatArray:
+        """Score of :meth:`baseline_scaled` for each row's context."""
+        base = self.baseline_scaled(roles)
+        return self.scores_from_scaled(base, roles, champions)
+
     def base_probability(self) -> float:
-        """Probability for the all-mean (scaled zero) input."""
-        logit = self.logits_from_scaled(np.zeros((1, self.n_features), dtype=np.float64))[0]
-        if not math.isfinite(logit):
-            raise ValueError("model produced a non-finite logit")
-        return float(self.probabilities(np.array([logit]))[0])
+        """Score of the average stat line: the all-mean input for the legacy kind, the mean
+        over the five roles of their average line for the impact kind."""
+        if self.kind == KIND_IMPACT:
+            roles = np.arange(len(ROLES), dtype=np.int64)
+            scores = self.base_scores(roles, np.zeros_like(roles))
+        else:
+            scores = self.scores_from_scaled(np.zeros((1, self.n_features), dtype=np.float64))
+        value = float(np.mean(scores))
+        if not math.isfinite(value):
+            raise ValueError("model produced a non-finite score")
+        return value
+
+
+def _int_or_zero(value: object) -> int:
+    try:
+        return int(value)  # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        return 0
 
 
 def participant_to_dict(orm_row: Any) -> dict[str, Any]:

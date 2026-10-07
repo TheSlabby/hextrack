@@ -44,15 +44,26 @@ from torch import nn
 from hextrack.config import Settings
 from hextrack.db.engine import make_sync_engine, make_sync_session_factory
 from hextrack.db.models import AiModel, Match, MatchParticipant
-from hextrack.hextrack_ai import registry
-from hextrack.hextrack_ai.features import FEATURE_NAMES, FEATURE_SET
+from hextrack.hextrack_ai import impact, registry
+from hextrack.hextrack_ai.features import FEATURE_NAMES, FEATURE_SET, role_slots
 from hextrack.hextrack_ai.inference import (
     CURVE_FILE,
+    KIND_IMPACT,
+    KINDS,
     META_FILE,
     MODEL_FILE,
     SCALER_FILE,
 )
-from hextrack.hextrack_ai.model import DEFAULT_DROPOUT, WinPredictionNet, describe_architecture
+from hextrack.hextrack_ai.model import (
+    CHAMPION_DIM,
+    DEFAULT_DROPOUT,
+    IMPACT_DROPOUT,
+    IMPACT_HIDDEN,
+    HexImpactNet,
+    WinPredictionNet,
+    describe_architecture,
+    describe_impact_architecture,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +122,10 @@ class TrainingData:
     #: float32 to halve memory on large datasets.
     features: npt.NDArray[np.float32]
     game_starts: list[datetime]
+    #: Per row: team (100 / 200), role slot and champion id (the impact model's context).
+    team_ids: npt.NDArray[np.int16]
+    roles: npt.NDArray[np.int64]
+    champion_ids: npt.NDArray[np.int64]
     #: Matches from ``hextrack seed-demo`` (ids starting with DEMO_MATCH_PREFIX).
     demo_matches: int
     #: patch -> number of matches.
@@ -163,6 +178,9 @@ def load_training_data(
     ids: list[npt.NDArray[np.int64]] = []
     labels: list[FloatArray] = []
     features: list[npt.NDArray[np.float32]] = []
+    teams: list[npt.NDArray[np.int16]] = []
+    roles: list[npt.NDArray[np.int64]] = []
+    champions: list[npt.NDArray[np.int64]] = []
     with engine.connect() as conn:
         games = conn.execute(header).all()
         code = {row.match_id: i for i, row in enumerate(games)}
@@ -172,6 +190,9 @@ def load_training_data(
                 select(
                     MatchParticipant.match_id,
                     MatchParticipant.win,
+                    MatchParticipant.team_id,
+                    MatchParticipant.team_position,
+                    MatchParticipant.champion_id,
                     Match.game_duration,
                     *feature_columns,
                 )
@@ -186,6 +207,9 @@ def load_training_data(
             features.append(
                 registry.feature_matrix_from_result_rows(rows, feature_names).astype(np.float32)
             )
+            teams.append(np.fromiter((r.team_id for r in rows), np.int16, len(rows)))
+            roles.append(role_slots([r.team_position for r in rows]))
+            champions.append(np.fromiter((r.champion_id or 0 for r in rows), np.int64, len(rows)))
             del rows
 
     n_features = len(feature_names)
@@ -193,6 +217,9 @@ def load_training_data(
         match_ids=np.concatenate(ids) if ids else np.zeros(0, np.int64),
         labels=np.concatenate(labels) if labels else np.zeros(0, np.float64),
         features=np.concatenate(features) if features else np.zeros((0, n_features), np.float32),
+        team_ids=np.concatenate(teams) if teams else np.zeros(0, np.int16),
+        roles=np.concatenate(roles) if roles else np.zeros(0, np.int64),
+        champion_ids=np.concatenate(champions) if champions else np.zeros(0, np.int64),
         game_starts=sorted(row.game_start for row in games),
         demo_matches=sum(1 for row in games if row.match_id.startswith(DEMO_MATCH_PREFIX)),
         patches=dict(sorted(Counter(row.patch for row in games).items())),
@@ -312,7 +339,9 @@ _GRID = "#e4e3de"
 _SERIES = ("#2a78d6", "#eb6834")
 
 
-def plot_training_curve(history: Sequence[EpochStats], path: Path, *, best_epoch: int) -> None:
+def plot_training_curve(
+    history: Sequence[EpochStats | impact.ImpactEpoch], path: Path, *, best_epoch: int
+) -> None:
     """Two panels (never a dual axis): train/validation log loss, and validation
     accuracy / AUC. Rendered with the Agg canvas; nothing is shown on screen."""
     from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -381,10 +410,10 @@ def plot_training_curve(history: Sequence[EpochStats], path: Path, *, best_epoch
 def save_artifacts(
     version_dir: Path,
     *,
-    model: WinPredictionNet,
+    model: WinPredictionNet | HexImpactNet,
     scaler: StandardScaler,
     meta: dict[str, Any],
-    history: Sequence[EpochStats] | None = None,
+    history: Sequence[EpochStats | impact.ImpactEpoch] | None = None,
     best_epoch: int | None = None,
 ) -> Path | None:
     """Write model.pth, scaler.pkl, meta.json (and train_curve.png when ``history`` is
@@ -433,6 +462,204 @@ def _json_float(value: float | None) -> float | None:
 # --- entry point ---------------------------------------------------------------------------
 
 
+@dataclass(slots=True)
+class _Fitted:
+    model: WinPredictionNet | HexImpactNet
+    history: list[Any]
+    best_epoch: int
+    #: Validation numbers for the log line: auc / accuracy / loss.
+    val: dict[str, Any]
+    metrics: dict[str, Any]
+    architecture: str
+    batch_size: int
+    n_train: int
+    n_val: int
+    hyperparameters: dict[str, Any] = field(default_factory=dict)
+    #: Extra meta.json keys (the impact model's champions, score map, baselines).
+    meta: dict[str, Any] = field(default_factory=dict)
+
+
+def _fit_win_model(
+    data: TrainingData,
+    scaler: StandardScaler,
+    train_mask: npt.NDArray[np.bool_],
+    val_mask: npt.NDArray[np.bool_],
+    *,
+    epochs: int,
+    batch_size: int | None,
+    learning_rate: float,
+    seed: int,
+) -> _Fitted:
+    """The legacy P(win | stat line) network on participant rows."""
+    y_train, y_val = data.labels[train_mask], data.labels[val_mask]
+    x_train = scaler.transform(data.features[train_mask])
+    x_val = scaler.transform(data.features[val_mask])
+    # None: BATCH_SIZE, grown so an epoch is about TARGET_STEPS_PER_EPOCH steps.
+    effective_batch = batch_size or max(
+        BATCH_SIZE, math.ceil(x_train.shape[0] / TARGET_STEPS_PER_EPOCH)
+    )
+    logger.info("batch size %d", effective_batch)
+    xt = torch.as_tensor(x_train, dtype=torch.float32)
+    xv = torch.as_tensor(x_val, dtype=torch.float32)
+    model, history, best_epoch = _fit(
+        xt,
+        torch.as_tensor(y_train, dtype=torch.float32).reshape(-1, 1),
+        xv,
+        y_val,
+        epochs=epochs,
+        batch_size=effective_batch,
+        lr=learning_rate,
+        seed=seed,
+    )
+    val = _evaluate(model, xv, y_val)
+    train_eval = _evaluate(model, xt, y_train)
+    baseline = _log_loss(y_val, np.full_like(y_val, float(np.mean(y_train))))
+    return _Fitted(
+        model=model,
+        history=history,
+        best_epoch=best_epoch,
+        val=val,
+        metrics={
+            "val_auc": _json_float(val["auc"]),
+            "val_accuracy": _json_float(val["accuracy"]),
+            "val_loss": _json_float(val["loss"]),
+            "train_auc": _json_float(train_eval["auc"]),
+            "train_accuracy": _json_float(train_eval["accuracy"]),
+            "train_loss": _json_float(train_eval["loss"]),
+            "baseline_val_loss": _json_float(baseline),
+        },
+        architecture=describe_architecture(len(FEATURE_NAMES), DEFAULT_DROPOUT),
+        batch_size=effective_batch,
+        n_train=int(x_train.shape[0]),
+        n_val=int(x_val.shape[0]),
+        hyperparameters={"loss": "bce_with_logits"},
+    )
+
+
+def _fit_impact_model(
+    data: TrainingData,
+    scaler: StandardScaler,
+    train_mask: npt.NDArray[np.bool_],
+    val_mask: npt.NDArray[np.bool_],
+    *,
+    epochs: int,
+    batch_size: int | None,
+    learning_rate: float,
+    seed: int,
+) -> _Fitted:
+    """The impact network on whole games (see :mod:`hextrack.hextrack_ai.impact`)."""
+    scaled = scaler.transform(data.features).astype(np.float32)
+    vocabulary = impact.champion_vocabulary(data.champion_ids[train_mask])
+    champions = impact.champion_slots(data.champion_ids, vocabulary)
+    train_rows, y_train = impact.game_rows(data.match_ids, data.team_ids, data.labels, train_mask)
+    val_rows, y_val = impact.game_rows(data.match_ids, data.team_ids, data.labels, val_mask)
+    if train_rows.shape[0] < 2 or val_rows.shape[0] < 1:
+        raise NotEnoughData(
+            f"need complete 5v5 games to train the impact model; found {train_rows.shape[0]} "
+            f"training and {val_rows.shape[0]} validation games"
+        )
+    if np.unique(y_train).shape[0] < 2:
+        raise NotEnoughData("team 100 won every training game (or lost every one)")
+
+    def tensors(rows: npt.NDArray[np.int64]) -> tuple[torch.Tensor, ...]:
+        return (
+            torch.as_tensor(scaled[rows], dtype=torch.float32),
+            torch.as_tensor(data.roles[rows], dtype=torch.long),
+            torch.as_tensor(champions[rows], dtype=torch.long),
+        )
+
+    xt, rt, ct = tensors(train_rows)
+    xv, rv, cv = tensors(val_rows)
+    # ten rows per game: the same rows per step as the legacy model's batch
+    effective_batch = batch_size or max(
+        BATCH_SIZE, math.ceil(train_rows.size / TARGET_STEPS_PER_EPOCH)
+    )
+    batch_games = max(1, effective_batch // (2 * impact.TEAM_SIZE))
+    logger.info(
+        "%d training games, %d validation games, %d champions, %d games per step",
+        train_rows.shape[0],
+        val_rows.shape[0],
+        len(vocabulary),
+        batch_games,
+    )
+    model, side, history, best_epoch = impact.fit_impact(
+        xt,
+        rt,
+        ct,
+        y_train,
+        xv,
+        rv,
+        cv,
+        y_val,
+        n_champions=len(vocabulary),
+        epochs=epochs,
+        batch_games=batch_games,
+        lr=learning_rate,
+        seed=seed,
+        patience=EARLY_STOP_PATIENCE,
+    )
+    del xt, rt, ct
+    side_t = torch.tensor(side)
+    val = impact._game_eval(model, side_t, xv, rv, cv, y_val)
+
+    # Score map and baselines from the training rows (every row, also incomplete games).
+    train_idx = np.flatnonzero(train_mask)
+    train_impacts = impact.predict_impact(
+        model, scaled[train_idx], data.roles[train_idx], champions[train_idx]
+    )
+    score_map = impact.build_score_map(
+        train_impacts, data.roles[train_idx], champions[train_idx], len(vocabulary) + 1
+    )
+    baselines = impact.role_baselines(scaled[train_idx], data.roles[train_idx])
+    val_idx = np.flatnonzero(val_mask)
+    val_scores = impact.apply_score_map(
+        score_map,
+        impact.predict_impact(model, scaled[val_idx], data.roles[val_idx], champions[val_idx]),
+        data.roles[val_idx],
+        champions[val_idx],
+    )
+    behaviour = impact.score_metrics(val_scores, data.labels[val_idx], data.match_ids[val_idx])
+    baseline = _log_loss(y_val, np.full_like(y_val, float(np.mean(y_train))))
+    return _Fitted(
+        model=model,
+        history=history,
+        best_epoch=best_epoch,
+        val=val,
+        metrics={
+            # game level: do the ten impacts explain which team won?
+            "val_auc": _json_float(val["auc"]),
+            "val_accuracy": _json_float(val["accuracy"]),
+            "val_loss": _json_float(val["loss"]),
+            "baseline_val_loss": _json_float(baseline),
+            # player level: how the shown Hex Scores behave on held-out games
+            **{f"val_{k}": _json_float(v) for k, v in behaviour.items()},
+            "n_train_games": int(train_rows.shape[0]),
+            "n_val_games": int(val_rows.shape[0]),
+        },
+        architecture=describe_impact_architecture(len(FEATURE_NAMES), n_champions=len(vocabulary)),
+        batch_size=effective_batch,
+        n_train=int(train_idx.shape[0]),
+        n_val=int(val_idx.shape[0]),
+        hyperparameters={
+            "loss": "bce_with_logits_on_team_impact_sum",
+            "batch_games": batch_games,
+            "min_champion_rows": impact.MIN_CHAMPION_ROWS,
+            "champion_offset_prior": impact.CHAMPION_OFFSET_PRIOR,
+        },
+        meta={
+            "network": {
+                "hidden": list(IMPACT_HIDDEN),
+                "dropout": IMPACT_DROPOUT,
+                "champion_dim": CHAMPION_DIM,
+            },
+            "champions": vocabulary,
+            "side_bias": _json_float(side),
+            "score_map": score_map,
+            "baselines": [[float(v) for v in row] for row in baselines],
+        },
+    )
+
+
 def train(
     settings: Settings,
     *,
@@ -447,16 +674,22 @@ def train(
     max_matches: int | None = DEFAULT_MAX_MATCHES,
     val_fraction: float = VAL_FRACTION,
     min_rows: int = MIN_TRAIN_ROWS,
+    kind: str = KIND_IMPACT,
 ) -> TrainReport:
     """Train on scorable matches (optionally since ``since``) in ``queues``; write
     model.pth, scaler.pkl, meta.json, train_curve.png into a versioned directory under
     ``settings.model_dir``; insert an ``ai_models`` row; when ``activate``, make it the
     active model and re-score the stored games with it unless ``rescore`` is off (see
     :func:`hextrack.hextrack_ai.registry.activate`; averages and trends only count games
-    scored by the active model, so a new model without a rescore empties the AI Score UI).
+    scored by the active model, so a new model without a rescore empties the Hex Score UI).
+
+    ``kind`` picks the model: :data:`KIND_IMPACT` (the Hex Score, trained on whole games; see
+    :mod:`hextrack.hextrack_ai.impact`) or the legacy :data:`KIND_WIN_PROBABILITY`.
 
     Raises :class:`NotEnoughData` below ``min_rows`` participant rows.
     """
+    if kind not in KINDS:
+        raise ValueError(f"unknown model kind {kind!r}; expected one of {sorted(KINDS)}")
     queue_list = sorted({int(q) for q in queues})
     if not queue_list:
         raise ValueError("at least one queue id is required")
@@ -486,41 +719,37 @@ def train(
             data.match_ids, val_fraction=val_fraction, seed=seed
         )
         train_mask = ~val_mask
-        y_train, y_val = data.labels[train_mask], data.labels[val_mask]
-        if np.unique(y_train).shape[0] < 2:
+        if np.unique(data.labels[train_mask]).shape[0] < 2:
             raise NotEnoughData("the training split contains only wins or only losses")
 
         scaler = StandardScaler()
-        x_train = scaler.fit_transform(data.features[train_mask])
-        x_val = scaler.transform(data.features[val_mask])
+        scaler.fit(data.features[train_mask])
         logger.info(
-            "training on %d rows (%d matches), validating on %d rows (%d matches), %s",
-            x_train.shape[0],
+            "training a %s model on %d rows (%d matches), validating on %d rows (%d matches), %s",
+            kind,
+            int(train_mask.sum()),
             n_train_matches,
-            x_val.shape[0],
+            int(val_mask.sum()),
             n_val_matches,
             scope,
         )
-        # None: BATCH_SIZE, grown so an epoch is about TARGET_STEPS_PER_EPOCH steps.
-        effective_batch = batch_size or max(
-            BATCH_SIZE, math.ceil(x_train.shape[0] / TARGET_STEPS_PER_EPOCH)
-        )
-        logger.info("batch size %d", effective_batch)
-        xt = torch.as_tensor(x_train, dtype=torch.float32)
-        xv = torch.as_tensor(x_val, dtype=torch.float32)
-        model, history, best_epoch = _fit(
-            xt,
-            torch.as_tensor(y_train, dtype=torch.float32).reshape(-1, 1),
-            xv,
-            y_val,
+        fit_one = _fit_impact_model if kind == KIND_IMPACT else _fit_win_model
+        fitted = fit_one(
+            data,
+            scaler,
+            train_mask,
+            val_mask,
             epochs=epochs,
-            batch_size=effective_batch,
-            lr=learning_rate,
+            batch_size=batch_size,
+            learning_rate=learning_rate,
             seed=seed,
         )
-        val = _evaluate(model, xv, y_val)
-        train_eval = _evaluate(model, xt, y_train)
-        baseline = _log_loss(y_val, np.full_like(y_val, float(np.mean(y_train))))
+        model, history, best_epoch, val = (
+            fitted.model,
+            fitted.history,
+            fitted.best_epoch,
+            fitted.val,
+        )
 
         trained_at = datetime.now(UTC).replace(microsecond=0)
         factory = make_sync_session_factory(engine)
@@ -529,44 +758,40 @@ def train(
         version_dir = settings.model_dir / version
 
         metrics: dict[str, Any] = {
-            "val_auc": _json_float(val["auc"]),
-            "val_accuracy": _json_float(val["accuracy"]),
-            "val_loss": _json_float(val["loss"]),
-            "train_auc": _json_float(train_eval["auc"]),
-            "train_accuracy": _json_float(train_eval["accuracy"]),
-            "train_loss": _json_float(train_eval["loss"]),
-            "baseline_val_loss": _json_float(baseline),
+            **fitted.metrics,
             "best_epoch": best_epoch,
             "epochs": epochs,
-            "n_train": int(x_train.shape[0]),
-            "n_val": int(x_val.shape[0]),
+            "n_train": fitted.n_train,
+            "n_val": fitted.n_val,
             "n_train_matches": n_train_matches,
             "n_val_matches": n_val_matches,
         }
         demo_matches = data.demo_matches
         meta: dict[str, Any] = {
             "version": version,
+            "kind": kind,
             "feature_set": FEATURE_SET,
             "feature_names": list(FEATURE_NAMES),
             "n_features": len(FEATURE_NAMES),
-            "architecture": describe_architecture(len(FEATURE_NAMES), DEFAULT_DROPOUT),
-            "n_train": int(x_train.shape[0]),
-            "n_val": int(x_val.shape[0]),
+            "architecture": fitted.architecture,
+            "n_train": fitted.n_train,
+            "n_val": fitted.n_val,
             "metrics": metrics,
             "trained_at": trained_at.isoformat(),
             "hyperparameters": {
                 "epochs": epochs,
-                "batch_size": effective_batch,
+                "batch_size": fitted.batch_size,
                 "max_matches": max_matches,
                 "early_stop_patience": EARLY_STOP_PATIENCE,
                 "learning_rate": learning_rate,
                 "optimizer": "adam",
-                "loss": "bce_with_logits",
                 "val_fraction": val_fraction,
                 "split": "group_by_match_id",
                 "checkpoint": "best_val_log_loss",
                 "seed": seed,
+                **fitted.hyperparameters,
             },
+            **fitted.meta,
             "data": {
                 "n_rows": data.n_rows,
                 "n_matches": data.n_matches,
@@ -659,8 +884,8 @@ def train(
         model_dir=version_dir,
         n_matches=data.n_matches,
         n_rows=data.n_rows,
-        n_train=int(x_train.shape[0]),
-        n_val=int(x_val.shape[0]),
+        n_train=fitted.n_train,
+        n_val=fitted.n_val,
         epochs=epochs,
         val_auc=float(val["auc"]) if val["auc"] is not None else math.nan,
         val_accuracy=float(val["accuracy"]),

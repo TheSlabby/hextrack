@@ -34,7 +34,7 @@ def _explain(
 ) -> tuple[list[dict[str, Any]], float | None]:
     """CPU-bound model work (run in a worker thread)."""
     attributions = explain.explain_player(scorer, durations, rows, population) if rows else []
-    return attributions, explain.base_score(scorer)
+    return attributions, explain.base_score_for(scorer, rows)
 
 
 @router.get(
