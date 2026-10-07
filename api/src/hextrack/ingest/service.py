@@ -477,19 +477,25 @@ async def _paged_ids(
     exist that this listing did not look at). It deliberately does **not** stop at the
     first page that happens to contain a stored id: stored history is only contiguous
     below the watermark, and stopping early is how games in a half-filled gap were lost.
+
+    A page never asks for more than the ids left under ``limit``: with a ``count`` that
+    doesn't divide ``limit``, the last page used to overshoot, and cutting the result to
+    ``limit`` dropped the oldest ids of a listing still reported complete (so the
+    watermark could move over games nobody fetched).
     """
     collected: list[str] = []
     start = 0
     complete = False
     while len(collected) < limit:
+        want = min(count, limit - len(collected))
         page = await ctx.riot.match_ids_by_puuid(
-            puuid, start=start, count=count, type_=MATCH_TYPE, start_time=start_time
+            puuid, start=start, count=want, type_=MATCH_TYPE, start_time=start_time
         )
         collected.extend(page)
-        if len(page) < count:
+        if len(page) < want:
             complete = True
             break
-        start += count
+        start += want
     return _unique(collected)[:limit], complete
 
 

@@ -468,6 +468,28 @@ async def test_discover_is_capped_and_says_so(ctx, riot, session, settings):
     assert len(riot.calls_to("match_ids_by_puuid")) == 2
 
 
+async def test_discover_cap_never_drops_listed_ids(ctx, riot, session, settings):
+    """A page size that doesn't divide the cap (3 into 4) used to fetch a last full-size page
+    (ids 4-6 of 5, short), cut the result to 4 and still call the listing complete: the
+    oldest game was dropped while the watermark was free to move over it."""
+    ctx.settings = settings.model_copy(update={"backfill_count": 3})
+    series = match_series("me", 5, game_name="Me")
+    for raw in series:
+        riot.add_match(raw)
+
+    found = await service.discover(ctx, session, "me", backfill=True, max_ids=4)
+
+    newest_first = [r["metadata"]["matchId"] for r in reversed(series)]
+    assert found.listed == newest_first[:4]
+    assert found.complete is False  # the 5th (oldest) game was never looked at
+    assert [c.kwargs["count"] for c in riot.calls_to("match_ids_by_puuid")] == [3, 1]
+
+    riot.match_ids["me"] = riot.match_ids["me"][:4]  # exactly at the cap, short last page
+    riot.calls.clear()
+    found = await service.discover(ctx, session, "me", backfill=True, max_ids=5)
+    assert found.listed == newest_first[:4] and found.complete is True
+
+
 async def test_discover_since_the_watermark_lists_only_newer_games(ctx, riot, session, settings):
     """With a watermark, discovery lists from it instead of scanning the whole season."""
     series = match_series("me", 6, game_name="Me")
