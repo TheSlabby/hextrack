@@ -22,8 +22,9 @@ SESSION_MIN_GAMES: Final = 5
 SCHEDULE_MIN_GAMES: Final = 5
 MATCHUP_MIN_GAMES_DEFAULT: Final = 3
 #: Unlucky loss: lost with a score >= this; lucky win: won with a score <= LUCK_LOW.
-LUCK_HIGH: Final = 0.6
-LUCK_LOW: Final = 0.4
+#: About 9% of losses / 11% of wins, as 0.6 / 0.4 were on the old win-probability score.
+LUCK_HIGH: Final = 0.65
+LUCK_LOW: Final = 0.35
 
 
 def since_cutoff(settings: Settings, since: StatsSince) -> datetime | None:

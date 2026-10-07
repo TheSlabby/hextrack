@@ -20,10 +20,12 @@ from dataclasses import dataclass
 
 from hextrack.api.schemas import VerdictTier
 
-#: AI Score point gaps for the loud, normal and mild tiers.
-HARD_GAP, CARRY_GAP, EDGE_GAP = 40, 20, 10
+#: Hex Score point gaps for the loud, normal and mild tiers. Tuned (with TRIED_CLOSE) so each
+#: tier fires about as often as 40 / 20 / 10 did on the old, more polar win-probability score:
+#: teammates' impact percentiles spread further apart.
+HARD_GAP, CARRY_GAP, EDGE_GAP = 45, 30, 20
 #: On a loss, a bottom gap under this is "close"; then a top gap of CARRY_GAP+ means "tried".
-TRIED_CLOSE = 10
+TRIED_CLOSE = 15
 
 WIN_TIERS: tuple[tuple[int, VerdictTier], ...] = (
     (HARD_GAP, "hardCarry"),

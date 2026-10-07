@@ -113,12 +113,12 @@ async def seed_stacks(session) -> None:
     await add_match(
         session,
         _game("NA1_2", FIVE_E, hour=2, duration_s=2700),
-        scores=_scores(FIVE_E, 0.5, 0.75, 0.45, 0.4, 0.35),
+        scores=_scores(FIVE_E, 0.5, 0.8, 0.45, 0.4, 0.35),
     )
     await add_match(
         session,
         _game("NA1_3", FIVE_E, hour=3, blue_wins=False),
-        scores=_scores(FIVE_E, 0.3, 0.28, 0.26, 0.24, 0.02),
+        scores=_scores(FIVE_E, 0.4, 0.38, 0.36, 0.34, 0.02),
     )
     await add_match(
         session,
@@ -133,7 +133,7 @@ async def seed_stacks(session) -> None:
     await add_match(
         session,
         _game("NA1_6", FIVE_F, hour=6, blue_wins=False, champs={F: LULU}),
-        scores=_scores(FIVE_F, 0.3, 0.3, 0.3, 0.3, 0.02),
+        scores=_scores(FIVE_F, 0.3, 0.3, 0.3, 0.3, 0.0),
     )
     await add_match(
         session, _game("NA1_7", FIVE_E, hour=7), scores=_scores([A, B, C, D], 0.6, 0.6, 0.6, 0.6)
@@ -151,7 +151,7 @@ async def seed_stacks(session) -> None:
     await add_match(
         session,
         _game("NA1_9", FIVE_F, hour=9, kills={A: 20}, champs={F: LULU}),
-        scores=_scores(FIVE_F, 0.7, 0.58, 0.57, 0.56, 0.55),
+        scores=_scores(FIVE_F, 0.78, 0.58, 0.57, 0.56, 0.55),
     )
     await add_match(session, _game("NA1_10", FIVE_F, hour=10, duration_s=1200, champs={F: SONA}))
     await add_match(session, _game("NA1_11", FIVE_F, hour=11, champs={F: SONA}))
@@ -159,12 +159,12 @@ async def seed_stacks(session) -> None:
     await add_match(
         session,
         _game("NA1_13", [A, B, C, D, U], hour=13, blue_wins=False, queue_id=400),
-        scores=_scores([A, B, C, D], 0.5, 0.5, 0.45, 0.32),
+        scores=_scores([A, B, C, D], 0.5, 0.5, 0.45, 0.25),
     )
     await add_match(
         session,
         _game("NA1_14", [A, B, C], [D, E, F], hour=14, queue_id=420),
-        scores=_scores([A, B, C, D, E, F], 0.8, 0.5, 0.5, 0.3, 0.3, 0.05),
+        scores=_scores([A, B, C, D, E, F], 0.8, 0.5, 0.5, 0.3, 0.3, 0.0),
     )
     await add_match(session, _game("NA1_20", FIVE_E, hour=0, start=PRESEASON))
     # Excluded everywhere.
@@ -229,7 +229,7 @@ async def test_stack_summary_season_full_stacks(client, session, settings):
     # Scored by v1 in S1-S9 (S7 and S8 too: only E / C lacked a v1 score there).
     assert a["scored_games"] == 9
     assert a["avg_ai_score"] == pytest.approx(
-        (0.95 + 0.5 + 0.3 + 0.5 + 0.6 + 0.3 + 0.6 + 0.4 + 0.7) / 9
+        (0.95 + 0.5 + 0.4 + 0.5 + 0.6 + 0.3 + 0.6 + 0.4 + 0.78) / 9
     )
     # Slot 0 (2/1/3) in ten games, 20 kills in S9, red slot 5 (9/5/5) in S5.
     assert (a["kills"], a["deaths"], a["assists"]) == (20 + 9 + 20, 11 + 5, 33 + 5)
@@ -250,7 +250,7 @@ async def test_stack_summary_season_full_stacks(client, session, settings):
     c = by_id[C]
     assert c["scored_games"] == 8
     assert c["avg_ai_score"] == pytest.approx(
-        (0.45 + 0.45 + 0.26 + 0.19 + 0.57 + 0.3 + 0.6 + 0.57) / 8
+        (0.45 + 0.45 + 0.36 + 0.19 + 0.57 + 0.3 + 0.6 + 0.57) / 8
     )
     e = by_id[E]
     assert (e["games"], e["wins"], e["scored_games"]) == (7, 4, 6)
@@ -366,12 +366,12 @@ async def test_stack_games_first_page(client, session):
     assert s9["game_duration"] == 1800 and s9["patch"]
     assert datetime.fromisoformat(s9["game_start"]) == SEASON + timedelta(hours=9)
     assert [m["puuid"] for m in s9["members"]] == FIVE_F
-    assert s9["verdict"] == {"tier": "edge", "target_puuid": A, "gap": 12}
+    assert s9["verdict"] == {"tier": "edge", "target_puuid": A, "gap": 20}
     a = s9["members"][0]
     assert (a["kills"], a["participant_id"], a["is_tracked"]) == (20, 1, True)
     assert a["kill_participation"] == pytest.approx((20 + 3) / 42, abs=1e-4)
     # Ranked against all ten players (fillers are unscored): A is the best score.
-    assert a["ai_rank"] == 1 and a["ai_score"] == pytest.approx(0.7)
+    assert a["ai_rank"] == 1 and a["ai_score"] == pytest.approx(0.78)
     # Unscored members / a v0 score: no verdict.
     assert body["items"][0]["verdict"] is None
     assert body["items"][4]["verdict"] is None
@@ -392,7 +392,7 @@ async def test_stack_games_pages_walk_everything(client, session):
     red = next(g for g in items if g["match_id"] == "NA1_14" and g["team_id"] == 200)
     assert [m["puuid"] for m in red["members"]] == [D, E, F]
     assert (red["win"], red["team_kills"], red["enemy_kills"]) == (False, 27, 24)
-    assert red["verdict"] == {"tier": "ranDown", "target_puuid": F, "gap": 25}
+    assert red["verdict"] == {"tier": "ranDown", "target_puuid": F, "gap": 30}
 
     # Every verdict across the pages adds up to the summary's per-player counts.
     tiers: Counter[tuple[str, str]] = Counter(
@@ -423,7 +423,7 @@ async def test_stack_games_filters(client, session):
     assert len(items) == 13 and len(pages) == 5
     s13 = items[0]
     assert [m["puuid"] for m in s13["members"]] == [A, B, C, D]
-    assert s13["verdict"] == {"tier": "offDay", "target_puuid": D, "gap": 13}
+    assert s13["verdict"] == {"tier": "offDay", "target_puuid": D, "gap": 20}
     assert s13["queue_label"] == "Normal Draft"
 
     items, _ = await _all_games(client, size=3, queue="flex", limit=50)

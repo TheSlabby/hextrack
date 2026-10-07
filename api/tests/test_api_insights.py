@@ -446,8 +446,8 @@ async def test_matchups_filters(client, session):
 async def test_luck_thresholds_are_inclusive_and_active_model_only(client, session):
     await setup_me(session)
     t = DAY
-    losses = [(0.6, "v1"), (0.59, "v1"), (0.9, "v1"), (0.75, "v0"), (None, "v1")]
-    wins = [(0.4, "v1"), (0.41, "v1"), (0.05, "v1"), (0.2, "v0"), (None, "v1")]
+    losses = [(0.65, "v1"), (0.64, "v1"), (0.9, "v1"), (0.75, "v0"), (None, "v1")]
+    wins = [(0.35, "v1"), (0.36, "v1"), (0.05, "v1"), (0.2, "v0"), (None, "v1")]
     ids: dict[float | None, str] = {}
     for win, rows in ((False, losses), (True, wins)):
         for score, version in rows:
@@ -459,19 +459,19 @@ async def test_luck_thresholds_are_inclusive_and_active_model_only(client, sessi
 
     body = await get(client, "luck")
     assert body["model_version"] == "v1"
-    assert body["high_threshold"] == 0.6 and body["low_threshold"] == 0.4
+    assert body["high_threshold"] == 0.65 and body["low_threshold"] == 0.35
     assert (body["losses_scored"], body["unlucky_count"]) == (3, 2)
     assert (body["wins_scored"], body["lucky_count"]) == (3, 2)
-    assert [g["ai_score"] for g in body["unlucky_losses"]] == [0.9, 0.6]
-    assert [g["match_id"] for g in body["unlucky_losses"]] == [ids[0.9], ids[0.6]]
-    assert [g["ai_score"] for g in body["lucky_wins"]] == [0.05, 0.4]
+    assert [g["ai_score"] for g in body["unlucky_losses"]] == [0.9, 0.65]
+    assert [g["match_id"] for g in body["unlucky_losses"]] == [ids[0.9], ids[0.65]]
+    assert [g["ai_score"] for g in body["lucky_wins"]] == [0.05, 0.35]
 
     first = body["unlucky_losses"][0]
     assert first["queue_id"] == 420 and first["duration"] == 1800
     assert first["champion_name"] == "Ahri" and first["team_position"] == "MIDDLE"
     assert {"kills", "deaths", "assists", "game_start"} <= first.keys()
-    # Score within role: the MIDDLE population is the six v1-scored rows above (0.05, 0.4,
-    # 0.41, 0.59, 0.6, 0.9); a percentile is the share of it strictly below the score.
+    # Score within role: the MIDDLE population is the six v1-scored rows above (0.05, 0.35,
+    # 0.36, 0.64, 0.65, 0.9); a percentile is the share of it strictly below the score.
     unlucky_pct = [g["ai_role_percentile"] for g in body["unlucky_losses"]]
     lucky_pct = [g["ai_role_percentile"] for g in body["lucky_wins"]]
     assert unlucky_pct == [pytest.approx(500 / 6, abs=0.01), pytest.approx(400 / 6, abs=0.01)]

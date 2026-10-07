@@ -12,11 +12,11 @@ import type { VerdictTier } from "@/api/types";
 
 import type { Outcome } from "./matchUtils";
 
-export const HARD_GAP = 40;
-export const CARRY_GAP = 20;
-export const EDGE_GAP = 10;
+export const HARD_GAP = 45;
+export const CARRY_GAP = 30;
+export const EDGE_GAP = 20;
 /** On a loss, a bottom gap under this is "close"; then a top gap of CARRY_GAP+ means "tried". */
-export const TRIED_CLOSE = 10;
+export const TRIED_CLOSE = 15;
 
 /**
  * Banter lines per tier. `{top}` / `{low}` are the called-out player; `{rest}` is everyone
