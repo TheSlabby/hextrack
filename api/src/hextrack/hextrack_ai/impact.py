@@ -219,21 +219,39 @@ def predict_impact(
     roles: IntArray,
     champions: IntArray,
     *,
+    rows: IntArray | None = None,
     batch: int = 65_536,
 ) -> FloatArray:
-    out = np.empty(scaled.shape[0], dtype=np.float64)
+    """Impacts of ``rows`` (default: every row), read batch by batch so no full copy of the
+    selected rows is made."""
+    index = np.arange(scaled.shape[0]) if rows is None else np.asarray(rows)
+    out = np.empty(index.shape[0], dtype=np.float64)
     with torch.inference_mode():
-        for start in range(0, scaled.shape[0], batch):
-            sl = slice(start, start + batch)
-            out[sl] = (
+        for start in range(0, index.shape[0], batch):
+            sel = index[start : start + batch]
+            out[start : start + sel.shape[0]] = (
                 model(
-                    torch.as_tensor(scaled[sl], dtype=torch.float32),
-                    torch.as_tensor(roles[sl], dtype=torch.long),
-                    torch.as_tensor(champions[sl], dtype=torch.long),
+                    torch.as_tensor(scaled[sel], dtype=torch.float32),
+                    torch.as_tensor(roles[sel], dtype=torch.long),
+                    torch.as_tensor(champions[sel], dtype=torch.long),
                 )
                 .to(torch.float64)
                 .numpy()
             )
+    return out
+
+
+def scale_float32(
+    scaler: Any, features: npt.NDArray[Any], *, chunk: int = 200_000
+) -> npt.NDArray[np.float32]:
+    """``scaler.transform`` in chunks, straight into float32 (a float64 copy of millions of
+    rows doesn't fit the training sandbox's memory cap)."""
+    out = np.empty(features.shape, dtype=np.float32)
+    mean = np.asarray(scaler.mean_, dtype=np.float64)
+    scale = np.asarray(scaler.scale_, dtype=np.float64)
+    for start in range(0, features.shape[0], chunk):
+        part = np.asarray(features[start : start + chunk], dtype=np.float64)
+        out[start : start + part.shape[0]] = (part - mean) / scale
     return out
 
 
@@ -289,15 +307,24 @@ def apply_score_map(
     return out
 
 
-def role_baselines(scaled: npt.NDArray[Any], roles: IntArray) -> FloatArray:
-    """``meta["baselines"]``: the mean scaled stat line per role slot (the explanation's
-    starting point). The unknown slot is the overall mean, i.e. zeros."""
+def role_baselines(
+    scaled: npt.NDArray[Any], roles: IntArray, *, rows: IntArray | None = None
+) -> FloatArray:
+    """``meta["baselines"]``: the mean scaled stat line per role slot over ``rows`` (default
+    all), the explanation's starting point. The unknown slot is the overall mean: zeros."""
+    index = np.arange(scaled.shape[0]) if rows is None else np.asarray(rows)
     width = scaled.shape[1]
+    sums = np.zeros((ROLE_SLOTS, width))
+    counts = np.zeros(ROLE_SLOTS)
+    for start in range(0, index.shape[0], 200_000):
+        sel = index[start : start + 200_000]
+        r = roles[sel]
+        np.add.at(sums, r, np.asarray(scaled[sel], dtype=np.float64))
+        counts += np.bincount(r, minlength=ROLE_SLOTS)
     out = np.zeros((ROLE_SLOTS, width))
     for slot in range(ROLE_SLOTS):
-        mask = roles == slot
-        if slot != UNKNOWN_ROLE_SLOT and mask.any():
-            out[slot] = np.asarray(scaled[mask], dtype=np.float64).mean(axis=0)
+        if slot != UNKNOWN_ROLE_SLOT and counts[slot] > 0:
+            out[slot] = sums[slot] / counts[slot]
     return out
 
 

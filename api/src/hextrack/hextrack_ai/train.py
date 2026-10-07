@@ -87,7 +87,7 @@ EARLY_STOP_PATIENCE: Final = 15
 #: Newest games used for training by default; bounds memory (~120 bytes per row as float32).
 DEFAULT_MAX_MATCHES: Final = 300_000
 #: Matches loaded per query while building the arrays.
-LOAD_CHUNK_MATCHES: Final = 20_000
+LOAD_CHUNK_MATCHES: Final = 5_000
 LEARNING_RATE: Final = 1e-3
 #: Match ids created by ``hextrack seed-demo`` start with this prefix.
 DEMO_MATCH_PREFIX: Final = "DEMO_"
@@ -555,7 +555,7 @@ def _fit_impact_model(
     seed: int,
 ) -> _Fitted:
     """The impact network on whole games (see :mod:`hextrack.hextrack_ai.impact`)."""
-    scaled = scaler.transform(data.features).astype(np.float32)
+    scaled = impact.scale_float32(scaler, data.features)
     vocabulary = impact.champion_vocabulary(data.champion_ids[train_mask])
     champions = impact.champion_slots(data.champion_ids, vocabulary)
     train_rows, y_train = impact.game_rows(data.match_ids, data.team_ids, data.labels, train_mask)
@@ -618,17 +618,15 @@ def _fit_impact_model(
 
     # Score map and baselines from the training rows (every row, also incomplete games).
     train_idx = np.flatnonzero(train_mask)
-    train_impacts = impact.predict_impact(
-        model, scaled[train_idx], data.roles[train_idx], champions[train_idx]
-    )
+    train_impacts = impact.predict_impact(model, scaled, data.roles, champions, rows=train_idx)
     score_map = impact.build_score_map(
         train_impacts, data.roles[train_idx], champions[train_idx], len(vocabulary) + 1
     )
-    baselines = impact.role_baselines(scaled[train_idx], data.roles[train_idx])
+    baselines = impact.role_baselines(scaled, data.roles, rows=train_idx)
     val_idx = np.flatnonzero(val_mask)
     val_scores = impact.apply_score_map(
         score_map,
-        impact.predict_impact(model, scaled[val_idx], data.roles[val_idx], champions[val_idx]),
+        impact.predict_impact(model, scaled, data.roles, champions, rows=val_idx),
         data.roles[val_idx],
         champions[val_idx],
     )
