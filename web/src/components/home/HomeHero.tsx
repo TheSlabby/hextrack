@@ -56,7 +56,7 @@ export function HomeHero({ examples = [], loading = false }: HomeHeroProps) {
 
         <motion.p {...enter(0.06)} className="mt-4 max-w-xl text-base leading-relaxed text-text-secondary sm:text-lg">
           Match history, ranks and LP for you and your friends, plus a Hex&nbsp;Score on every game: a neural net's read on
-          how often your stat line wins.
+          how much your own stat line pushed your team toward winning.
         </motion.p>
 
         <motion.div {...enter(0.09)} className="relative z-10 mt-8 w-full max-w-2xl">

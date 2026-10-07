@@ -160,7 +160,7 @@ function MatchDetailContent({ match, focusPuuid, embedded }: { match: MatchDetai
             ai
             eyebrow="Hex Score"
             title="Hex Score ranking"
-            description="All ten players by how often their stat line wins."
+            description="All ten players by how much their own line pushed their team toward winning."
           >
             <AiRankingChart match={match} focusPuuid={focusPuuid} />
           </ChartPanel>

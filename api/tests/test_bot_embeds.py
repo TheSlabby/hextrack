@@ -187,7 +187,7 @@ def test_great_game_embed() -> None:
         "KDA": ("21.00", True),
         "Queue": ("Ranked Solo/Duo", True),
     }
-    assert embed.footer.text == "Hex Score: 83%"
+    assert embed.footer.text == "Hex Score 83 / 100"
     assert embed.timestamp == GAME_START
     assert embed.url == "https://hextrack.example/match/NA1_5001?player=Hex%20Walker-NA1"
 
@@ -226,10 +226,10 @@ def test_great_game_without_ai_score_has_no_footer() -> None:
 @pytest.mark.parametrize(
     ("score", "text"),
     [
-        (0.0, "Hex Score: 0%"),
-        (0.625, "Hex Score: 63%"),
-        (0.994, "Hex Score: 99%"),
-        (1.0, "Hex Score: 100%"),
+        (0.0, "Hex Score 0 / 100"),
+        (0.625, "Hex Score 63 / 100"),
+        (0.994, "Hex Score 99 / 100"),
+        (1.0, "Hex Score 100 / 100"),
     ],
 )
 def test_ai_score_footer_rounds_like_lpbot(score: float, text: str) -> None:
@@ -248,7 +248,7 @@ def test_bad_game_embed() -> None:
     assert embed.colour is not None and embed.colour.value == BAD_GAME_COLOUR
     assert embed.description == f"```ansi\n{ANSI_WHITE}1 / {ANSI_RED}9{ANSI_WHITE} / 2\n```"
     assert fields(embed)["Result"] == ("Defeat", True)
-    assert embed.footer.text == "Hex Score: 12%"
+    assert embed.footer.text == "Hex Score 12 / 100"
 
 
 def test_game_event_computes_kda_and_normalises_timestamps() -> None:

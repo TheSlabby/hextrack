@@ -239,7 +239,7 @@ function HeadlineCard({ explain, trend, scoped, season, showRing }: HeadlineCard
               </MetaChip>
             ) : null}
             {games > 0 && explain.data?.base_score !== null && explain.data?.base_score !== undefined ? (
-              <MetaChip icon={Scale}>Average stat line scores {toScore100(explain.data.base_score)}</MetaChip>
+              <MetaChip icon={Scale}>An average line for these roles scores {toScore100(explain.data.base_score)}</MetaChip>
             ) : null}
           </ul>
         </div>

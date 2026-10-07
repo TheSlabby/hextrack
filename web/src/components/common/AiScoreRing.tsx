@@ -113,7 +113,7 @@ export function AiScoreRing({
   const ariaLabel = !has
     ? `${label}: not available`
     : average
-      ? `${label}: ${value} of 100, ${formatSigned(offset ?? 0)} versus a coin flip`
+      ? `${label}: ${value} of 100, ${formatSigned(offset ?? 0)} versus a typical game (50)`
       : `${label}: ${value} of 100, grade ${grade?.grade}`;
 
   return (

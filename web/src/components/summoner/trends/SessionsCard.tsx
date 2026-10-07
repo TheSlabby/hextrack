@@ -57,7 +57,7 @@ const CHART_HEIGHT = 232;
 const LEGEND: readonly LegendItem[] = [
   { label: "Win rate", color: CHART_COLORS.win, mark: "line" },
   { label: "Avg Hex Score", color: CHART_COLORS.ai, mark: "line" },
-  { label: "50 = coin flip", color: CHART_COLORS.reference, mark: "reference" },
+  { label: "50 = typical game", color: CHART_COLORS.reference, mark: "reference" },
 ];
 
 export interface SessionsCardProps {

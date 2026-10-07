@@ -253,8 +253,7 @@ export function AiScoreRecordCard({
       )}
       {roundsToMax > 1 ? (
         <p className="text-[11px] leading-4 text-text-muted">
-          One-sided wins produce stat lines the model scores within a hair of 100, so these all round to 100; the order
-          uses the unrounded scores.
+          These all round to 100; the order uses the unrounded scores.
         </p>
       ) : null}
     </GlowCard>

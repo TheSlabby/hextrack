@@ -136,8 +136,9 @@ function LuckBody({ data, puuid, high, low, expanded, onExpand }: LuckBodyProps)
         />
       </div>
       <p className="text-xs leading-relaxed text-text-muted">
-        The Hex Score estimates how often a stat line like this one wins, so an unlucky loss is a game that looked won on
-        paper, and a lucky win one that didn&apos;t. Unlucky losses show the highest scores first, lucky wins the lowest.
+        The Hex Score rates your own stat line, so an unlucky loss is one where you played well and still lost, and a
+        lucky win one the team won without much help from your line. Unlucky losses show the highest scores first, lucky
+        wins the lowest.
         &ldquo;Top 27% TOP&rdquo; means the score beat 73% of scored games in that position.
       </p>
     </div>

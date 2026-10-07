@@ -199,7 +199,7 @@ function AiSummary({ profile }: { profile: SummonerProfile }) {
         <span className="text-[11px] leading-4 font-semibold tracking-[0.08em] text-cyan uppercase">Season average</span>
         <p className="line-clamp-3 max-w-60 text-sm leading-snug font-medium text-balance text-text sm:line-clamp-2">
           {season !== null
-            ? `A stat line like yours wins about ${toScore100(season)}% of the time.`
+            ? `Your games beat ${toScore100(season)}% of games in the same role, on average.`
             : modelMissing
               ? "No Hex Score model is trained yet."
               : "No scored ranked games yet."}

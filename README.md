@@ -1,7 +1,7 @@
 # HexTrack
 
 League of Legends stats for you and your friends, with a **Hex Score** on every game: a
-small neural network's read on how often a stat line like yours wins.
+small neural network's read on how much your own stat line pushed your team toward winning.
 
 Tracked friends are polled continuously (match history, rank, LP). Anyone else can be
 looked up on demand, op.gg style. The same data drives a Discord bot that announces rank
@@ -53,12 +53,16 @@ go through the same ingestion path as live matches, and both are idempotent.
 
 ## The Hex Score
 
-A 30-feature multilayer perceptron trained on stored ranked games predicts whether a
-participant's stat line belongs to the winning team. The Hex Score is that probability,
-0 to 100. Features are per-minute and per-gold rates (damage, gold, CS, vision, objectives,
-kills, deaths, assists and more), so the score says how a game was played rather than who
-won it — though the two correlate strongly, and the profile's insights tab shows which
-stats moved a player's score.
+A small network gives every player an *impact* from their own stat line, role and champion:
+30 per-minute and per-gold rates (damage, gold, CS, vision, objectives, kills, deaths,
+assists and more). It is trained on whole games: a team's five impacts minus the other
+team's five are the log-odds that it won, so credit for a win goes to the lines that explain
+it instead of to everyone on the winning side. The Hex Score is that impact, minus the
+champion's average, as a percentile among ranked games in the same role: 50 is a typical
+game. Team and opponent totals are never inputs (they would leak the result back in). Wins
+still score higher on average, but a strong game in a loss scores well, and the profile's
+insights tab shows which stats moved a player's score. Older "win probability" models still
+load, so a rollback is `hextrack model activate <version>`.
 
 ```bash
 uv run hextrack train --activate   # train on stored games, activate, re-score

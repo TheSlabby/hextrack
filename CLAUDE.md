@@ -75,8 +75,9 @@ api/src/hextrack/
                    service.py (refresh_summoner, discover, ingest_match), poller.py,
                    ondemand.py (Update button / first lookup), backfill.py, roster.py,
                    events.py (bot outbox)
-  hextrack_ai/     features.py, model.py, train.py, inference.py (Scorer),
-                   explain.py (attributions), registry.py (activate, rescore)
+  hextrack_ai/     features.py, model.py, train.py, impact.py (impact-model training pieces),
+                   inference.py (Scorer), explain.py (attributions), registry.py (activate,
+                   rescore), dataset.py (export-dataset for research)
   api/             schemas.py (THE response contract), deps.py, v1/* routes
   stats/           read-side SQL: queries.py, aggregate.py, metrics.py, present.py
   bot/             discord.py bot: client.py, consumer.py (outbox), embeds.py, queries.py
@@ -136,16 +137,28 @@ cd web && npm run typecheck && npm run lint && npm run build
 - **AI features:** `hextrack_ai/features.py` `FEATURE_NAMES` order is the model's input
   contract (30 features). Changing it means retraining; `Scorer.load` refuses artifacts whose
   `meta.json` feature list differs.
+- **Model kinds** (`meta.json` `kind`): `impact` (current; `HexImpactNet` over the 30 stats plus
+  role and champion context, with `champions`, `score_map` and `baselines` in meta.json) and
+  `win_probability` (legacy; no `kind` key). Both load, rescore and explain, so
+  `model activate <older version>` is a working rollback. Callers use the kind-neutral `Scorer`
+  methods (`score_rows`, `scores_from_scaled`, `score_tensor`, `context`, `base_scores`); never
+  apply a sigmoid to `logits_from_scaled` yourself. Never feed the model team or opponent
+  totals (kill participation, shares of team damage, lane-opponent diffs): with the player's
+  own counts they rebuild the team's kill lead and the score turns back into the result.
 - **Riot client:** key only in the `X-Riot-Token` header, path segments URL-quoted, errors
   mapped to `riot/errors.py` types. The API process has its own small on-demand budget
   (`RIOT_ONDEMAND_RATE_LIMITS`) and fails fast; the worker queues on the limiter.
 
 ## Domain notes
 
-- **Hex Score** = the model's probability that a participant's stat line is on the winning
-  team, 0 to 100. It is strongly tied to the result (scores cluster near 0 and 100; wins
-  average ~80, losses ~21), so UI copy must not call it a skill or "carry" rating. Averages
-  are shown as plain numbers, not grades. Averages only use rows scored by the active model.
+- **Hex Score** (impact model) = how much a player's own stat line pushed their team toward
+  winning, as a percentile of ranked games in the same role (0 to 100, 50 = typical). The
+  network (`hextrack_ai/impact.py`) gives each player an impact from their own stats, role and
+  champion; it is trained on whole games, where team 100's five impacts minus team 200's are
+  the log-odds that team 100 won. The champion's average impact is subtracted before the
+  percentile, so a pick isn't a performance. Wins still score higher on average, so UI copy
+  doesn't call it a skill or "carry" rating (verdict banter excepted). Averages are shown as
+  plain numbers, not grades. Averages only use rows scored by the active model.
 - **Season** starts at `HEXTRACK_SEASON_START` (default 2026-01-08T20:00Z). Rank snapshots
   from before it, or older than the heartbeat window, are not shown as the current rank.
 - **Rank snapshots** are change-only plus a 24 h heartbeat; `rank.rank_value` handles
@@ -169,9 +182,11 @@ cd web && npm run typecheck && npm run lint && npm run build
   don't track, so training has far more than the roster's games. It only spends Riot budget
   the roster poll, live games and the website leave over (it pauses while a poll tick runs),
   and pauses while the DB disk has less than `HEXTRACK_CRAWL_MIN_FREE_GB` free. Its games are
-  stored like any other (raw JSON, participants, Hex Scores) with `matches.source = "crawl"`
-  (everything else is `"roster"`) and never make bot events. Frontier of players to crawl:
-  `crawl_players` (found on ladder pages or in crawled games). Settings `HEXTRACK_CRAWL`
+  stored like any other (raw JSON, participants; not scored) with `matches.source = "crawl"`
+  (everything else is `"roster"`) and never make bot events. When roster polling or a site
+  lookup later reaches a crawled game, `ingest_match` promotes it from the stored payload (no
+  Riot call): `source = "roster"`, scored, timeline queued, still no bot events. Frontier of
+  players to crawl: `crawl_players` (found on ladder pages or in crawled games). Settings `HEXTRACK_CRAWL`
   (on/off), `..._CRAWL_MIN_FREE_GB`, `..._CRAWL_FRONTIER_MAX`, `..._CRAWL_MATCHES_PER_PLAYER`.
   Heartbeat in `app_state["crawler"]`, summarized in `/api/v1/health` (`crawler`) and
   `./deploy.sh --status`; details with `sudo hextrack-admin crawl status`. `hextrack train`
@@ -237,6 +252,8 @@ Day to day:
 ./deploy.sh --logs       # follow journald for all three services
 ./deploy.sh --rollback   # back to the previous release
 ssh rpi5 'sudo hextrack-admin train --activate'   # retrain on live data (runs as hextrack, sandboxed)
+ssh rpi5 'sudo hextrack-admin model export-dataset' > games.csv.gz   # read-only stats of every scorable game, for model research (~16 min)
+ssh rpi5 'sudo hextrack-admin model cancel-exports'  # cancel an export whose client went away
 ssh rpi5 'sudo systemctl stop hextrack-worker && sudo hextrack-admin backfill; sudo systemctl start hextrack-worker'
 ssh rpi5 'sudo hextrack-admin crawl status'       # crawler heartbeat, frontier, crawled games, DB size, free disk
 ssh rpi5 'sudo hextrack-admin crawl seed --tier GOLD --division II'   # add ladder players to the frontier (uses the key)
@@ -245,8 +262,16 @@ ssh rpi5 'sudo hextrack-admin crawl seed --tier GOLD --division II'   # add ladd
 Training is manual (suggested monthly or after a few hundred new games). Activation rescores
 stored games; the API (every 30 s) and worker (every poll) pick up the new model without a
 restart. Roll back with `sudo hextrack-admin model activate <version>` (`... model list`).
-walker's sudo rules for HexTrack are in `deploy/sudoers.hextrack` (walker also still has
-blanket passwordless sudo, by choice).
+walker's sudo rules for HexTrack are in `deploy/sudoers.hextrack`; any other sudo needs his
+password (the old blanket NOPASSWD rule is gone), so e.g. `sudo -u postgres psql` doesn't work
+unattended. `hextrack-admin` units run with `MemoryMax=2G`.
+
+Model research: `model export-dataset` streams gzipped CSV (one COPY per 1000 games; a single
+big COPY once spilled ~20 GB of temp files onto the SD card prod shares). Player ids are hashed.
+Run experiments off the Pi (slabpc WSL has the GPU), and judge a score on things the result
+can't leak into: whether a player's average predicts their *later* win rate beyond their past
+win rate, split-half reliability, role fairness, and how often a strong loser outscores a weak
+winner, not just win AUC.
 
 ## History
 

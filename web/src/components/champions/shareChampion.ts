@@ -84,7 +84,7 @@ export interface ChampionCard {
   squad: RecapBadge | null;
   /** Average AI Score 0..100: a plain number, never graded. */
   avgScore: number | null;
-  /** "+4 vs a coin flip". */
+  /** "+4 vs a typical game". */
   avgOffset: string | null;
   best: ChampionCardBestGame | null;
   /** The whole card as one sentence, for alt text. */
@@ -146,7 +146,7 @@ export function buildChampionCard(player: ChampionPlayer, tier: ChampionTier | n
 
   const avgScore = player.avg_ai_score == null ? null : toScore100(player.avg_ai_score);
   const offset = player.avg_ai_score == null ? null : averageOffset(player.avg_ai_score);
-  const avgOffset = offset === null ? null : offset === 0 ? "Right on a coin flip" : `${formatSigned(offset)} vs a coin flip`;
+  const avgOffset = offset === null ? null : offset === 0 ? "Right on a typical game" : `${formatSigned(offset)} vs a typical game`;
 
   const g = player.best_game;
   const bestScore = g?.ai_score == null ? null : toScore100(g.ai_score);

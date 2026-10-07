@@ -437,7 +437,7 @@ export function AiRankingChart({
         </ResponsiveContainer>
       </div>
       <p className="text-[11px] text-text-muted">
-        50 is a coin flip{unscored > 0 ? ` · ${unscored} player${unscored === 1 ? "" : "s"} not scored` : ""}
+        50 is a typical game{unscored > 0 ? ` · ${unscored} player${unscored === 1 ? "" : "s"} not scored` : ""}
       </p>
     </div>
   );

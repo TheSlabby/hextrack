@@ -168,7 +168,8 @@ export function LeaderboardPage() {
         <p className="mt-4 text-xs leading-relaxed text-text-muted">
           # is the overall standing by average Hex Score, for players with at least{" "}
           {plural(standings.minGames, "ranked game")} this season; smaller samples count as closer to 50. The Hex Score
-          is the model's estimate of how often a stat line like this one wins. {AI_AVERAGE_NOTE} Season LP counts
+          rates how much a player's own stat line pushed their team toward winning, against games in the same role (50
+          is typical). {AI_AVERAGE_NOTE} Season LP counts
           Ranked Solo/Duo since the season started. Best duo only counts tracked teammates.
         </p>
       </div>

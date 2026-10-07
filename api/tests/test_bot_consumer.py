@@ -215,7 +215,7 @@ async def test_sends_great_game_and_marks_processed(
     assert embed.author.name == "Hex Walker#NA1"
     assert embed.author.url == "http://localhost:5173/summoner/na/Hex%20Walker-NA1"
     assert embed.author.icon_url is not None and embed.author.icon_url.endswith("/4568.png")
-    assert embed.footer.text == "Hex Score: 90%"
+    assert embed.footer.text == "Hex Score 90 / 100"
     row = (await events_by_id(session_factory))[event_id]
     assert row.processed_at is not None
     assert row.attempts == 0
@@ -478,7 +478,7 @@ async def test_missing_ai_score_is_read_from_the_participant_row(
     )
     sender = FakeSender()
     await make_consumer(session_factory, settings, sender).process_batch()
-    assert [e.footer.text for e in sender.sent] == ["Hex Score: 67%", None]
+    assert [e.footer.text for e in sender.sent] == ["Hex Score 67 / 100", None]
 
 
 async def test_shutdown_mid_batch_does_not_repost_delivered_embeds(

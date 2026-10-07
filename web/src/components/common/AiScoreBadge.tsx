@@ -87,7 +87,7 @@ export function AiScoreBadge({
           SIZE[size],
           className,
         )}
-        aria-label={`Average Hex Score ${value}, ${formatSigned(offset)} versus a coin flip`}
+        aria-label={`Average Hex Score ${value}, ${formatSigned(offset)} versus a typical game (50)`}
       >
         <Sparkles className={cn(ICON[size], "text-cyan")} aria-hidden="true" />
         <span>{value}</span>
@@ -101,7 +101,7 @@ export function AiScoreBadge({
           <span className="font-medium text-text">Average Hex Score</span>
         </div>
         <p className="mt-0.5 text-text-secondary tabular-nums">
-          {offset === 0 ? "Even with a coin flip (50)." : `${formatSigned(offset)} vs a coin flip (50).`}
+          {offset === 0 ? "Right on a typical game (50)." : `${formatSigned(offset)} vs a typical game (50).`}
           {detail ? <> {detail}</> : null}
         </p>
         <p className="mt-1 text-text-muted">{AI_AVERAGE_NOTE}</p>

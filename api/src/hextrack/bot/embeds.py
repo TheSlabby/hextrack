@@ -7,7 +7,7 @@ kept; the differences are:
 * author links go to the HexTrack summoner page (``{public_url}/summoner/na/Name-TAG``)
   instead of op.gg;
 * profile and champion icons come from Data Dragon for the current patch;
-* the ``Hex Score: NN%`` footer is left out when the game has not been scored (LPBot
+* the ``Hex Score NN / 100`` footer is left out when the game has not been scored (LPBot
   printed ``0%``);
 * the rank emblem image is attached only when ``HEXTRACK_RANK_ICON_BASE`` is set;
 * the daily leaderboard receives LP deltas computed with :func:`hextrack.rank.rank_value`,
@@ -322,10 +322,10 @@ def percent(ratio: float) -> int:
 
 
 def ai_score_footer(score: float | None) -> str | None:
-    """``"Hex Score: 83%"``, or None when the game was not scored."""
+    """``"Hex Score 83 / 100"``, or None when the game was not scored."""
     if score is None or not math.isfinite(score):
         return None
-    return f"Hex Score: {percent(score)}%"
+    return f"Hex Score {percent(score)} / 100"
 
 
 def format_kda_ratio(ratio: float) -> str:

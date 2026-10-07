@@ -134,20 +134,20 @@ Import everything from `@/lib/chartTheme`:
 
 ## Hex Score copy
 
-The score is the model's estimate of how often a stat line like this one wins. The result is not an input, but the
-stats that weigh most (gold, towers, objectives) come with winning, so a game's score mostly follows its result: wins
-typically score around 90, losses around 10. Averages over a season collapse onto win rate.
+The score is how much a player's own stat line pushed their team toward winning, as a percentile among ranked games
+in the same role (50 = a typical game; the champion's average is taken out). It is learned from whole games, so a stomp
+doesn't lift everyone and a strong game in a loss still scores well, but wins do score higher on average.
 
-- **Do** describe a grade as how much a line looks like a winning one ("Winning line", "Leaning loss"), and read scores
-  against games with the same result. All the copy lives in `lib/score.ts` (`GRADES`, `AI_SCORE_SUMMARY`,
+- **Do** describe a grade against a typical game for the role ("Standout", "Solid", "Rough"), and say "50 is a
+  typical game" where a number needs a reference. All the copy lives in `lib/score.ts` (`GRADES`, `AI_SCORE_SUMMARY`,
   `AI_SCORE_RESULT_NOTE`, `AI_AVERAGE_NOTE`); don't write new wording next to a score.
-- **Don't** call a score a carry, claim it ignores the result, or say a high score is "above what a winner posts".
+- **Don't** call a score a carry or a skill rating, or claim wins and losses score the same.
   The one exception is teammate banter: teammates share the result, so comparing their scores is fair, and a verdict
   calls out who carried or ran it down by the size of the gap. It appears only on the share card, the match hero and the
   Stacks page (all via `components/match/verdicts.ts`, with tiers computed server-side in `stats/verdict.py` for
   Stacks). Averages stay plain numbers.
 - **Don't** grade an average (season, roster, champion) or give it a single game's description. Show the number with
-  `kind="average"`, next to its distance from a coin flip or its place on the roster.
+  `kind="average"`, next to its distance from a typical game (50) or its place on the roster.
 - Rank a roster on averages only with a minimum sample and shrinkage towards 50 (`computeStandings`), so ten good games
   can't outrank a season.
 

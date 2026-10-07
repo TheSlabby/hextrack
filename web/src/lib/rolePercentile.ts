@@ -44,7 +44,7 @@ export const ROLE_GAMES: Readonly<Record<Position, string>> = {
 export const ROLE_PERCENTILE_NOTE =
   "Compared with every ranked game the current model scored in the same role, not just the roster's.";
 
-/** Averages of the percentile follow win rate, like average AI Scores. */
+/** Averages of the role percentile of Hex Scores (50 = typical). */
 export const ROLE_PERCENTILE_AVERAGE_NOTE =
   "An average over this player's scored games. Scores mostly follow the result, so this tracks win rate too.";
 

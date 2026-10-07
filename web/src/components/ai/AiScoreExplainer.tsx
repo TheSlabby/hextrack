@@ -59,8 +59,8 @@ interface Step {
 const STEPS: readonly Step[] = [
   {
     icon: BrainCircuit,
-    title: "Learns from ranked games",
-    body: "A neural network studies the stat lines of every player in stored ranked games, winners and losers alike, and learns what winning lines look like.",
+    title: "Learns from whole games",
+    body: "A neural network studies every stored ranked game and learns how much each player's own stat line moved their team's chances: the ten lines of a game add up to who won.",
   },
   {
     icon: Scale,
@@ -69,8 +69,8 @@ const STEPS: readonly Step[] = [
   },
   {
     icon: Target,
-    title: "Scores your stat line",
-    body: "Your own stats go in, the result does not. Gold, towers and objectives mostly come with winning, though, so the score largely follows it: wins usually score 65+ and losses under 35.",
+    title: "Ranks you within your role",
+    body: "Your own stats, role and champion go in; the result and your team's totals don't. The score is where your game ranks among games in the same role, with the champion's average taken out: 50 is a typical game.",
   },
 ];
 
@@ -170,12 +170,11 @@ function ExplainerBody() {
           </h3>
           <ul className="flex flex-col gap-2.5 text-[13px] leading-relaxed text-text-secondary">
             <Caveat>
-              <strong className="font-medium text-text">No role or champion context yet.</strong> Every stat line is
-              judged against all roles, so supports and tanks can score lower for games that were genuinely strong.
+              <strong className="font-medium text-text">Your own line only.</strong> Teammates and opponents never enter
+              your score, so a teammate's huge game doesn't lift or sink yours.
             </Caveat>
             <Caveat>
-              <strong className="font-medium text-text">Compare games with the same result.</strong>{" "}
-              {AI_SCORE_RESULT_NOTE}
+              <strong className="font-medium text-text">Wins still score higher.</strong> {AI_SCORE_RESULT_NOTE}
             </Caveat>
             <Caveat>
               <strong className="font-medium text-text">Averages aren't graded.</strong> {AI_AVERAGE_NOTE}

@@ -79,7 +79,7 @@ const LEGEND: readonly LegendItem[] = [
   { label: "Win", color: CHART_COLORS.win, mark: "bar" },
   { label: "Loss", color: CHART_COLORS.loss, mark: "bar" },
   { label: ROLLING_LABEL, color: CHART_COLORS.ai, mark: "line" },
-  { label: "50 = coin flip", color: CHART_COLORS.reference, mark: "reference" },
+  { label: "50 = typical game", color: CHART_COLORS.reference, mark: "reference" },
 ];
 
 /** Card chrome that collapses when nested inside another GlowCard. */
