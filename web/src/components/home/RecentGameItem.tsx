@@ -113,7 +113,8 @@ export function RecentGameItem({ game }: { game: StackGame }) {
             <span className={cn("text-xs font-semibold", styles.text)}>{OUTCOME_LABEL[outcome]}</span>
           </span>
           <span className="text-[11px] whitespace-nowrap text-text-muted tabular-nums">
-            {queue} · {formatDuration(game.game_duration)} · {when}
+            {queue}
+            <span className="hidden sm:inline"> · {formatDuration(game.game_duration)}</span> · {when}
           </span>
         </span>
 
