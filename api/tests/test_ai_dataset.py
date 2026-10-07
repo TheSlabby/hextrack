@@ -64,6 +64,13 @@ async def test_export_dataset_rows_and_columns(clean_db, session_factory, settin
         assert int(r["kills"]) == p["kills"]
 
 
+#: A COPY like the export's: the marker comes after some SQL, well inside the first 1 kB.
+EXPORT_LIKE = (
+    "COPY (WITH ch AS (SELECT pg_sleep(30) AS slept, '{}'::jsonb AS p) "
+    "SELECT slept, p->'challenges' AS c FROM ch) TO STDOUT"
+)
+
+
 async def test_cancel_running_exports_only_cancels_exports(clean_db, settings):
     engine = make_sync_engine(settings)
     errors: list[BaseException] = []
@@ -81,9 +88,7 @@ async def test_cancel_running_exports_only_cancels_exports(clean_db, settings):
     try:
         # nothing running: nothing cancelled (and this test's own connection is never a target)
         assert cancel_running_exports(engine) == []
-        export = threading.Thread(
-            target=run, args=('COPY (SELECT pg_sleep(30) AS "c_kda") TO STDOUT',)
-        )
+        export = threading.Thread(target=run, args=(EXPORT_LIKE,))
         other = threading.Thread(target=run, args=("COPY (SELECT pg_sleep(1) AS x) TO STDOUT",))
         export.start()
         other.start()

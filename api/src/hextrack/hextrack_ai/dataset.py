@@ -188,9 +188,9 @@ def export_dataset(
     return written
 
 
-#: Text only an export COPY contains (its first challenge column), so cancelling never touches
-#: any other query.
-_EXPORT_MARKER: Final = '"c_kda"'
+#: Text only an export COPY contains, so cancelling never touches any other query. It sits in
+#: the first few hundred characters: pg_stat_activity keeps only the first 1 kB of a query.
+_EXPORT_MARKER: Final = "p->'challenges' AS c"
 
 
 def cancel_running_exports(engine: Engine) -> list[int]:
