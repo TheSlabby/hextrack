@@ -783,6 +783,7 @@ def train(
         version_dir = settings.model_dir / version
 
         metrics: dict[str, Any] = {
+            "kind": kind,
             **fitted.metrics,
             "best_epoch": best_epoch,
             "epochs": epochs,

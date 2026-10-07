@@ -386,16 +386,24 @@ def model_list() -> None:
 
     models = _call(list_models, get_settings())
     table = Table(title="Hex Score models")
-    for col in ("version", "trained_at", "active", "features", "val_auc"):
-        table.add_column(col)
+    # val_auc is per game for impact models (do the ten impacts explain the winner?) and per
+    # player for win-probability ones, so it only compares within a kind; player_auc is the
+    # impact model's score vs the player's own result (lower = less tied to the result).
+    for col in ("version", "trained_at", "active", "kind", "features", "val_auc", "player_auc"):
+        table.add_column(col, no_wrap=col == "version")
     for m in models:
         auc = m.metrics.get("val_auc")
+        player_auc = m.metrics.get("val_player_auc")
         table.add_row(
             m.version,
             m.trained_at.isoformat(timespec="minutes"),
             "[green]yes[/]" if m.is_active else "",
+            str(
+                m.metrics.get("kind") or ("impact" if player_auc is not None else "win_probability")
+            ),
             str(m.n_features),
             f"{auc:.4f}" if isinstance(auc, int | float) else "-",
+            f"{player_auc:.4f}" if isinstance(player_auc, int | float) else "-",
         )
     console.print(table)
 
