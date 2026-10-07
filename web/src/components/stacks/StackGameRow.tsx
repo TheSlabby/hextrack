@@ -23,7 +23,7 @@ import { formatDateTime, formatDuration, timeAgo } from "@/lib/format";
 /** Elements inside the row that handle their own clicks. */
 const INTERACTIVE = "a, button, input, select, textarea, [role='button']";
 
-const VERDICT_NOTE = "From the teammates' AI Scores. They share the same result, so their scores compare fairly.";
+const VERDICT_NOTE = "From the teammates' Hex Scores. They share the same result, so their scores compare fairly.";
 
 const VERDICT_PILL = {
   praise: "border-gold/45 bg-gold/10 text-gold-bright",

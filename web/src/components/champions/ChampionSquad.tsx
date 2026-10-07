@@ -123,7 +123,7 @@ export function ChampionSquad({ champion, queue }: { champion: string; queue: Le
           <span className="flex flex-1 items-center gap-4">
             <span className="label-caps flex-1 md:max-w-56">Record</span>
             <span className="label-caps w-12 text-right">KDA</span>
-            <span className="label-caps w-14 text-right">AI avg</span>
+            <span className="label-caps w-14 text-right">Hex avg</span>
           </span>
           <span className="label-caps w-24 text-right">Last game</span>
           <span className="-ml-2 w-7" />

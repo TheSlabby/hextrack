@@ -34,7 +34,7 @@ export const CHAMPION_TIER_SUMMARY: Readonly<Record<ChampionTier, string>> = {
 
 /** How tiers are made, for tooltips and footnotes. */
 export const CHAMPION_TIER_NOTE =
-  "Tiers compare champions in the same role for these patches, from win rate (adjusted for sample size), pick rate and ban rate. They are not the AI Score.";
+  "Tiers compare champions in the same role for these patches, from win rate (adjusted for sample size), pick rate and ban rate. They are not the Hex Score.";
 
 /** "S tier in Mid" / "S tier". */
 export function championTierLabel(tier: ChampionTier, role?: ChampionRole | null): string {

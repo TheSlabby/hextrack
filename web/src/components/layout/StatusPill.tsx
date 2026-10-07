@@ -24,9 +24,9 @@ function pillState(health: Health | undefined, failed: boolean): PillState {
   if (!health.db_ok) return { tone: "error", label: "Database down" };
   if (!health.riot.key_configured) return { tone: "warn", label: "Riot key missing" };
   if (health.riot.key_ok === false) return { tone: "warn", label: "Riot key rejected" };
-  if (!health.model.loaded) return { tone: "off", label: "AI offline" };
+  if (!health.model.loaded) return { tone: "off", label: "Scoring offline" };
   // The model version id belongs in the tooltip, not in the global nav.
-  return { tone: "ok", label: "AI online" };
+  return { tone: "ok", label: "Scoring online" };
 }
 
 function Row({ label, value, tone }: { label: string; value: string; tone: Tone }) {
@@ -73,7 +73,7 @@ export function StatusPill({ className }: { className?: string }) {
               tone={!data.riot.key_configured || data.riot.key_ok === false ? "warn" : "ok"}
             />
             <Row
-              label="AI model"
+              label="Hex Score model"
               value={data.model.loaded ? (data.model.version ?? "Loaded") : "Not trained"}
               tone={data.model.loaded ? "ok" : "off"}
             />

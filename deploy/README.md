@@ -100,7 +100,7 @@ ssh rpi5 'sudo systemd-run --unit=hextrack-smoke --service-type=exec -p User=hex
 ```
 
 `MemoryDenyWriteExecute` test: run the same command with `-p MemoryDenyWriteExecute=yes` and
-fetch one AI explanation (this runs torch). Only if that works does MDWE get enabled in the
+fetch one Hex Score explanation (this runs torch). Only if that works does MDWE get enabled in the
 api/worker units. For the bot, check that its imports load under MDWE (it must not connect: a
 second bot would double-post):
 

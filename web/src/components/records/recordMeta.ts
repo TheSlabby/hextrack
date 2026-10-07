@@ -67,7 +67,7 @@ export const RECORD_META: Readonly<Record<RecordKey, RecordMeta>> = {
     short: "Fastest win",
     note: "Wins this short usually mean the other team surrendered.",
   },
-  highest_ai_score: { icon: Sparkles, suffix: "", short: "AI Score" },
+  highest_ai_score: { icon: Sparkles, suffix: "", short: "Hex Score" },
   largest_killing_spree: { icon: Swords, suffix: "in a row", short: "Killing spree" },
   most_damage_taken: { icon: ShieldHalf, suffix: "taken", short: "Damage taken" },
   most_healing: { icon: HeartPulse, suffix: "healed", short: "Healing" },
@@ -133,7 +133,7 @@ export function formatRecordValue(unit: RecordUnit, value: number): string {
 export function recordValueText(category: Pick<RecordCategory, "key" | "unit">, value: number): string {
   const suffix = RECORD_META[category.key].suffix;
   const formatted = formatRecordValue(category.unit, value);
-  if (category.unit === "score") return `AI Score ${formatted}`;
+  if (category.unit === "score") return `Hex Score ${formatted}`;
   return suffix ? `${formatted} ${suffix}` : formatted;
 }
 

@@ -25,7 +25,16 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/cn";
 import { useDdragon } from "@/lib/ddragon";
 import { NON_STACK_QUEUES } from "@/components/stacks/model";
-import { formatCompact, formatDateTime, formatDecimal, formatDuration, formatDurationLong, formatPercent } from "@/lib/format";
+import {
+  formatCompact,
+  formatDate,
+  formatDateTime,
+  formatDecimal,
+  formatDuration,
+  formatDurationLong,
+  formatPercent,
+} from "@/lib/format";
+import { modelVersionDate } from "@/lib/score";
 import { championDisplayName } from "@/lib/champions";
 
 import { playerSearchValue } from "./focus";
@@ -75,6 +84,12 @@ export function MatchDetailView({ matchId, focusPuuid, embedded = false }: Match
   }
 
   return <MatchDetailContent match={query.data} focusPuuid={focusPuuid} embedded={embedded} />;
+}
+
+/** Model versions are timestamps ("20260922-170745"): show the training date, keep the id in the title. */
+function modelLabel(version: string): string {
+  const trained = modelVersionDate(version);
+  return trained ? `Model trained ${formatDate(trained)}` : `Model ${version}`;
 }
 
 function orderTeams(teams: readonly TeamDetail[], focus: ParticipantSummary | undefined): TeamDetail[] {
@@ -143,8 +158,8 @@ function MatchDetailContent({ match, focusPuuid, embedded }: { match: MatchDetai
           <ChartPanel
             embedded={embedded}
             ai
-            eyebrow="AI Score"
-            title="AI Score ranking"
+            eyebrow="Hex Score"
+            title="Hex Score ranking"
             description="All ten players by how often their stat line wins."
           >
             <AiRankingChart match={match} focusPuuid={focusPuuid} />
@@ -237,9 +252,9 @@ function MatchHero({ match, focus }: { match: MatchDetail; focus: ParticipantSum
               <span className="sr-only">Duration {formatDurationLong(match.game_duration)}</span>
             </span>
             {match.model_version ? (
-              <Badge variant="ai">
+              <Badge variant="ai" title={match.model_version}>
                 <Sparkles aria-hidden="true" />
-                Model {match.model_version}
+                {modelLabel(match.model_version)}
               </Badge>
             ) : null}
           </div>
@@ -307,7 +322,7 @@ function HeroPlayerName({ match, player }: { match: MatchDetail; player: Partici
             </span>
           </TooltipTrigger>
           <TooltipContent className="max-w-64">
-            From the teammates' AI Scores. They share the same result, so their scores compare fairly.
+            From the teammates' Hex Scores. They share the same result, so their scores compare fairly.
           </TooltipContent>
         </Tooltip>
       ) : null}
@@ -374,7 +389,7 @@ function HeroScore({ match, player }: { match: MatchDetail; player: ParticipantS
   const rank = inGameRank(player, match.teams, match.remake);
   return (
     <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border-strong bg-bg/60 px-3 py-2 backdrop-blur-sm">
-      <AiScoreRing score={player.ai_score} size={96} />
+      <AiScoreRing score={player.ai_score} size={104} />
       {rank ? <InGameRankPill rank={rank} /> : null}
       <AiScoreBreakdownDialog
         matchId={match.match_id}
@@ -438,9 +453,9 @@ function EmbeddedHeader({ match, focus }: { match: MatchDetail; focus: Participa
         <time dateTime={match.game_start}>{formatDateTime(match.game_start)}</time>
         <span className="tabular-nums">{formatDurationLong(match.game_duration)}</span>
         {match.model_version ? (
-          <span className="inline-flex items-center gap-1 text-cyan">
+          <span className="inline-flex items-center gap-1 text-cyan" title={match.model_version}>
             <Sparkles className="size-3" aria-hidden="true" />
-            Model {match.model_version}
+            {modelLabel(match.model_version)}
           </span>
         ) : null}
       </div>

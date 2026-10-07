@@ -43,7 +43,7 @@ export function HomeHero({ examples = [], loading = false }: HomeHeroProps) {
           className="inline-flex items-center gap-1.5 rounded-full border border-cyan/25 bg-cyan/8 px-3 py-1 text-xs font-medium text-cyan shadow-[0_0_24px_-10px_rgba(10,200,185,0.7)]"
         >
           <Sparkles className="size-3.5" aria-hidden="true" />
-          Every performance, graded by AI
+          Every performance, graded
         </motion.span>
 
         <motion.h1
@@ -55,7 +55,7 @@ export function HomeHero({ examples = [], loading = false }: HomeHeroProps) {
         </motion.h1>
 
         <motion.p {...enter(0.06)} className="mt-4 max-w-xl text-base leading-relaxed text-text-secondary sm:text-lg">
-          Match history, ranks and LP for you and your friends, plus an AI Score on every game: a neural net's read on
+          Match history, ranks and LP for you and your friends, plus a Hex&nbsp;Score on every game: a neural net's read on
           how often your stat line wins.
         </motion.p>
 

@@ -53,7 +53,7 @@ def parse_tz(tz: str) -> ZoneInfo:
 @router.get(
     "/{puuid}/insights/sessions",
     response_model=SessionInsights,
-    summary="Tilt detector: win rate and AI Score by game number within a play session",
+    summary="Tilt detector: win rate and Hex Score by game number within a play session",
     responses=error_responses(404),
 )
 async def get_session_insights(

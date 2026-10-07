@@ -349,11 +349,11 @@ export function AiRankingChart({
         compact
         tone="ai"
         icon={Sparkles}
-        title="No AI Scores for this match"
+        title="No Hex Scores for this match"
         description={
           match.remake
             ? "Remakes aren't scored."
-            : "Scores appear once an AI model is trained and this match has been scored."
+            : "Scores appear once a model is trained and this match has been scored."
         }
         className={cn("flex-1", className)}
       />

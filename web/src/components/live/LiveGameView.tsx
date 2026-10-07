@@ -358,7 +358,7 @@ function LiveParticipantRow({ p, queueId }: { p: LiveParticipant; queueId: numbe
           {known ? <ChampionLine p={p} /> : <span className="text-text-muted">–</span>}
         </div>
         <div className="hidden justify-end @3xl:flex">
-          <span className="sr-only">Average AI Score: </span>
+          <span className="sr-only">Average Hex Score: </span>
           {p.avg_ai_score !== null ? <AvgAi p={p} /> : <span className="text-xs text-text-muted">–</span>}
         </div>
       </div>
@@ -402,7 +402,7 @@ function LiveTeamPanel({ game, teamId }: { game: LiveGame; teamId: TeamId }) {
             <span className="label-caps">Rank</span>
             <span className="label-caps">HexTrack season</span>
             <span className="label-caps">This champion</span>
-            <span className="label-caps text-right">Avg AI</span>
+            <span className="label-caps text-right">Hex avg</span>
           </div>
           <ul className="divide-y divide-border">
             {players.map((p, index) => (

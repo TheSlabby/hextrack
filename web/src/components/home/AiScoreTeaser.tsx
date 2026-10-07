@@ -33,7 +33,7 @@ function GradeScale() {
           />
         ))}
       </div>
-      <ol className="flex text-center" aria-label="AI Score grades">
+      <ol className="flex text-center" aria-label="Hex Score grades">
         {BANDS.map((band) => (
           <li key={band.grade.grade} className="flex min-w-0 flex-col" style={{ width: `${band.to - band.from + 1}%` }}>
             <span className={cn("font-display text-sm font-bold", band.grade.textClass)}>{band.grade.grade}</span>
@@ -77,7 +77,7 @@ function ModelStatus() {
       {/* The version id means nothing to a player: it stays in the title, the date is shown. */}
       <p className="flex min-w-0 flex-col gap-0.5" title={model.version ?? undefined}>
         <span className="truncate font-medium text-text">
-          {model.trained_at ? `AI model trained ${formatDate(model.trained_at)}` : "AI model loaded"}
+          {model.trained_at ? `Model trained ${formatDate(model.trained_at)}` : "Model loaded"}
         </span>
         {details.length > 0 ? <span className="truncate text-text-muted">{details.join(" · ")}</span> : null}
       </p>
@@ -92,7 +92,7 @@ export function AiScoreTeaser({ className }: { className?: string }) {
       <SectionHeader
         eyebrow="Under the hood"
         icon={BrainCircuit}
-        title={<span id="home-ai-title">How the AI Score works</span>}
+        title={<span id="home-ai-title">How the Hex Score works</span>}
       />
       <GlowCard glow="cyan" className="relative flex flex-1 flex-col gap-5 overflow-clip p-5 sm:p-6">
         <div

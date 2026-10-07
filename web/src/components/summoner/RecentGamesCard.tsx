@@ -93,7 +93,7 @@ function RecentGameRow({ game, now }: { game: MatchSummary; now: number }) {
   const style = OUTCOME[outcome];
   const champion = championDisplayName(me.champion_name);
   const queue = queueShortLabel(game.queue_id, game.game_mode);
-  const summary = `${style.label} as ${champion}, ${me.kills} kills, ${me.deaths} deaths, ${me.assists} assists, ${queue}, ${formatDurationLong(game.game_duration)}, ${formatDateTime(game.game_start)}${me.ai_score !== null ? `, AI Score ${toScore100(me.ai_score)}` : ""}`;
+  const summary = `${style.label} as ${champion}, ${me.kills} kills, ${me.deaths} deaths, ${me.assists} assists, ${queue}, ${formatDurationLong(game.game_duration)}, ${formatDateTime(game.game_start)}${me.ai_score !== null ? `, Hex Score ${toScore100(me.ai_score)}` : ""}`;
 
   return (
     <DdragonPatch patch={game.patch}>
@@ -103,7 +103,7 @@ function RecentGameRow({ game, now }: { game: MatchSummary; now: number }) {
       search={{ player: playerSearchValue(me) }}
       aria-label={summary}
       className={cn(
-        "group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border py-2 pr-2 pl-4 sm:gap-4 sm:pr-3",
+        "group relative flex items-center gap-2 overflow-hidden rounded-xl border border-border py-2 pr-2 pl-4 sm:gap-4 sm:pr-3",
         "transition-[border-color,background-color,transform] duration-150 ease-out hover:-translate-y-px hover:border-border-strong hover:bg-surface-2",
         style.row,
       )}
@@ -168,7 +168,7 @@ function RecentGameRow({ game, now }: { game: MatchSummary; now: number }) {
 
 function RecentGameSkeleton() {
   return (
-    <div className="flex h-[62px] items-center gap-3 rounded-xl border border-border py-2 pr-3 pl-4 sm:gap-4" aria-hidden="true">
+    <div className="flex h-[62px] items-center gap-2 rounded-xl border border-border py-2 pr-3 pl-4 sm:gap-4" aria-hidden="true">
       <div className="flex w-[4.25rem] shrink-0 flex-col gap-1.5">
         <Skeleton className="h-3.5 w-14" />
         <Skeleton className="h-2.5 w-10" />

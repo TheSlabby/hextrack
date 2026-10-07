@@ -51,8 +51,8 @@ function describe(error: unknown): ErrorCopy {
       case "model_missing":
         return {
           icon: TriangleAlert,
-          title: "AI model not trained",
-          description: "Train a model with `hextrack train --activate` to enable AI Scores.",
+          title: "Hex Score model not trained",
+          description: "Train a model with `hextrack train --activate` to enable Hex Scores.",
           retry: false,
         };
     }

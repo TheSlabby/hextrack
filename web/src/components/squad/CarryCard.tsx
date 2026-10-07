@@ -39,7 +39,7 @@ export function CarryCard({
         variant: "empty",
         content: <span aria-hidden="true">·</span>,
         label: pair
-          ? `${name(row)} and ${name(col)}: no games scored by the current AI model`
+          ? `${name(row)} and ${name(col)}: no games scored by the current model`
           : `${name(row)} and ${name(col)}: no ranked games on the same team`,
       };
     }
@@ -56,7 +56,7 @@ export function CarryCard({
       variant: "value",
       fill: binColor(carryBin(share), "ai"),
       content: <TwoLine top={formatPercent(share)} bottom={String(view.scored)} />,
-      label: `${name(row)} had the higher AI Score than ${name(col)} in ${view.rowHigher} of ${plural(view.scored, "shared game")}, ${formatPercent(share)}`,
+      label: `${name(row)} had the higher Hex Score than ${name(col)} in ${view.rowHigher} of ${plural(view.scored, "shared game")}, ${formatPercent(share)}`,
     };
   };
 
@@ -72,7 +72,7 @@ export function CarryCard({
     return {
       variant: "self",
       content: <TwoLine top={formatPercent(standing.rate)} bottom={String(standing.scored)} />,
-      label: `${name(player)} against every squad teammate: higher AI Score in ${standing.higher} of ${plural(standing.scored, "duo game")}, ${formatPercent(standing.rate)}`,
+      label: `${name(player)} against every squad teammate: higher Hex Score in ${standing.higher} of ${plural(standing.scored, "duo game")}, ${formatPercent(standing.rate)}`,
     };
   };
 
@@ -112,7 +112,7 @@ export function CarryCard({
           </DetailTitle>
           <p className="text-text-secondary">
             {pair
-              ? "They shared games, but none were scored by the current AI model."
+              ? "They shared games, but none were scored by the current model."
               : "No ranked games on the same team with these filters."}
           </p>
         </>
@@ -131,8 +131,8 @@ export function CarryCard({
         </div>
         <DetailRows>
           <DetailRow label={`${name(col)} scored higher`}>{view.colHigher}</DetailRow>
-          <DetailRow label={`${name(row)} avg AI Score`}>{scoreText(view.rowAi)}</DetailRow>
-          <DetailRow label={`${name(col)} avg AI Score`}>{scoreText(view.colAi)}</DetailRow>
+          <DetailRow label={`${name(row)} avg Hex Score`}>{scoreText(view.rowAi)}</DetailRow>
+          <DetailRow label={`${name(col)} avg Hex Score`}>{scoreText(view.colAi)}</DetailRow>
           {view.diff !== null ? <DetailRow label="Avg score gap">{gapText(view.diff)} pts</DetailRow> : null}
         </DetailRows>
         {view.scored < minGames ? (
@@ -152,9 +152,9 @@ export function CarryCard({
       <SectionHeader
         className={FIT_TABLE}
         icon={Swords}
-        eyebrow="AI Score head-to-head"
+        eyebrow="Hex Score head-to-head"
         title="Who carries whom"
-        description="Who had the higher AI Score when you queued together."
+        description="Who had the higher Hex Score when you queued together."
       />
       <div className={cn("flex flex-wrap items-end gap-x-6 gap-y-3", FIT_TABLE)}>
         <BinLegend
@@ -172,16 +172,16 @@ export function CarryCard({
       <PlayerMatrix
         players={model.players}
         labels={labels}
-        caption="Who carries whom: share of shared games in which the row player had the higher AI Score than the column player, with the number of scored games."
+        caption="Who carries whom: share of shared games in which the row player had the higher Hex Score than the column player, with the number of scored games."
         cell={cell}
         self={self}
         detail={detail}
       />
       <p className={cn("text-xs leading-relaxed text-text-muted", FIT_TABLE)}>
-        Read across a row: the big number is how often that player's AI Score beat the column player's, the small one
+        Read across a row: the big number is how often that player's Hex Score beat the column player's, the small one
         the scored games they shared. Teammates share the result, so a win or loss doesn't tip it either way, but roles
         do: the score leans on gold and objectives, so a support can trail a carry who played just as well. Only games where both
-        were scored by the current AI model count.
+        were scored by the current model count.
       </p>
     </GlowCard>
   );

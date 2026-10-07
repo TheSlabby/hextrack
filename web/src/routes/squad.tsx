@@ -86,10 +86,10 @@ function FilterCaption({
         <Sparkles className="size-4 text-cyan" aria-hidden="true" />
         {data.model_version ? (
           <>
-            AI model <span className="font-medium text-text">{modelLabel(data.model_version)}</span>
+            Hex Score model <span className="font-medium text-text">{modelLabel(data.model_version)}</span>
           </>
         ) : (
-          "AI model not trained yet"
+          "Hex Score model not trained yet"
         )}
       </span>
     </p>
@@ -249,11 +249,11 @@ export function SquadPage() {
               <EmptyState
                 tone="ai"
                 icon={Swords}
-                title="Who carries whom needs AI Scores"
+                title="Who carries whom needs Hex Scores"
                 description={
                   data.model_version
-                    ? "None of these duo games have AI Scores from the current model yet. They appear once the games are scored."
-                    : "No AI model is trained yet. Once one is, this compares who had the higher AI Score in your duo games."
+                    ? "None of these duo games have Hex Scores from the current model yet. They appear once the games are scored."
+                    : "No Hex Score model is trained yet. Once one is, this compares who had the higher Hex Score in your duo games."
                 }
               />
             </GlowCard>
@@ -274,7 +274,7 @@ export function SquadPage() {
             eyebrow="The Squad"
             icon={UsersRound}
             title="Squad"
-            description="Who wins together, and who had the higher AI Score when you queued together."
+            description="Who wins together, and who had the higher Hex Score when you queued together."
             action={
               <>
                 <SinceToggle value={since} onChange={setSince} />

@@ -45,7 +45,7 @@ export function OverviewTab({ profile, onShowMatches, onShowAi, showSeasonCards 
               title={
                 <span className="inline-flex items-center gap-2">
                   <Sparkles className="size-4 text-cyan" aria-hidden="true" />
-                  AI Score trend
+                  Hex Score trend
                 </span>
               }
               eyebrow="Per-game scores"

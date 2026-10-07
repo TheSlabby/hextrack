@@ -131,7 +131,7 @@ function NothingScoredState({ className }: { className?: string }) {
         tone="ai"
         icon={Sparkles}
         title="No scored games yet"
-        description="The AI Score rates each stored ranked game from its end-of-game stats. The season average, how the scores spread and the stats behind them show up here after this player's first scored game."
+        description="The Hex Score rates each stored ranked game from its end-of-game stats. The season average, how the scores spread and the stats behind them show up here after this player's first scored game."
         action={<AiScoreExplainer />}
       />
     </GlowCard>
@@ -157,7 +157,7 @@ function HeadlineCard({ explain, trend, scoped, season, showRing }: HeadlineCard
   const loadingScore = !fromSeason && trend.isPending;
   // Never call a trend-derived number a season average next to a header that scopes differently.
   const seasonWide = fromSeason || (season === undefined && scoped?.scope === "season" && !isCapped(trend, scoped));
-  const heading = games === 0 ? "AI Score" : seasonWide ? "Season average" : "Recent average";
+  const heading = games === 0 ? "Hex Score" : seasonWide ? "Season average" : "Recent average";
   const ringLabel = games === 0 ? "Not scored" : seasonWide ? "Season avg" : "Recent avg";
   const coverage = fromSeason ? `${plural(games, "scored ranked game")} this season` : trendCoverage(trend, scoped);
   // Centred under the ring on phones; left-aligned when there is no ring.
@@ -348,7 +348,7 @@ function DistributionCard({
         description={
           histogram && histogram.total > 0
             ? `${coverage}${histogram.median !== null ? ` · median ${histogram.median}` : ""}`
-            : "AI Scores in 10-point bins, coloured by grade."
+            : "Hex Scores in 10-point bins, coloured by grade."
         }
       />
       {body}
@@ -385,7 +385,7 @@ function DriversCard({ explain }: { explain: ExplainQuery }) {
         tone="ai"
         icon={Wand2}
         title="No ranked games to analyse yet"
-        description="Once this player has ranked games stored, you'll see which stats lift or lower their AI Score."
+        description="Once this player has ranked games stored, you'll see which stats lift or lower their Hex Score."
       />
     );
   } else {
@@ -396,7 +396,7 @@ function DriversCard({ explain }: { explain: ExplainQuery }) {
           Each bar is a stat's average effect across {plural(data.n_matches, "ranked game")}, measured by moving that
           stat from an all-average line to this player's (integrated gradients). The model sees some stats several
           ways (deaths per game, per minute and per gold earned), so those are combined into one net bar. The
-          percentage is that stat's share of the model's total influence here, not AI Score points. Grey bars are
+          percentage is that stat's share of the model's total influence here, not Hex Score points. Grey bars are
           mixed signals that run against the usual reading of a stat, such as more deaths lifting the score.
         </p>
       </div>
@@ -410,8 +410,8 @@ function DriversCard({ explain }: { explain: ExplainQuery }) {
         title="What drives the score"
         description={
           data && data.n_matches > 0
-            ? `The stats that lift or lower the AI Score most, over the last ${plural(data.n_matches, "ranked game")}.`
-            : "The stats that lift or lower the AI Score most."
+            ? `The stats that lift or lower the Hex Score most, over the last ${plural(data.n_matches, "ranked game")}.`
+            : "The stats that lift or lower the Hex Score most."
         }
       />
       {body}

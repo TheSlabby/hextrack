@@ -132,7 +132,7 @@ export function LeaderboardCards({ entries, standings, queue, className }: Leade
               </div>
               {needed === 0 && entry.avg_ai_role_percentile !== null ? (
                 <div className="mt-2 flex items-center justify-between gap-3">
-                  <span className="label-caps">AI Score in role</span>
+                  <span className="label-caps">Hex Score in role</span>
                   <RolePercentileAverage
                     percentile={entry.avg_ai_role_percentile}
                     games={entry.games}

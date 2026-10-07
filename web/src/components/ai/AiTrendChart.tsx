@@ -106,7 +106,7 @@ export function AiTrendChart({ puuid, compact = false, bare = false, className }
   } else if (query.isError) {
     body = (
       <div className="flex items-center justify-center" style={{ minHeight: height }}>
-        <ErrorState compact error={query.error} onRetry={() => void query.refetch()} title="Couldn't load AI Scores" />
+        <ErrorState compact error={query.error} onRetry={() => void query.refetch()} title="Couldn't load Hex Scores" />
       </div>
     );
   } else if (!hasData) {
@@ -119,8 +119,8 @@ export function AiTrendChart({ puuid, compact = false, bare = false, className }
           title="No scored games yet"
           description={
             compact
-              ? "AI Scores appear here once ranked games are scored."
-              : "AI Scores appear here once this player's ranked games are scored by the model."
+              ? "Hex Scores appear here once ranked games are scored."
+              : "Hex Scores appear here once this player's ranked games are scored by the model."
           }
         />
       </div>
@@ -174,7 +174,7 @@ function CompactHeader({ summary, bare, loading }: { summary: TrendSummary | nul
           {bare ? null : (
             <>
               <Sparkles className="size-4 shrink-0 text-cyan" aria-hidden="true" />
-              <h3 className="truncate text-sm font-semibold text-text">AI Score trend</h3>
+              <h3 className="truncate text-sm font-semibold text-text">Hex Score trend</h3>
             </>
           )}
           {loading ? (
@@ -243,12 +243,12 @@ function FullHeader({
         <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
       ) : (
         <SectionHeader
-          eyebrow="AI Score"
+          eyebrow="Hex Score"
           title="Performance trend"
           description={
             summary
               ? `Last ${plural(summary.games, "scored game")}, oldest to newest.`
-              : "Per-game AI Scores, oldest to newest."
+              : "Per-game Hex Scores, oldest to newest."
           }
           action={actions}
         />
@@ -451,7 +451,7 @@ function TrendPlot({
 
   const latest = data[lastIndex];
   const description = [
-    `AI Score over the last ${plural(data.length, "scored game")}, oldest to newest.`,
+    `Hex Score over the last ${plural(data.length, "scored game")}, oldest to newest.`,
     summary.average !== null ? `Average ${toScore100(summary.average)}.` : "",
     latest ? `Latest game: ${latest.score} on ${championDisplayName(latest.champion)}, ${latest.win ? "a win" : "a loss"}.` : "",
     latest?.rolling !== null && latest?.rolling !== undefined ? `Current ${ROLLING_LABEL}: ${Math.round(latest.rolling)}.` : "",
@@ -518,7 +518,7 @@ function TrendPlot({
             <ReferenceLine y={50} {...referenceLineProps} />
             <Bar
               dataKey="score"
-              name="AI Score"
+              name="Hex Score"
               shape={TrendBar}
               activeBar={TrendBar}
               maxBarSize={compact ? 14 : 18}
@@ -609,10 +609,10 @@ function TrendTable({ data, puuid, height }: { data: TrendDatum[]; puuid: string
   return (
     <div className="overflow-auto rounded-xl border border-border scrollbar-thin" style={{ height }}>
       <table className="w-full text-sm tabular-nums">
-        <caption className="sr-only">AI Score per game, newest first</caption>
+        <caption className="sr-only">Hex Score per game, newest first</caption>
         <thead className="sticky top-0 z-10 bg-surface-2">
           <tr className="border-b border-border text-left">
-            {["Game", "Champion", "Result", "AI Score", ROLLING_LABEL].map((heading, i) => (
+            {["Game", "Champion", "Result", "Hex Score", ROLLING_LABEL].map((heading, i) => (
               <th
                 key={heading}
                 scope="col"
@@ -667,7 +667,7 @@ function TrendSkeleton({ height, compact }: { height: number; compact: boolean }
   const bars = compact ? 24 : 32;
   const plot = compact ? height : height - 24;
   return (
-    <div role="status" aria-label="Loading AI Scores" className="flex flex-col gap-1.5">
+    <div role="status" aria-label="Loading Hex Scores" className="flex flex-col gap-1.5">
       <div className="relative w-full" style={{ height }}>
         <div className="absolute inset-0 flex flex-col justify-between" style={{ height: plot }} aria-hidden="true">
           {Array.from({ length: compact ? 3 : 5 }, (_, i) => (

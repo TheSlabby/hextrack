@@ -36,7 +36,7 @@ const SORT_LABELS: Readonly<Record<SortKey, string>> = {
   player: "Name",
   games: "Games",
   winrate: "Win rate",
-  ai: "Average AI Score",
+  ai: "Average Hex Score",
   kda: "KDA",
   carries: "Carries",
   ran_downs: "Ran it down",
@@ -89,7 +89,7 @@ function nextSort(current: SortState, key: SortKey): SortState {
 
 // --- columns ------------------------------------------------------------------------------
 
-const VERDICT_SCOPE = "Counted in stacks where every member was scored by the AI model.";
+const VERDICT_SCOPE = "Counted in stacks where every member was scored by the model.";
 
 interface Column {
   id: string;
@@ -102,42 +102,42 @@ interface Column {
 
 const COLUMNS: readonly Column[] = [
   { id: "player", label: "Player", sortKey: "player", className: "pl-0" },
-  { id: "games", label: "Games", sortKey: "games", align: "right", className: "w-16" },
+  { id: "games", label: "Games", sortKey: "games", align: "right", className: "w-20" },
   { id: "winrate", label: "Win rate", sortKey: "winrate", className: "w-28" },
   {
     id: "ai",
-    label: "AI Score",
+    label: "Hex",
     sortKey: "ai",
     align: "center",
     className: "w-[88px]",
-    hint: `Average AI Score in these stacks (0 to 100). ${AI_AVERAGE_NOTE}`,
+    hint: `Average Hex Score in these stacks (0 to 100). ${AI_AVERAGE_NOTE}`,
   },
-  { id: "kda", label: "KDA", sortKey: "kda", className: "w-[120px]", hint: "KDA ratio, then average kills / deaths / assists per game" },
+  { id: "kda", label: "KDA", sortKey: "kda", className: "w-[112px]", hint: "KDA ratio, then average kills / deaths / assists per game" },
   {
     id: "carries",
     label: "Carries",
     sortKey: "carries",
     align: "center",
-    className: "w-[72px]",
-    hint: `Wins where their AI Score beat every teammate's by ${EDGE_GAP} or more (${HARD_GAP}+ is a hard carry). ${VERDICT_SCOPE}`,
+    className: "w-[92px]",
+    hint: `Wins where their Hex Score beat every teammate's by ${EDGE_GAP} or more (${HARD_GAP}+ is a hard carry). ${VERDICT_SCOPE}`,
   },
   {
     id: "ran_downs",
     label: "Ran it down",
     sortKey: "ran_downs",
     align: "center",
-    className: "w-[108px]",
-    hint: `Losses where their AI Score trailed every teammate's by ${CARRY_GAP} or more. ${VERDICT_SCOPE}`,
+    className: "w-[116px]",
+    hint: `Losses where their Hex Score trailed every teammate's by ${CARRY_GAP} or more. ${VERDICT_SCOPE}`,
   },
   {
     id: "tried",
     label: "Tried",
     sortKey: "tried",
     align: "center",
-    className: "w-16",
+    className: "w-20",
     hint: `Losses where they topped the squad by ${CARRY_GAP} or more and nobody ran it down. ${VERDICT_SCOPE}`,
   },
-  { id: "champion", label: "Top champ", className: "w-32 pr-0", hint: "Most played champion in these stacks" },
+  { id: "champion", label: "Top champ", className: "w-28 pr-0", hint: "Most played champion in these stacks" },
 ];
 
 const ALIGN = { left: "text-left", right: "text-right", center: "text-center" } as const;
@@ -435,7 +435,7 @@ export function StackPlayerTable({ data }: { data: StackSummary }) {
       </ul>
 
       <p className="text-xs leading-relaxed text-text-muted">
-        {AI_AVERAGE_NOTE} Carries, ran it down and tried compare teammates' AI Scores in the same game, only in stacks
+        {AI_AVERAGE_NOTE} Carries, ran it down and tried compare teammates' Hex Scores in the same game, only in stacks
         where everyone was scored.
       </p>
     </GlowCard>

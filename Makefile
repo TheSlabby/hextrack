@@ -41,7 +41,7 @@ gen-api: ## Regenerate web/src/api/openapi.json and the TypeScript client types
 seed: ## Add deterministic demo players and games (replaces demo data, keeps real data)
 	$(API) $(UV) run hextrack seed-demo --reset
 
-train: ## Train and activate a new AI Score model (re-scores stored games; restart api/worker)
+train: ## Train and activate a new Hex Score model (re-scores stored games; restart api/worker)
 	$(API) $(UV) run hextrack train --activate
 
 test: ## Run the backend tests

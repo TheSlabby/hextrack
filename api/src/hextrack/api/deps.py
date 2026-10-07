@@ -55,7 +55,7 @@ _ERROR_DESCRIPTIONS: dict[int, str] = {
     404: "Not found",
     429: "Riot API rate limited (see Retry-After)",
     502: "Riot API unavailable",
-    503: "Riot API key missing/rejected, or AI model not loaded",
+    503: "Riot API key missing/rejected, or Hex Score model not loaded",
 }
 
 
@@ -116,7 +116,7 @@ def require_scorer(request: Request) -> Scorer:
     """The loaded AI model; 503 ``model_missing`` when none is loaded."""
     scorer = get_scorer(request)
     if scorer is None:
-        raise ApiError(503, "AI model not loaded", "model_missing")
+        raise ApiError(503, "Hex Score model not loaded", "model_missing")
     return scorer
 
 

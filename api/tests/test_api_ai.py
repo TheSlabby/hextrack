@@ -90,7 +90,7 @@ async def test_ai_explain_requires_model(client, session):
     await session.commit()
     resp = await client.get(f"/api/v1/summoners/{ME}/ai-explain")
     assert resp.status_code == 503
-    assert resp.json() == {"detail": "AI model not loaded", "code": "model_missing"}
+    assert resp.json() == {"detail": "Hex Score model not loaded", "code": "model_missing"}
 
 
 @pytest.fixture

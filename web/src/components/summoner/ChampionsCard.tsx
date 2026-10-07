@@ -54,7 +54,7 @@ export function ChampionsCard({ champions, puuid = null, className }: ChampionsC
               KDA
             </span>
             <span role="columnheader" className="label-caps text-right">
-              AI
+              Hex
             </span>
             {puuid ? (
               <span role="columnheader">

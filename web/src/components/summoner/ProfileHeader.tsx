@@ -191,17 +191,17 @@ function AiSummary({ profile }: { profile: SummonerProfile }) {
 
   return (
     <section
-      aria-label="Season AI Score"
+      aria-label="Season Hex Score"
       className={AI_PANEL}
     >
-      <AiScoreRing score={season} kind="average" size={wide ? 124 : 100} label="AI Score" />
+      <AiScoreRing score={season} kind="average" size={wide ? 124 : 100} label="Hex Score" />
       <div className="flex min-w-0 flex-col gap-1">
         <span className="text-[11px] leading-4 font-semibold tracking-[0.08em] text-cyan uppercase">Season average</span>
         <p className="line-clamp-3 max-w-60 text-sm leading-snug font-medium text-balance text-text sm:line-clamp-2">
           {season !== null
             ? `A stat line like yours wins about ${toScore100(season)}% of the time.`
             : modelMissing
-              ? "No AI model is trained yet."
+              ? "No Hex Score model is trained yet."
               : "No scored ranked games yet."}
         </p>
         <p className="line-clamp-2 max-w-60 text-xs leading-relaxed text-text-secondary">

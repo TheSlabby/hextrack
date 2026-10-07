@@ -60,7 +60,7 @@ export function MatchHistorySummary({ matches, className }: { matches: readonly 
           </span>
         </Block>
 
-        <Block label="Avg AI Score">
+        <Block label="Avg Hex Score">
           <div className="flex items-center gap-2">
             <AiScoreBadge score={s.avgAiScore} kind="average" size="lg" />
             {s.avgAiScore !== null ? (

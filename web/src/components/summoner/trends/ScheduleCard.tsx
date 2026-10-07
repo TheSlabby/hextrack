@@ -457,7 +457,7 @@ function Readout({ focus, data, cells }: { focus: Focus | null; data: ScheduleIn
           ) : (
             <span className="text-text-secondary tabular-nums">
               <span className="font-semibold text-text">{formatPercent(record.wins / record.games)}</span> win rate ·{" "}
-              {formatRecord(record.wins, record.games - record.wins)} · {record.ai !== null ? `avg AI ${record.ai}` : "not scored"}
+              {formatRecord(record.wins, record.games - record.wins)} · {record.ai !== null ? `Hex avg ${record.ai}` : "not scored"}
               {record.games < data.min_games ? <span className="text-text-muted"> · small sample</span> : null}
             </span>
           )}

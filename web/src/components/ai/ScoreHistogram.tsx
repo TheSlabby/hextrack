@@ -78,7 +78,7 @@ export function ScoreHistogram({ histogram, average, height = 188 }: ScoreHistog
   const maxCount = Math.max(1, ...histogram.bins.map((b) => b.total));
   const yTicks = maxCount <= 4 ? Array.from({ length: maxCount + 1 }, (_, i) => i) : undefined;
 
-  const description = `Distribution of ${plural(histogram.total, "scored game")} by AI Score: ${histogram.grades
+  const description = `Distribution of ${plural(histogram.total, "scored game")} by Hex Score: ${histogram.grades
     .map((g) => `${g.grade} ${formatPercent(g.share)}`)
     .join(", ")}.`;
 

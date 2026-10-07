@@ -155,7 +155,7 @@ function buildAwards(data: StackSummary): AwardItem[] {
           <span>average over {plural(mvp.scored_games, "scored game")}</span>
         </span>
       ),
-      quip: `Highest average AI Score in the stack (${mvpMin}+ scored games, small samples pulled towards 50).`,
+      quip: `Highest average Hex Score in the stack (${mvpMin}+ scored games, small samples pulled towards 50).`,
     });
   }
 
@@ -226,8 +226,8 @@ export function StackAwards({ data }: { data: StackSummary }) {
 
   const description =
     data.verdict_games > 0
-      ? `From ${plural(data.verdict_games, "scored stack game")}. Everyone shares the result, so their AI Scores compare.`
-      : "Carry awards appear once stack games are scored by the AI model.";
+      ? `From ${plural(data.verdict_games, "scored stack game")}. Everyone shares the result, so their Hex Scores compare.`
+      : "Carry awards appear once stack games are scored by the model.";
 
   return (
     <GlowCard className="flex flex-col gap-4 p-4 sm:p-5">

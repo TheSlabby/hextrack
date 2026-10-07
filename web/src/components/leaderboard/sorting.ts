@@ -27,7 +27,7 @@ export const SORT_LABELS: Readonly<Record<SortKey, string>> = {
   games: "Games",
   winrate: "Win rate",
   kda: "KDA",
-  ai: "AI Score",
+  ai: "Hex Score",
   lp: "Season LP",
 };
 

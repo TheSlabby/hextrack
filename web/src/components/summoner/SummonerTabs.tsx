@@ -58,7 +58,7 @@ export function SummonerTabs({ profile, tab, onTabChange, showSeasonCards = fals
           </TabsTrigger>
           <TabsTrigger value="ai" className="group-data-[variant=line]/tabs-list:data-[state=active]:text-cyan data-[state=active]:after:bg-cyan">
             <Sparkles aria-hidden="true" />
-            AI Insights
+            Hex Score
           </TabsTrigger>
         </TabsList>
       </div>

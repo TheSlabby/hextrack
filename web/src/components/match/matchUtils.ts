@@ -183,10 +183,10 @@ export function inGameRank(
   const bestOnTeam = teamRanks.length > 0 ? Math.min(...teamRanks) : null;
   if (team && bestOnTeam === rank) {
     return team.win
-      ? { kind: "mvp", label: "MVP", rank, description: `Best AI Score on the winning team (#${rank} of 10)` }
-      : { kind: "ace", label: "ACE", rank, description: `Best AI Score on the losing team (#${rank} of 10)` };
+      ? { kind: "mvp", label: "MVP", rank, description: `Best Hex Score on the winning team (#${rank} of 10)` }
+      : { kind: "ace", label: "ACE", rank, description: `Best Hex Score on the losing team (#${rank} of 10)` };
   }
-  return { kind: "rank", label: `#${rank}`, rank, description: `#${rank} of 10 by AI Score in this match` };
+  return { kind: "rank", label: `#${rank}`, rank, description: `#${rank} of 10 by Hex Score in this match` };
 }
 
 // --- participants -------------------------------------------------------------------------

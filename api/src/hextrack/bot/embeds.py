@@ -7,7 +7,7 @@ kept; the differences are:
 * author links go to the HexTrack summoner page (``{public_url}/summoner/na/Name-TAG``)
   instead of op.gg;
 * profile and champion icons come from Data Dragon for the current patch;
-* the ``AI Score: NN%`` footer is left out when the game has not been scored (LPBot
+* the ``Hex Score: NN%`` footer is left out when the game has not been scored (LPBot
   printed ``0%``);
 * the rank emblem image is attached only when ``HEXTRACK_RANK_ICON_BASE`` is set;
 * the daily leaderboard receives LP deltas computed with :func:`hextrack.rank.rank_value`,
@@ -284,10 +284,10 @@ def percent(ratio: float) -> int:
 
 
 def ai_score_footer(score: float | None) -> str | None:
-    """``"AI Score: 83%"``, or None when the game was not scored."""
+    """``"Hex Score: 83%"``, or None when the game was not scored."""
     if score is None or not math.isfinite(score):
         return None
-    return f"AI Score: {percent(score)}%"
+    return f"Hex Score: {percent(score)}%"
 
 
 def format_kda_ratio(ratio: float) -> str:
@@ -375,7 +375,7 @@ def _game_embed(
 
 
 def great_game(event: GameEvent, player: PlayerRef, ctx: EmbedContext) -> discord.Embed:
-    """LPBot ``greatGameEmbed`` (KDA > 6): champion thumbnail, ANSI K/D/A, AI Score."""
+    """LPBot ``greatGameEmbed`` (KDA > 6): champion thumbnail, ANSI K/D/A, Hex Score."""
     return _game_embed(
         event, player, ctx, title=GREAT_GAME_TITLE, colour=GREAT_GAME_COLOUR, great=True
     )

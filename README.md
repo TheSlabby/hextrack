@@ -1,6 +1,6 @@
 # HexTrack
 
-League of Legends stats for you and your friends, with an **AI Score** on every game: a
+League of Legends stats for you and your friends, with a **Hex Score** on every game: a
 small neural network's read on how often a stat line like yours wins.
 
 Tracked friends are polled continuously (match history, rank, LP). Anyone else can be
@@ -10,7 +10,7 @@ changes and stand-out games.
 ## Layout
 
 ```
-api/   FastAPI + SQLAlchemy/Alembic + Postgres, the Riot poller, the AI Score model
+api/   FastAPI + SQLAlchemy/Alembic + Postgres, the Riot poller, the Hex Score model
        (PyTorch), and the Discord bot. One package, several entry points.
 web/   Vite + React + TypeScript single-page app (Tailwind, shadcn/ui, TanStack Query
        and Router, Recharts). Built to static files that the API can serve.
@@ -51,10 +51,10 @@ uv run hextrack clear-demo                # drop demo data once real games are i
 `import-legacy` also reads the v1 app's Postgres database with `--neon-url`. Both sources
 go through the same ingestion path as live matches, and both are idempotent.
 
-## The AI Score
+## The Hex Score
 
 A 30-feature multilayer perceptron trained on stored ranked games predicts whether a
-participant's stat line belongs to the winning team. The AI Score is that probability,
+participant's stat line belongs to the winning team. The Hex Score is that probability,
 0 to 100. Features are per-minute and per-gold rates (damage, gold, CS, vision, objectives,
 kills, deaths, assists and more), so the score says how a game was played rather than who
 won it — though the two correlate strongly, and the profile's insights tab shows which
@@ -74,7 +74,7 @@ minute. Artifacts live in `api/artifacts/<version>/` and are not committed.
 uv run hextrack bot     # needs DISCORD_TOKEN and DISCORD_BROADCAST_CHANNEL_ID
 ```
 
-It posts rank ups and downs, stand-out games with their AI Score, and a daily season
+It posts rank ups and downs, stand-out games with their Hex Score, and a daily season
 leaderboard, and answers `/lp`. It reads the database only, never Riot, and consumes an
 outbox table, so events queued while it was offline are not spammed later.
 
