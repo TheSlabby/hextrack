@@ -387,7 +387,8 @@ class Discovery:
     mode: DiscoveryMode
     #: Every listed id, newest first (Riot's own order).
     listed: list[str]
-    #: The listed ids that are not stored yet, newest first.
+    #: The listed ids that are not stored yet, newest first. A game only the data crawler
+    #: stored counts as missing: :func:`ingest_match` promotes it to a roster game.
     missing: list[str]
     #: The listing reached the bottom of its range (Riot returned a short page); False
     #: means it stopped at ``max_ids`` and older games were never looked at.
@@ -444,7 +445,7 @@ async def discover(
             puuid, start=0, count=settings.poll_match_count, type_=MATCH_TYPE
         )
         ids, complete = _unique(page), len(page) < settings.poll_match_count
-    existing = await matches_repo.existing_match_ids(session, ids)
+    existing = await matches_repo.existing_match_ids(session, ids, count_crawled=False)
     return Discovery(
         puuid=puuid,
         mode=mode,
@@ -533,12 +534,17 @@ async def ingest_match(
     """Fetch, validate and store one match. Returns None if Riot says 404 or the payload
     is invalid (nothing is written in that case); other RiotErrors propagate.
 
-    An already stored match is not fetched again (``created=False``, ``scored=False``).
+    An already stored match is not fetched again (``created=False``, ``scored=False``),
+    except that one only the data crawler stored is promoted to a roster game from its
+    stored payload (:func:`promote_crawled_match`; ``scored`` when the model scored it).
     """
     stored = await matches_repo.stored_match(session, match_id)
     if stored is not None:
+        scored = False
+        if stored.source == matches_repo.CRAWL_SOURCE:
+            scored = await promote_crawled_match(ctx, session, match_id)
         return IngestResult(
-            match_id=match_id, created=False, scored=False, participants=stored.participants
+            match_id=match_id, created=False, scored=scored, participants=stored.participants
         )
     try:
         raw = await ctx.riot.match(match_id)
@@ -680,6 +686,70 @@ async def _enqueue_game_events(
             await events.enqueue_event(session, "bad_game", payload)
 
 
+async def _touch_known_players(session: AsyncSession, mapped: MappedMatch) -> dict[str, Summoner]:
+    """Advance ``last_seen`` of the stored players in this match (adopting the Riot ID they
+    used when it is their newest game); returns them by puuid."""
+    puuids = [p["puuid"] for p in mapped.participants]
+    known = await summoners_repo.known_among(session, puuids)
+    if known:
+        await _adopt_riot_ids(session, known, mapped)
+        await summoners_repo.touch_last_seen(session, list(known), mapped.match["game_start"])
+    return known
+
+
+async def _score_and_write(
+    ctx: IngestContext, session: AsyncSession, mapped: MappedMatch
+) -> tuple[dict[str, float] | None, str | None]:
+    """Score every participant with ``ctx.scorer`` and store the scores; (scores, model
+    version), or (None, None) when the match stays unscored."""
+    scores = _score(ctx, mapped)
+    if scores is None or ctx.scorer is None:
+        return None, None
+    model_version = str(ctx.scorer.version)
+    await matches_repo.write_scores(
+        session,
+        mapped.match_id,
+        scores,
+        model_version=model_version,
+        scored_at=_utcnow(),
+        complete=True,
+    )
+    return scores, model_version
+
+
+async def promote_crawled_match(ctx: IngestContext, session: AsyncSession, match_id: str) -> bool:
+    """A game the data crawler stored (``source = 'crawl'``: unscored, outside the score
+    population and the roster timeline backlog) that roster or lookup ingestion has reached:
+    store it as a roster game, as if it had been ingested now, from the stored payload (no
+    Riot call): ``source = 'roster'``, AI scores, a pending timeline when a roster game would
+    get one, and the players' ``last_seen``. No bot events (the game was not new to
+    HexTrack). Returns True when it was scored; False also when the match is not (or no
+    longer) crawl-sourced."""
+    raw = await matches_repo.promote_crawled_match(session, match_id)
+    if raw is None:
+        return False
+    try:
+        mapped = map_match(raw)
+    except InvalidMatchPayload as exc:
+        # Validated when the crawler stored it; keep it as a roster game, just unscored.
+        logger.warning("crawled match %s: stored payload no longer maps (%s)", match_id, exc)
+        return False
+    match = mapped.match
+    if timeline_sampled(
+        match_id,
+        matches_repo.ROSTER_SOURCE,
+        match["queue_id"],
+        bool(match["remake"]),
+        match["game_start"],
+        ctx.settings,
+    ):
+        await matches_repo.request_timeline(session, match_id)
+    scores, _model_version = await _score_and_write(ctx, session, mapped)
+    await _touch_known_players(session, mapped)
+    logger.info("crawled match %s promoted to a roster game", match_id)
+    return scores is not None
+
+
 async def ingest_match_json(
     ctx: IngestContext,
     session: AsyncSession,
@@ -719,23 +789,9 @@ async def ingest_match_json(
     model_version: str | None = None
     if created:
         await matches_repo.insert_participants(session, mapped.participants)
-        scores = _score(ctx, mapped)
-        if scores is not None and ctx.scorer is not None:
-            model_version = str(ctx.scorer.version)
-            await matches_repo.write_scores(
-                session,
-                match_id,
-                scores,
-                model_version=model_version,
-                scored_at=_utcnow(),
-                complete=True,
-            )
+        scores, model_version = await _score_and_write(ctx, session, mapped)
 
-    puuids = [p["puuid"] for p in mapped.participants]
-    known = await summoners_repo.known_among(session, puuids)
-    if known:
-        await _adopt_riot_ids(session, known, mapped)
-        await summoners_repo.touch_last_seen(session, list(known), match["game_start"])
+    known = await _touch_known_players(session, mapped)
 
     if created and enqueue_events:
         tracked = {puuid: s for puuid, s in known.items() if s.is_tracked}

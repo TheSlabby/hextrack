@@ -6,7 +6,7 @@ import copy
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from hextrack.db.models import BotEvent, Match, MatchParticipant, Summoner
 from hextrack.db.repo import summoners as summoners_repo
@@ -601,3 +601,63 @@ async def test_stored_participant_rows_match_payload_order(ctx, session):
     assert [r.puuid for r in rows] == [p["puuid"] for p in raw["info"]["participants"]]
     stored = await session.scalar(select(Match.patch).where(Match.match_id == "NA1_150"))
     assert stored == "16.17"
+
+
+# --- games the data crawler stored first -------------------------------------------------------
+
+
+async def test_crawled_game_is_promoted_when_a_roster_listing_reaches_it(ctx, riot, session):
+    """The crawler stores games of players HexTrack doesn't track: unscored, source "crawl".
+    When one of those players is added to the roster (or looked up), their listing used to
+    count the game as stored, so it stayed unscored and outside the score population and the
+    roster timeline backlog forever. Now discovery lists it as missing and ingest_match
+    promotes it from the stored payload without fetching it again."""
+    crawled = make_match_json("NA1_160", [spec("me", "Me", "NA1")], start=recent(3))
+    fetched = make_match_json("NA1_161", [spec("me", "Me", "NA1")], start=recent(2))
+    riot.add_match(crawled)
+    riot.add_match(fetched)
+    await ingest_match_json(ctx, session, crawled, enqueue_events=False, source="crawl")
+    await session.commit()
+    assert (await session.get(Match, "NA1_160")).timeline_state is None  # 1-in-N sample
+    session.add(_summoner("me", "Me"))
+    await session.commit()
+    ctx.scorer = StubScorer("model-v9")
+
+    found = await service.discover(ctx, session, "me", backfill=True)
+    assert found.missing == ["NA1_161", "NA1_160"]
+    # The crawler itself still skips every stored game.
+    assert await service.matches_repo.existing_match_ids(session, ["NA1_160"]) == {"NA1_160"}
+
+    result = await ingest_match(ctx, session, "NA1_160")
+    await session.commit()
+
+    assert result == service.IngestResult("NA1_160", created=False, scored=True, participants=10)
+    assert [c.args for c in riot.calls_to("match")] == []  # promoted from the stored payload
+    match = await session.get(Match, "NA1_160", populate_existing=True)
+    assert match is not None
+    assert match.source == "roster" and match.timeline_state == "pending"
+    assert match.model_version == "model-v9" and match.scored_at is not None
+    rows = await participants_of(session, "NA1_160")
+    assert all(r.ai_score is not None and r.model_version == "model-v9" for r in rows)
+    assert (await session.get(Summoner, "me", populate_existing=True)).last_seen is not None
+    assert await events_of(session) == []  # not news: never announced
+
+    again = await ingest_match(ctx, session, "NA1_160")
+    assert again == service.IngestResult("NA1_160", created=False, scored=False, participants=10)
+    assert await service.discover_matches(ctx, session, "me", backfill=True) == ["NA1_161"]
+
+
+async def test_promotion_keeps_a_timeline_the_crawler_already_has(ctx, session):
+    raw = make_match_json("NA1_170", [spec("me", "Me", "NA1")], start=recent())
+    await ingest_match_json(ctx, session, raw, enqueue_events=False, source="crawl")
+    await session.execute(
+        update(Match).where(Match.match_id == "NA1_170").values(timeline_state="ok")
+    )
+    await session.commit()
+
+    assert await service.promote_crawled_match(ctx, session, "NA1_170") is False  # no model
+    await session.commit()
+
+    match = await session.get(Match, "NA1_170", populate_existing=True)
+    assert match is not None and match.source == "roster" and match.timeline_state == "ok"
+    assert await service.promote_crawled_match(ctx, session, "NA1_170") is False
