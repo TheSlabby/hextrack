@@ -119,7 +119,7 @@ function PodiumCard({ entry, place, desktop }: { entry: LeaderboardEntry; place:
           score={entry.avg_ai_score}
           kind="average"
           size={ringSize(place, desktop)}
-          label="Avg Hex Score"
+          label="Hex avg"
           animate={place === 1}
         />
 

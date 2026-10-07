@@ -176,7 +176,7 @@ export function AiScoreRing({
         </span>
         {showGrade && grade ? (
           <span
-            className={cn("mt-1 font-display font-bold tracking-wide", size >= 112 ? "text-xs" : "text-[10px]", grade.textClass)}
+            className={cn("mt-1 font-display font-bold tracking-wide", size >= 112 ? "text-xs" : "text-[10px] leading-none", grade.textClass)}
           >
             {captionFits ? fullCaption : grade.grade}
           </span>
@@ -185,7 +185,7 @@ export function AiScoreRing({
           <span
             className={cn(
               "mt-1 font-semibold tabular-nums",
-              size >= 112 ? "text-xs" : "text-[10px]",
+              size >= 112 ? "text-xs" : "text-[10px] leading-none",
               offset > 0 ? "text-score-a" : offset < 0 ? "text-loss" : "text-text-muted",
             )}
           >
@@ -193,7 +193,10 @@ export function AiScoreRing({
             {size >= 112 ? " vs 50" : null}
           </span>
         ) : null}
-        {size >= 96 ? <span className="label-caps mt-0.5 text-[10px]">{label}</span> : null}
+        {/* Below 112px the lines and tracking tighten so "HEX SCORE" clears the arc. */}
+        {size >= 96 ? (
+          <span className={cn("label-caps mt-0.5 text-[10px]", size < 112 && "leading-3 tracking-[0.02em]")}>{label}</span>
+        ) : null}
       </div>
     </div>
   );

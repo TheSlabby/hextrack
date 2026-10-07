@@ -374,7 +374,7 @@ function HeroScore({ match, player }: { match: MatchDetail; player: ParticipantS
   const rank = inGameRank(player, match.teams, match.remake);
   return (
     <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border-strong bg-bg/60 px-3 py-2 backdrop-blur-sm">
-      <AiScoreRing score={player.ai_score} size={96} />
+      <AiScoreRing score={player.ai_score} size={104} />
       {rank ? <InGameRankPill rank={rank} /> : null}
       <AiScoreBreakdownDialog
         matchId={match.match_id}

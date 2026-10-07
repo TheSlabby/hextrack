@@ -484,7 +484,8 @@ function draw(ctx: CanvasRenderingContext2D, card: ChampionCard, art: ChampionCa
     ctx.fillText(String(card.avgScore), cx, cy + 25);
     ctx.font = `700 15px ${SANS}`;
     ctx.fillStyle = C.secondary;
-    ctx.letterSpacing = "3px";
+    // 1.5px tracking keeps "HEX SCORE AVG" inside the ring (3px touched the arc).
+    ctx.letterSpacing = "1.5px";
     ctx.fillText("HEX SCORE AVG", cx, cy + 54);
     ctx.letterSpacing = "0px";
     if (card.avgOffset) {

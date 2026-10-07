@@ -649,7 +649,8 @@ function drawGroup(
       ctx.fillText(String(m.score), cx, y + px(12));
       ctx.font = `700 ${Math.max(10, px(12))}px ${SANS}`;
       ctx.fillStyle = m.grade.color;
-      ctx.fillText(fit(ctx, `${m.grade.grade} · HEX SCORE`, r * 1.5), cx, y + px(32));
+      // The short name: "S · HEX SCORE" is wider than these rings and got cut to "S · HEX S…".
+      ctx.fillText(fit(ctx, `${m.grade.grade} · HEX`, r * 1.5), cx, y + px(32));
     } else {
       ctx.font = `500 ${px(20)}px ${SANS}`;
       ctx.fillStyle = C.muted;
