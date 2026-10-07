@@ -132,6 +132,7 @@ export function LeaderboardTable({ entries, standings, queue, sort, onSort, clas
                 <Link
                   to="/summoner/$region/$riotId"
                   params={summonerParams(entry.game_name, entry.tag_line)}
+                  title={`${entry.game_name}#${entry.tag_line}`}
                   className="flex max-w-60 min-w-0 items-center gap-2.5 rounded-lg"
                 >
                   <ProfileIcon iconId={entry.profile_icon_id} size="sm" alt="" />
@@ -142,7 +143,7 @@ export function LeaderboardTable({ entries, standings, queue, sort, onSort, clas
                     </span>
                     <span className="truncate text-xs text-text-muted tabular-nums">
                       #{entry.tag_line}
-                      {entry.summoner_level !== null ? ` · Level ${entry.summoner_level}` : ""}
+                      {entry.summoner_level !== null ? ` · Lv ${entry.summoner_level}` : ""}
                     </span>
                   </span>
                 </Link>
